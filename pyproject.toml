@@ -37,7 +37,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["titan_system*", "SCANNER*", "herramientas*", "analisis*"]
+include = ["titan_system*", "SCANNER*", "herramientas*", "analisis*", "infra*"]
 namespaces = true
 
 [tool.pytest.ini_options]
@@ -51,4 +51,3 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["B", "E", "F", "I", "UP"]
 ignore = ["E501"]
-

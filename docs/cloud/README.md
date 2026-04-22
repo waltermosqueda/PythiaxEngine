@@ -8,4 +8,4 @@ Archivos clave:
 - `ADR-001-free-professional-stack.md`: decision de arquitectura objetivo.
 - `ROADMAP_FREE_TIER.md`: roadmap por fases y criterios de corte.
 - `MIGRATION_STATUS.md`: estado vivo de la migracion, proximos pasos y rollback.
-
+- `SCHEMA_INVENTORY.md`: inventario del schema actual y objetivo Postgres.
