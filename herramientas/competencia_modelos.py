@@ -11,7 +11,6 @@ No decide el champion. Solo observa y resume:
 from __future__ import annotations
 
 import argparse
-import sqlite3
 from pathlib import Path
 import sys
 
@@ -23,10 +22,7 @@ if str(ROOT) not in sys.path:
 
 from herramientas.scanner_operativo_context import resolve_operational_scanner_context
 from herramientas.legacy_ml_registry import load_enabled_legacy_ml_entries
-from infra.db.sqlite_compat import connect_sqlite, get_sqlite_db_path
-
-
-DB_PATH = get_sqlite_db_path()
+from infra.db.runtime import RuntimeDB, connect_runtime_db
 
 
 def monitored_entries() -> list[dict[str, object]]:
@@ -88,7 +84,7 @@ def prefix_for_version(version: int) -> str:
     return f"INVERTIR_V{version}"
 
 
-def standings_df(con: sqlite3.Connection) -> pd.DataFrame:
+def standings_df(con: RuntimeDB) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     for entry in monitored_entries():
         prefix = str(entry["prefix"])
@@ -149,7 +145,7 @@ def standings_df(con: sqlite3.Connection) -> pd.DataFrame:
     return df.sort_values(by=["accuracy_pct", "avg_return_pct", "version"], ascending=[False, False, True], na_position="last")
 
 
-def compare_day_df(con: sqlite3.Connection, date_text: str) -> pd.DataFrame:
+def compare_day_df(con: RuntimeDB, date_text: str) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     for entry in monitored_entries():
         prefix = str(entry["prefix"])
@@ -189,8 +185,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    con = connect_sqlite(DB_PATH)
-    try:
+    with connect_runtime_db() as con:
         if args.command == "standings":
             df = standings_df(con)
             print("=" * 120)
@@ -209,8 +204,6 @@ def main() -> int:
             print("=" * 120)
             print(df.to_string(index=False))
             return 0
-    finally:
-        con.close()
     return 1
 
 

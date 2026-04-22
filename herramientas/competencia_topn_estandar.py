@@ -46,6 +46,13 @@ def _to_int(value: Any) -> int:
         return 0
 
 
+def _row_to_dict(raw_row: Any) -> dict[str, Any]:
+    mapping = getattr(raw_row, "_mapping", None)
+    if mapping is not None:
+        return dict(mapping)
+    return dict(raw_row)
+
+
 def _empty_window_metrics(window_dates: list[str]) -> dict[str, Any]:
     start_date = window_dates[0] if window_dates else None
     end_date = window_dates[-1] if window_dates else None
@@ -269,7 +276,7 @@ def _load_operational_row_map(
 
     grouped: dict[tuple[str, str], dict[str, Any]] = {}
     for raw_row in con.execute(sql, params).fetchall():
-        row = dict(raw_row)
+        row = _row_to_dict(raw_row)
         match = HORIZON_RE.search(str(row["model_name"]))
         row["horizon"] = int(match.group(1)) if match else 0
         key = (str(row["prediction_date"]), str(row["ticker"]))
@@ -756,4 +763,3 @@ def load_market_dates(con: sqlite3.Connection) -> list[str]:
         """
     ).fetchall()
     return [str(row[0]) for row in rows]
-

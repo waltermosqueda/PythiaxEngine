@@ -114,6 +114,22 @@ Esa utilidad:
 - puede bootstrapear schema solo para smoke tests locales
 - emite reportes JSON auditables por corrida
 
+## Avance adicional en capa dual
+
+Ya existe una capa runtime de lectura que usa `SQLAlchemy` como adaptador comun
+para `SQLite` y `Postgres`:
+
+- `infra/db/runtime.py`
+
+Esta capa ya fue conectada a piezas visibles del sistema:
+
+- dashboard de predicciones
+- tablero de competencia
+- auditoria integral
+
+Eso permite que la lectura del sistema empiece a desacoplarse del backend antes
+de tocar la parte escritora del pipeline.
+
 ## Schema objetivo inicial en Postgres
 
 El scaffolding agregado en este corte replica estas tablas:

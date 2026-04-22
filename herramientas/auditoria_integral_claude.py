@@ -46,11 +46,10 @@ from herramientas.competencia_topn_estandar import (
     load_entry_snapshots,
 )
 from herramientas.dashboard_paths import AURORA_PRO_HTML, INDEX_HTML as TABLERO_INDEX_PATH, SNAPSHOT_PATH as TABLERO_SNAPSHOT_PATH
-from infra.db.sqlite_compat import connect_sqlite, get_sqlite_db_path
+from infra.db.runtime import connect_runtime_db
 
 REPORTS_DIR = ROOT / "analisis" / "auditorias"
 SENTINEL_STATE_PATH = REPORTS_DIR / "sentinel_status.json"
-DB_PATH = get_sqlite_db_path()
 LINE = "=" * 110
 SUBLINE = "-" * 110
 SCANNER_DIR = ROOT / "SCANNER"
@@ -144,20 +143,14 @@ def load_sentinel_state() -> dict[str, Any]:
 
 
 def sqlite_value(query: str, params: tuple[Any, ...] = ()) -> Any:
-    con = connect_sqlite(DB_PATH)
-    try:
+    with connect_runtime_db() as con:
         row = con.execute(query, params).fetchone()
         return row[0] if row else None
-    finally:
-        con.close()
 
 
 def sqlite_value_many(query: str, params: tuple[Any, ...] = ()) -> list[Any]:
-    con = connect_sqlite(DB_PATH)
-    try:
-        return con.execute(query, params).fetchall()
-    finally:
-        con.close()
+    with connect_runtime_db() as con:
+        return list(con.execute(query, params).fetchall())
 
 
 def discover_executable_paths() -> list[Path]:
@@ -1321,14 +1314,11 @@ def check_compile_targets() -> AuditResult:
 
 
 def check_db_usage() -> AuditResult:
-    con = connect_sqlite(DB_PATH)
-    try:
+    with connect_runtime_db() as con:
         predictions = con.execute("SELECT COUNT(*) FROM predictions").fetchone()[0]
         outcomes = con.execute("SELECT COUNT(*) FROM outcomes").fetchone()[0]
         regimes = con.execute("SELECT COUNT(*) FROM regimes").fetchone()[0]
         model_metrics = con.execute("SELECT COUNT(*) FROM model_metrics").fetchone()[0]
-    finally:
-        con.close()
 
     details = [
         f"predictions = {predictions}",

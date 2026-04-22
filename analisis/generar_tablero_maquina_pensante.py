@@ -11,13 +11,11 @@ import html
 import json
 import math
 from pathlib import Path
-import sqlite3
 from typing import Any
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = ROOT / "titan_system" / "data" / "titan.db"
 
 import sys
 
@@ -35,7 +33,7 @@ from herramientas.dashboard_paths import (
     ensure_dashboard_dir,
 )
 from herramientas.scanner_operativo_context import resolve_operational_scanner_context
-from titan_system.core.database import TitanDB
+from infra.db.runtime import RuntimeDB, aggregate_distinct_sql, connect_runtime_db
 
 
 def parse_args() -> argparse.Namespace:
@@ -142,8 +140,8 @@ def model_filter(entry: dict[str, Any], alias: str = "p") -> tuple[str, tuple[An
     return f"{alias}.model_name LIKE ?", (f"{prefix}_%",)
 
 
-def query_df(con: sqlite3.Connection, sql: str, params: tuple[Any, ...] = ()) -> pd.DataFrame:
-    return pd.read_sql_query(sql, con, params=params)
+def query_df(con: RuntimeDB, sql: str, params: tuple[Any, ...] = ()) -> pd.DataFrame:
+    return con.read_df(sql, params=params)
 
 
 def empty_window_metrics(window_dates: list[str]) -> dict[str, Any]:
@@ -175,7 +173,7 @@ def empty_window_metrics(window_dates: list[str]) -> dict[str, Any]:
 
 
 def build_window_metrics(
-    con: sqlite3.Connection,
+    con: RuntimeDB,
     entry: dict[str, Any],
     daily_df: pd.DataFrame,
     window_dates: list[str],
@@ -282,7 +280,7 @@ def build_window_metrics(
     }
 
 
-def load_market_dates(con: sqlite3.Connection) -> list[str]:
+def load_market_dates(con: RuntimeDB) -> list[str]:
     df = query_df(
         con,
         """
@@ -301,7 +299,7 @@ def market_staleness(latest_model_date: str | None, market_dates: list[str]) -> 
     return max(0, len(market_dates) - 1 - market_dates.index(latest_model_date))
 
 
-def build_integrity_snapshot(db: TitanDB, con: sqlite3.Connection, market_dates: list[str]) -> dict[str, Any]:
+def build_integrity_snapshot(db: RuntimeDB, con: RuntimeDB, market_dates: list[str]) -> dict[str, Any]:
     db_stats = db.db_stats()
     latest_prediction_date = query_df(con, "SELECT MAX(prediction_date) AS d FROM predictions")["d"].iloc[0]
     latest_outcome_date = query_df(
@@ -388,7 +386,7 @@ def build_integrity_snapshot(db: TitanDB, con: sqlite3.Connection, market_dates:
     }
 
 
-def build_ingestion_series(con: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
+def build_ingestion_series(con: RuntimeDB) -> dict[str, list[dict[str, Any]]]:
     pred = query_df(
         con,
         """
@@ -426,7 +424,8 @@ def build_ingestion_series(con: sqlite3.Connection) -> dict[str, list[dict[str, 
     }
 
 
-def fetch_entry_summary(con: sqlite3.Connection, entry: dict[str, Any], market_dates: list[str]) -> dict[str, Any]:
+def fetch_entry_summary(con: RuntimeDB, entry: dict[str, Any], market_dates: list[str]) -> dict[str, Any]:
+    tickers_csv_sql = aggregate_distinct_sql("p.ticker", "tickers_csv", con.backend.name)
     where_clause, params = model_filter(entry, alias="p")
     summary = query_df(
         con,
@@ -478,7 +477,7 @@ def fetch_entry_summary(con: sqlite3.Connection, entry: dict[str, Any], market_d
             SUM(o.hit) AS hits,
             AVG(o.hit) * 100.0 AS accuracy_pct,
             AVG(o.actual_return) * 100.0 AS avg_return_pct,
-            GROUP_CONCAT(DISTINCT p.ticker) AS tickers_csv
+            {tickers_csv_sql}
         FROM predictions p
         JOIN outcomes o ON p.id = o.prediction_id
         WHERE {where_clause}
@@ -524,7 +523,7 @@ def fetch_entry_summary(con: sqlite3.Connection, entry: dict[str, Any], market_d
     }
 
 
-def build_league_snapshot(con: sqlite3.Connection, market_dates: list[str]) -> list[dict[str, Any]]:
+def build_league_snapshot(con: RuntimeDB, market_dates: list[str]) -> list[dict[str, Any]]:
     rows = [fetch_entry_summary(con, entry, market_dates) for entry in monitored_entries()]
     return sorted(
         rows,
@@ -537,7 +536,7 @@ def build_league_snapshot(con: sqlite3.Connection, market_dates: list[str]) -> l
     )
 
 
-def exact_model_daily(con: sqlite3.Connection, model_name: str) -> list[dict[str, Any]]:
+def exact_model_daily(con: RuntimeDB, model_name: str) -> list[dict[str, Any]]:
     df = query_df(
         con,
         """
@@ -557,20 +556,20 @@ def exact_model_daily(con: sqlite3.Connection, model_name: str) -> list[dict[str
     return df.to_dict(orient="records")
 
 
-def exact_model_accuracy(db: TitanDB, model_name: str) -> dict[str, Any]:
+def exact_model_accuracy(db: RuntimeDB, model_name: str) -> dict[str, Any]:
     payload = db.get_model_accuracy(model_name)
     payload["streak"] = db.get_streak(model_name)
     return payload
 
 
-def exact_sector_accuracy(db: TitanDB, model_name: str, limit: int = 6) -> list[dict[str, Any]]:
+def exact_sector_accuracy(db: RuntimeDB, model_name: str, limit: int = 6) -> list[dict[str, Any]]:
     df = db.get_accuracy_by_sector(model_name)
     if df.empty:
         return []
     return df.head(limit).to_dict(orient="records")
 
 
-def build_active_snapshot(db: TitanDB, con: sqlite3.Connection) -> dict[str, Any]:
+def build_active_snapshot(db: RuntimeDB, con: RuntimeDB) -> dict[str, Any]:
     operational = resolve_operational_scanner_context()
     active_version = operational.active_version
     reference_version = operational.reference_version
@@ -596,7 +595,7 @@ def build_active_snapshot(db: TitanDB, con: sqlite3.Connection) -> dict[str, Any
     }
 
 
-def build_v12_v13_divergence(con: sqlite3.Connection) -> dict[str, Any]:
+def build_v12_v13_divergence(con: RuntimeDB) -> dict[str, Any]:
     df = query_df(
         con,
         """
@@ -659,7 +658,7 @@ def build_v12_v13_divergence(con: sqlite3.Connection) -> dict[str, Any]:
     }
 
 
-def build_overlap_matrix(con: sqlite3.Connection) -> dict[str, Any]:
+def build_overlap_matrix(con: RuntimeDB) -> dict[str, Any]:
     labels = {
         "V13": "INVERTIR_V13_D_D10",
         "V12": "INVERTIR_V12_D_D10",
@@ -726,7 +725,7 @@ def build_overlap_matrix(con: sqlite3.Connection) -> dict[str, Any]:
     }
 
 
-def build_sector_snapshot(db: TitanDB) -> dict[str, Any]:
+def build_sector_snapshot(db: RuntimeDB) -> dict[str, Any]:
     return {
         "v13_d": exact_sector_accuracy(db, "INVERTIR_V13_D_D10"),
         "ml_v97": exact_sector_accuracy(db, "LEGACY_ML_V97_SURGE_D3"),
@@ -782,7 +781,7 @@ def build_focus_labels(
 
 
 def build_equalized_window_for_row(
-    con: sqlite3.Connection,
+    con: RuntimeDB,
     row: dict[str, Any],
     equalized_days: int,
 ) -> dict[str, Any]:
@@ -793,6 +792,7 @@ def build_equalized_window_for_row(
         "exact_model_name": row.get("exact_model_name", False),
     }
     where_clause, params = model_filter(entry, alias="p")
+    tickers_csv_sql = aggregate_distinct_sql("p.ticker", "tickers_csv", con.backend.name)
     daily_df = query_df(
         con,
         f"""
@@ -802,7 +802,7 @@ def build_equalized_window_for_row(
             SUM(o.hit) AS hits,
             AVG(o.hit) * 100.0 AS accuracy_pct,
             AVG(o.actual_return) * 100.0 AS avg_return_pct,
-            GROUP_CONCAT(DISTINCT p.ticker) AS tickers_csv
+            {tickers_csv_sql}
         FROM predictions p
         JOIN outcomes o ON p.id = o.prediction_id
         WHERE {where_clause}
@@ -820,7 +820,7 @@ def build_equalized_window_for_row(
 
 
 def build_recent_competition_snapshot(
-    con: sqlite3.Connection,
+    con: RuntimeDB,
     rows: list[dict[str, Any]],
     active_version: int,
     reference_version: int | None,
@@ -862,8 +862,8 @@ def build_recent_competition_snapshot(
 def build_dashboard_payload() -> dict[str, Any]:
     now = datetime.now().isoformat(timespec="seconds")
     operational = resolve_operational_scanner_context()
-    with TitanDB() as db:
-        con = db.conn
+    with connect_runtime_db() as db:
+        con = db
         market_dates = load_market_dates(con)
         standardized_competition = build_standardized_competition_snapshot(
             con,

@@ -48,13 +48,20 @@
   - `tests/test_sqlite_to_postgres_migration.py`
 - documentado el procedimiento de carga inicial hacia Neon:
   - `docs/cloud/SQLITE_TO_POSTGRES_RUNBOOK.md`
+- agregada capa runtime de lectura agnostica de backend:
+  - `infra/db/runtime.py`
+- migrados a runtime DB:
+  - `analisis/generar_tablero_maquina_pensante.py`
+  - `herramientas/competencia_modelos.py`
+  - `herramientas/auditoria_integral_claude.py`
+  - `herramientas/competencia_topn_estandar.py`
 
 ## Lo que falta inmediatamente
 
 1. Instalar dependencias `dev/cloud` para correr CI local completa.
 2. Verificar la primera corrida de GitHub Actions en remoto.
 3. Verificar la primera corrida de GitHub Actions en remoto.
-4. Introducir una capa de acceso dual `SQLite/Postgres` en queries mas profundas.
+4. Extender la capa dual a escrituras y piezas operativas restantes.
 5. Ejecutar la primera migracion controlada hacia Neon con reporte.
 
 ## Bloqueadores conocidos
@@ -73,7 +80,7 @@
 
 ## Proximo corte recomendado
 
-`FASE 2: CI remota + primer load a Neon`
+`FASE 2: runtime dual + primer load a Neon`
 
 Pasos exactos:
 
@@ -81,4 +88,4 @@ Pasos exactos:
 2. instalar dependencias `dev/cloud` para validar localmente
 3. correr `alembic upgrade head` contra Neon
 4. ejecutar `infra.db.migrate_sqlite_to_postgres`
-5. extender la capa dual a queries y escrituras no abstraidas
+5. extender la capa dual a escrituras y flujos no abstraidos
