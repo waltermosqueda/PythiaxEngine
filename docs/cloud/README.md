@@ -15,3 +15,4 @@ Archivos clave:
 - `MIGRATION_STATUS.md`: estado vivo de la migracion, proximos pasos y rollback.
 - `SCHEMA_INVENTORY.md`: inventario del schema actual y objetivo Postgres.
 - `SQLITE_TO_POSTGRES_RUNBOOK.md`: procedimiento controlado para cargar Neon desde SQLite.
+- `GITHUB_SECRETS_SETUP.md`: secretos y orden recomendado para activar workflows cloud.

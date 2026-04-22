@@ -106,6 +106,7 @@ Tambien ya existe una utilidad reproducible de carga inicial hacia un target
 SQLAlchemy pensado para `Neon Postgres`:
 
 - `infra/db/migrate_sqlite_to_postgres.py`
+- `infra/db/bootstrap_target.py`
 
 Esa utilidad:
 
@@ -113,6 +114,7 @@ Esa utilidad:
 - permite `reset_target`
 - puede bootstrapear schema solo para smoke tests locales
 - emite reportes JSON auditables por corrida
+- puede ejecutar `Alembic` antes de la carga real hacia cloud
 
 ## Avance adicional en capa dual
 

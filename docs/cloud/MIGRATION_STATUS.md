@@ -1,7 +1,7 @@
 # Migration Status
 
 - Fecha de inicio: 2026-04-22
-- Estado actual: `FASE 1 COMPLETADA / FASE 2 INICIADA / REMOTO SINCRONIZADO / MIGRATOR READY`
+- Estado actual: `FASE 1 COMPLETADA / FASE 2 INICIADA / REMOTO SINCRONIZADO / CLOUD BOOTSTRAP READY`
 - Nombre publico del proyecto: `PythiaxEngine`
 - Ruta local historica: `Claude/`
 - Arquitectura objetivo: `GitHub + GitHub Actions + Neon Postgres + Cloudflare Pages + R2`
@@ -44,8 +44,12 @@
 - agregados tests de runtime DB en `tests/test_db_runtime.py`
 - agregada utilidad reproducible de migracion `SQLite -> target` en:
   - `infra/db/migrate_sqlite_to_postgres.py`
+- agregado wrapper de bootstrap local para target cloud:
+  - `infra/db/bootstrap_target.py`
 - agregado smoke test de migracion controlada:
   - `tests/test_sqlite_to_postgres_migration.py`
+- agregado smoke test de bootstrap controlado:
+  - `tests/test_bootstrap_target.py`
 - documentado el procedimiento de carga inicial hacia Neon:
   - `docs/cloud/SQLITE_TO_POSTGRES_RUNBOOK.md`
 - agregada capa runtime de lectura agnostica de backend:
@@ -55,14 +59,18 @@
   - `herramientas/competencia_modelos.py`
   - `herramientas/auditoria_integral_claude.py`
   - `herramientas/competencia_topn_estandar.py`
+- agregado workflow manual de validacion cloud:
+  - `.github/workflows/neon-schema-smoke.yml`
+- documentado setup de secrets:
+  - `docs/cloud/GITHUB_SECRETS_SETUP.md`
 
 ## Lo que falta inmediatamente
 
 1. Instalar dependencias `dev/cloud` para correr CI local completa.
 2. Verificar la primera corrida de GitHub Actions en remoto.
-3. Verificar la primera corrida de GitHub Actions en remoto.
+3. Ejecutar el bootstrap local inicial hacia Neon con reporte.
 4. Extender la capa dual a escrituras y piezas operativas restantes.
-5. Ejecutar la primera migracion controlada hacia Neon con reporte.
+5. Desacoplar snapshots operativos para poder publicar dashboard 100% cloud.
 
 ## Bloqueadores conocidos
 
@@ -70,6 +78,8 @@
   - `Machine Winners`
 - la operacion sigue siendo `SQLite-first`; la capa dual real con `Postgres`
   todavia no llega a queries y escrituras profundas
+- parte de los snapshots operativos del dashboard todavia vive fuera del repo:
+  - `aprendizaje_operativo/*_runs`
 - `git` dentro de esta carpeta requiere comandos fuera del sandbox para escribir metadata
 
 ## Estrategia de rollback
@@ -80,12 +90,12 @@
 
 ## Proximo corte recomendado
 
-`FASE 2: runtime dual + primer load a Neon`
+`FASE 2: bootstrap local a Neon + smoke remoto`
 
 Pasos exactos:
 
 1. activar GitHub Actions
 2. instalar dependencias `dev/cloud` para validar localmente
-3. correr `alembic upgrade head` contra Neon
-4. ejecutar `infra.db.migrate_sqlite_to_postgres`
-5. extender la capa dual a escrituras y flujos no abstraidos
+3. cargar secret `DATABASE_URL` en GitHub
+4. correr `python -m infra.db.bootstrap_target`
+5. validar con workflow `Neon Schema Smoke`

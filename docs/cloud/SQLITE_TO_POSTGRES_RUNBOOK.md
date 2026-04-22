@@ -5,6 +5,9 @@
 Cargar la base historica actual desde `SQLite` hacia `Neon Postgres` de forma
 reproducible, controlada y retomable.
 
+Importante: esta primera carga conviene correrla localmente porque la fuente
+`titan.db` vive en tu PC y no forma parte del repositorio.
+
 ## Principios
 
 1. `SQLite` sigue siendo la fuente operativa hasta terminar shadow mode.
@@ -38,16 +41,17 @@ python -m infra.db.migrate_sqlite_to_postgres `
 ## Primera carga a Neon
 
 ```powershell
-python -m infra.db.migrate_sqlite_to_postgres `
+python -m infra.db.bootstrap_target `
   --target-url "$env:DATABASE_URL" `
   --reset-target `
-  --report-path "docs/cloud/reports/sqlite_to_postgres_initial.json"
+  --report-path "docs/cloud/reports/sqlite_to_neon_bootstrap.json"
 ```
 
 ## Recomendacion operativa
 
 - Usar `--ensure-schema` solo para smoke tests locales.
-- En Neon real, preferir siempre `alembic upgrade head`.
+- En Neon real, preferir el wrapper `bootstrap_target`, que corre `Alembic`
+  antes de la carga de datos.
 - Guardar cada reporte para auditoria y comparacion entre corridas.
 
 ## Verificaciones minimas
