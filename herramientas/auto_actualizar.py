@@ -17,7 +17,6 @@ Registrar en Windows: ejecutar herramientas/setup_tarea_windows.bat
 
 import json
 import logging
-import sqlite3
 import subprocess
 import sys
 import time
@@ -26,7 +25,6 @@ from pathlib import Path
 
 # Este script esta en Claude/herramientas/ y sube un nivel a la raiz.
 BASE_DIR = Path(__file__).parent.parent
-DB_PATH = BASE_DIR / "titan_system" / "data" / "titan.db"
 LOG_PATH = BASE_DIR / "bitacora" / "auto_actualizar.log"
 RUN_REPORTS_DIR = BASE_DIR / "aprendizaje_operativo" / "v11_reports"
 ALERTS_DIR = BASE_DIR / "aprendizaje_operativo" / "alerts"
@@ -47,8 +45,11 @@ from herramientas.scanner_operativo_context import (
     learning_version_from_path,
     resolve_operational_scanner_context,
 )
+from infra.db.sqlite_compat import connect_sqlite, get_sqlite_db_path
 from herramientas.legacy_ml_registry import load_enabled_legacy_ml_entries
 from titan_system.core.database import TitanDB
+
+DB_PATH = get_sqlite_db_path()
 
 logging.basicConfig(
     filename=LOG_PATH,
@@ -112,7 +113,7 @@ def get_ultima_fecha_db() -> date | None:
         return None
 
     try:
-        con = sqlite3.connect(str(DB_PATH))
+        con = connect_sqlite(DB_PATH)
         row = con.execute("SELECT MAX(date) FROM prices").fetchone()
         con.close()
         if row and row[0]:

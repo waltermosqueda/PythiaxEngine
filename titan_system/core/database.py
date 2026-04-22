@@ -47,6 +47,8 @@ from typing import Optional, List, Dict, Any
 import pandas as pd
 import numpy as np
 
+from infra.db.config import get_sqlite_fallback_path
+
 
 class TitanDB:
     """
@@ -111,7 +113,7 @@ class TitanDB:
         3. Herramientas como mypy detectan errores antes de correr el código
         4. En entrevistas, demuestran que escribís código profesional
         """
-        self.db_path = db_path or self.DEFAULT_DB_PATH
+        self.db_path = db_path or str(get_sqlite_fallback_path())
 
         # Crear el directorio 'data/' si no existe
         # exist_ok=True = no da error si ya existe

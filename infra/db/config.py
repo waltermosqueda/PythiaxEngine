@@ -29,3 +29,6 @@ def build_database_settings() -> DatabaseSettings:
 def get_database_url() -> str:
     return build_database_settings().database_url
 
+
+def get_sqlite_fallback_path() -> Path:
+    return build_database_settings().sqlite_fallback_path

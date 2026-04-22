@@ -90,6 +90,18 @@ La migracion profesional no debe reemplazar `SQLite` de golpe. Debe introducir:
 4. migracion de datos reproducible
 5. shadow mode antes del cutover
 
+## Avance parcial ya implementado
+
+En esta fase ya se centralizo la resolucion del path SQLite en `infra/db/` para:
+
+- `titan_system/core/database.py`
+- `herramientas/auto_actualizar.py`
+- `herramientas/auditoria_integral_claude.py`
+- `herramientas/competencia_modelos.py`
+
+Eso todavia no elimina el uso de SQLite, pero si reduce hardcodes y prepara el
+camino a una capa dual mas limpia.
+
 ## Schema objetivo inicial en Postgres
 
 El scaffolding agregado en este corte replica estas tablas:
@@ -127,4 +139,3 @@ Eso mejora:
 - observabilidad
 - recuperacion ante fallos
 - explicacion del flujo en entrevistas tecnicas
-

@@ -23,9 +23,10 @@ if str(ROOT) not in sys.path:
 
 from herramientas.scanner_operativo_context import resolve_operational_scanner_context
 from herramientas.legacy_ml_registry import load_enabled_legacy_ml_entries
+from infra.db.sqlite_compat import connect_sqlite, get_sqlite_db_path
 
 
-DB_PATH = ROOT / "titan_system" / "data" / "titan.db"
+DB_PATH = get_sqlite_db_path()
 
 
 def monitored_entries() -> list[dict[str, object]]:
@@ -188,7 +189,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    con = sqlite3.connect(str(DB_PATH))
+    con = connect_sqlite(DB_PATH)
     try:
         if args.command == "standings":
             df = standings_df(con)

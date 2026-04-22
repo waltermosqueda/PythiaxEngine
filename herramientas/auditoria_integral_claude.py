@@ -20,7 +20,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sqlite3
 import subprocess
 import sys
 from datetime import timedelta
@@ -47,10 +46,11 @@ from herramientas.competencia_topn_estandar import (
     load_entry_snapshots,
 )
 from herramientas.dashboard_paths import AURORA_PRO_HTML, INDEX_HTML as TABLERO_INDEX_PATH, SNAPSHOT_PATH as TABLERO_SNAPSHOT_PATH
+from infra.db.sqlite_compat import connect_sqlite, get_sqlite_db_path
 
 REPORTS_DIR = ROOT / "analisis" / "auditorias"
 SENTINEL_STATE_PATH = REPORTS_DIR / "sentinel_status.json"
-DB_PATH = ROOT / "titan_system" / "data" / "titan.db"
+DB_PATH = get_sqlite_db_path()
 LINE = "=" * 110
 SUBLINE = "-" * 110
 SCANNER_DIR = ROOT / "SCANNER"
@@ -144,7 +144,7 @@ def load_sentinel_state() -> dict[str, Any]:
 
 
 def sqlite_value(query: str, params: tuple[Any, ...] = ()) -> Any:
-    con = sqlite3.connect(str(DB_PATH))
+    con = connect_sqlite(DB_PATH)
     try:
         row = con.execute(query, params).fetchone()
         return row[0] if row else None
@@ -153,7 +153,7 @@ def sqlite_value(query: str, params: tuple[Any, ...] = ()) -> Any:
 
 
 def sqlite_value_many(query: str, params: tuple[Any, ...] = ()) -> list[Any]:
-    con = sqlite3.connect(str(DB_PATH))
+    con = connect_sqlite(DB_PATH)
     try:
         return con.execute(query, params).fetchall()
     finally:
@@ -1321,7 +1321,7 @@ def check_compile_targets() -> AuditResult:
 
 
 def check_db_usage() -> AuditResult:
-    con = sqlite3.connect(str(DB_PATH))
+    con = connect_sqlite(DB_PATH)
     try:
         predictions = con.execute("SELECT COUNT(*) FROM predictions").fetchone()[0]
         outcomes = con.execute("SELECT COUNT(*) FROM outcomes").fetchone()[0]

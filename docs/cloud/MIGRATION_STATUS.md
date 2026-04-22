@@ -34,12 +34,20 @@
   - `alembic.ini`
   - `alembic/`
   - `docs/cloud/SCHEMA_INVENTORY.md`
+- centralizada la resolucion de SQLite fallback en `infra/db/sqlite_compat.py`
+- conectados a la capa central los scripts criticos:
+  - `titan_system/core/database.py`
+  - `herramientas/auto_actualizar.py`
+  - `herramientas/auditoria_integral_claude.py`
+  - `herramientas/competencia_modelos.py`
+- reforzada `CI` con `workflow_dispatch` y compilacion de `infra/alembic/tests`
+- agregados tests de runtime DB en `tests/test_db_runtime.py`
 
 ## Lo que falta inmediatamente
 
 1. Instalar dependencias `dev/cloud` para correr CI local completa.
-2. Activar GitHub Actions sobre el repo remoto.
-3. Introducir una capa de acceso dual `SQLite/Postgres`.
+2. Verificar la primera corrida de GitHub Actions en remoto.
+3. Introducir una capa de acceso dual `SQLite/Postgres` en queries mas profundas.
 4. Preparar la migracion inicial de datos hacia Neon.
 5. Definir secrets cloud minimos para el primer pipeline remoto.
 
@@ -64,6 +72,6 @@ Pasos exactos:
 
 1. activar GitHub Actions
 2. instalar dependencias `dev/cloud` para validar localmente
-3. agregar wrapper de configuracion DB en runtime
-4. empezar a reemplazar los `sqlite3.connect(...)` directos
+3. extender la capa dual a queries y escrituras no abstraidas
+4. empezar a reemplazar los `sqlite3.connect(...)` directos restantes
 5. preparar migracion inicial hacia Neon
