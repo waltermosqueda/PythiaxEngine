@@ -3,16 +3,20 @@ requires = ["setuptools>=75", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "claude-titan"
+name = "pythiaxengine"
 version = "0.1.0"
-description = "Quantitative market data pipeline and operational dashboards."
-readme = "CLAUDE.md"
+description = "Professional-grade quantitative market data pipeline and prediction dashboards."
+readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
   "numpy>=2.2,<3",
   "pandas>=2.2,<3",
   "yfinance>=0.2.54,<0.3",
 ]
+
+[project.urls]
+Repository = "https://github.com/waltermosqueda/PythiaxEngine"
+Documentation = "https://github.com/waltermosqueda/PythiaxEngine/tree/main/docs/cloud"
 
 [project.optional-dependencies]
 cloud = [

@@ -1,4 +1,4 @@
-"""Initial Postgres schema for Claude Titan."""
+"""Initial Postgres schema for PythiaxEngine."""
 
 from __future__ import annotations
 
@@ -202,4 +202,3 @@ def downgrade() -> None:
     op.drop_index("idx_prices_date", table_name="prices")
     op.drop_index("idx_prices_ticker", table_name="prices")
     op.drop_table("prices")
-

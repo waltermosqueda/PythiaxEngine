@@ -5,7 +5,10 @@
 
 ## Contexto
 
-El proyecto `Claude` hoy opera desde una PC local con:
+El proyecto `PythiaxEngine` hoy opera desde una PC local con un nucleo
+historico que todavia conserva nombres internos como `Claude`.
+
+La operacion actual depende de:
 
 - pipeline diario en `herramientas/auto_actualizar.py`
 - persistencia principal en `SQLite` (`titan_system/data/titan.db`)
@@ -35,7 +38,7 @@ Se adopta como arquitectura objetivo inicial:
 
 ## Motivacion
 
-- `Postgres` da una señal de stack profesional superior a `SQLite`.
+- `Postgres` da una senal de stack profesional superior a `SQLite`.
 - `GitHub Actions` permite automatizacion gratis y muy reconocible en entrevistas.
 - El dashboard actual es estatico, por lo que `Cloudflare Pages` aprovecha bien
   el free tier sin forzar un servidor 24/7.
@@ -61,7 +64,8 @@ Se adopta como arquitectura objetivo inicial:
 ## Decisiones derivadas
 
 - Fase 1: no tocar logica del scanner activo.
+- Fase 1: renombrar identidad publica y metadata sin forzar un rename total del
+  nucleo historico.
 - Fase 1: dejar fuera del camino critico cloud a los legacy ML externos.
 - Fase 1: preparar el repo y el workflow antes de mover datos productivos.
 - Fase 2: migrar de `SQLite` a `Postgres` con validacion y shadow mode.
-

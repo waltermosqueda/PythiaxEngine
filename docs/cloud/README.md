@@ -3,6 +3,11 @@
 Esta carpeta concentra la documentacion de la migracion a una arquitectura
 free-tier, profesional y retomable por otros agentes.
 
+- Identidad publica del proyecto: `PythiaxEngine`
+- Repo objetivo: `https://github.com/waltermosqueda/PythiaxEngine`
+- Nota: durante la transicion todavia existen nombres internos historicos como
+  `Claude`, `titan_system` y `herramientas` para no romper compatibilidad.
+
 Archivos clave:
 
 - `ADR-001-free-professional-stack.md`: decision de arquitectura objetivo.

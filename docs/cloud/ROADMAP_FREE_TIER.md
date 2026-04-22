@@ -2,33 +2,33 @@
 
 ## Objetivo
 
-Llevar el proyecto a una operacion siempre accesible y con mejor señal
+Llevar `PythiaxEngine` a una operacion siempre accesible y con mejor senal
 profesional, sin pagar por ahora y sin reescribir el negocio de golpe.
 
 ## Arquitectura objetivo
 
 ```text
 GitHub (repo privado)
-  ├─ CI: smoke tests, sintaxis, checks de PR
-  ├─ CD batch: workflow diario / manual
-  │    ├─ actualiza datos
-  │    ├─ valida integridad
-  │    ├─ corre aprendizaje + scanner + gestor
-  │    ├─ genera snapshot del dashboard
-  │    ├─ backup a R2
-  │    └─ publica dashboard
-  ├─ Neon Postgres
-  │    ├─ prices
-  │    ├─ predictions
-  │    ├─ outcomes
-  │    ├─ model_metrics
-  │    └─ pipeline_runs
-  ├─ Cloudflare R2
-  │    ├─ dumps de DB
-  │    ├─ snapshot JSON
-  │    └─ auditorias y reportes
-  └─ Cloudflare Pages
-       └─ dashboard estatico publico
+  |- CI: smoke tests, sintaxis, checks de PR
+  |- CD batch: workflow diario / manual
+  |    |- actualiza datos
+  |    |- valida integridad
+  |    |- corre aprendizaje + scanner + gestor
+  |    |- genera snapshot del dashboard
+  |    |- backup a R2
+  |    `- publica dashboard
+  |- Neon Postgres
+  |    |- prices
+  |    |- predictions
+  |    |- outcomes
+  |    |- model_metrics
+  |    `- pipeline_runs
+  |- Cloudflare R2
+  |    |- dumps de DB
+  |    |- snapshot JSON
+  |    `- auditorias y reportes
+  `- Cloudflare Pages
+       `- dashboard estatico publico
 ```
 
 ## Principios de migracion
@@ -38,6 +38,8 @@ GitHub (repo privado)
 3. El estado debe quedar retomable por otro agente en cualquier momento.
 4. Todo workflow nuevo debe ser idempotente.
 5. El dashboard publico solo debe publicar el ultimo snapshot valido.
+6. La identidad publica puede modernizarse antes que los nombres internos del
+   motor, si eso evita regresiones.
 
 ## Fases
 
@@ -53,7 +55,7 @@ GitHub (repo privado)
 ### Fase 1: Gobierno del repositorio
 
 - inicializar `git`
-- crear repo privado en GitHub
+- conectar repo privado en GitHub
 - definir ramas (`main`, feature branches)
 - configurar secrets del repo
 - subir el primer baseline etiquetado
@@ -89,7 +91,7 @@ GitHub (repo privado)
 - correr local + cloud en paralelo varias ruedas habiles
 - comparar:
   - fecha maxima de datos
-  - cantidad de señales
+  - cantidad de senales
   - snapshots
   - auditorias
 - apagar la tarea local solo cuando el paralelo sea consistente
@@ -116,4 +118,3 @@ La migracion fase 1/2 se considera bien encaminada cuando:
 - existe un baseline limpio para retomar trabajo
 - la ruta a `Postgres` esta definida y documentada
 - el dashboard queda listo para ser publicado sin depender de la PC encendida
-
