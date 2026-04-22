@@ -1,0 +1,529 @@
+{
+  "schema_version": 1,
+  "project": "TITAN Claude",
+  "updated_at": "2026-04-13T11:30:00",
+  "active_state": {
+    "scanner_entry_id": "SCN-V13-SIGNAL-E-HW",
+    "scanner_file": "SCANNER/invertir_v13.py",
+    "applied_entry_ids": [
+      "EXP-V14-PRIORIDAD-MEMORIA",
+      "EXP-V15-ATR-SIZING",
+      "EXP-V19-SECTOR-PANIC",
+      "EXP-V23-SIGNAL-E-HW"
+    ],
+    "next_frontier_entry_id": null
+  },
+  "entries": [
+    {
+      "entry_id": "SCN-V7-BASE",
+      "date": "2026-04-07",
+      "family": "scanner",
+      "candidate": "V7 base A+C",
+      "scanner_file": "SCANNER/invertir_v7.py",
+      "change_scope": "reference",
+      "status": "historical_baseline",
+      "replaces": null,
+      "applies_to": null,
+      "hypothesis": "Mantener una base simple y estable de mean reversion + crash para evaluar futuras evoluciones.",
+      "decision_summary": "Queda como baseline historico desde el cual se mide la frontera moderna V9-V11.",
+      "source_sessions": [
+        "Sesion 21"
+      ],
+      "evidence_paths": [
+        "backtests/investigacion_v9_path_quality.py"
+      ],
+      "metrics": {
+        "independent_broad": {
+          "sharpe": 0.72,
+          "win_rate_pct": 55.85,
+          "mdd_pct": -97.77
+        },
+        "independent_core": {
+          "sharpe": 1.67,
+          "win_rate_pct": 59.81,
+          "mdd_pct": -42.28
+        }
+      },
+      "notes": "Baseline conceptual. No usar como champion actual."
+    },
+    {
+      "entry_id": "EXP-V8-EJES-ORTOGONALES",
+      "date": "2026-04-07",
+      "family": "scanner",
+      "candidate": "V8 ejes ortogonales",
+      "scanner_file": "SCANNER/invertir_v8.py",
+      "change_scope": "new_scanner",
+      "status": "rejected",
+      "replaces": null,
+      "applies_to": null,
+      "hypothesis": "Un scanner mas ortogonal podia mejorar V7 sin sacrificar robustez.",
+      "decision_summary": "Mejoraba historico, pero fue refutado en uso live por fragilidad frente a corporate actions y crashes de mala calidad.",
+      "source_sessions": [
+        "Sesion 21"
+      ],
+      "evidence_paths": [
+        "backtests/investigacion_v8_ejes_ortogonales.py",
+        "backtests/investigacion_v9_path_quality.py"
+      ],
+      "metrics": {
+        "independent_broad": {
+          "sharpe": 1.06,
+          "win_rate_pct": 57.5,
+          "mdd_pct": -94.92
+        },
+        "independent_core": {
+          "sharpe": 1.71,
+          "win_rate_pct": 58.82,
+          "mdd_pct": -42.28
+        }
+      },
+      "notes": "Caso importante de refutacion live: BKNG 2026-04-02."
+    },
+    {
+      "entry_id": "SCN-V9-PATH-QUALITY",
+      "date": "2026-04-07",
+      "family": "scanner",
+      "candidate": "V9 path quality",
+      "scanner_file": "SCANNER/invertir_v9.py",
+      "change_scope": "new_scanner",
+      "status": "retired_champion",
+      "replaces": "SCN-V7-BASE",
+      "applies_to": null,
+      "hypothesis": "Agregar quality guard y calidad del camino de caida para hacer al scanner mas robusto en live.",
+      "decision_summary": "Fue el primer scanner claramente mas honesto para uso real: mantuvo Sharpe y mejoro robustez live frente a V8.",
+      "source_sessions": [
+        "Sesion 21"
+      ],
+      "evidence_paths": [
+        "SCANNER/invertir_v9.py",
+        "backtests/investigacion_v9_path_quality.py"
+      ],
+      "metrics": {
+        "independent_broad": {
+          "sharpe": 1.14,
+          "win_rate_pct": 58.0,
+          "mdd_pct": -92.84
+        },
+        "independent_core": {
+          "sharpe": 1.89,
+          "win_rate_pct": 59.79,
+          "mdd_pct": -37.72
+        }
+      },
+      "notes": "Retirado al aparecer una mejora mas fuerte desde la ejecucion del bloque crash."
+    },
+    {
+      "entry_id": "SCN-V10-REBOUND-CAPTURE",
+      "date": "2026-04-07",
+      "family": "scanner",
+      "candidate": "V10 rebound capture",
+      "scanner_file": "SCANNER/invertir_v10.py",
+      "change_scope": "new_scanner",
+      "status": "retired_champion",
+      "replaces": "SCN-V9-PATH-QUALITY",
+      "applies_to": null,
+      "hypothesis": "La siguiente mejora podia venir de ejecutar mejor el rebote de crashes, no de agregar mas filtros de entrada.",
+      "decision_summary": "Promovido por mejora clara broad/core y por capturar un comportamiento real de snapback rapido en crashes validos.",
+      "source_sessions": [
+        "Sesion 22"
+      ],
+      "evidence_paths": [
+        "SCANNER/invertir_v10.py",
+        "backtests/investigacion_v10_rebound_capture.py"
+      ],
+      "metrics": {
+        "independent_broad": {
+          "sharpe": 1.57,
+          "win_rate_pct": 62.18,
+          "mdd_pct": -79.11
+        },
+        "independent_core": {
+          "sharpe": 2.91,
+          "win_rate_pct": 63.92,
+          "mdd_pct": -37.72
+        }
+      },
+      "notes": "Retirado despues por una cap operativa mas fuerte en cartera real."
+    },
+    {
+      "entry_id": "EXP-V11-EXIT-FRONTIERS",
+      "date": "2026-04-07",
+      "family": "scanner",
+      "candidate": "V11 exit frontiers",
+      "scanner_file": null,
+      "change_scope": "new_scanner",
+      "status": "rejected",
+      "replaces": null,
+      "applies_to": "SCN-V10-REBOUND-CAPTURE",
+      "hypothesis": "Todavia podia existir un V11 superior via overlays de salida adicionales sobre A o C.",
+      "decision_summary": "Rechazado: no aparecio un V11 claramente superior y forzar promocion ahi hubiera sido prematuro.",
+      "source_sessions": [
+        "Sesion 23"
+      ],
+      "evidence_paths": [
+        "backtests/investigacion_v11_exit_frontiers.py"
+      ],
+      "metrics": {
+        "veredict": {
+          "message": "No supera a V10 con claridad broad + core."
+        }
+      },
+      "notes": "Ejemplo canonico de frontera honesta: no promover por mejoras marginales."
+    },
+    {
+      "entry_id": "SCN-V11-CAP-OPERATIVO",
+      "date": "2026-04-07",
+      "family": "scanner",      "candidate": "V11 cap operativa",
+      "scanner_file": "SCANNER/invertir_v11.py",
+      "change_scope": "new_scanner",
+      "status": "retired_champion",
+      "replaces": "SCN-V10-REBOUND-CAPTURE",
+      "applies_to": null,
+      "hypothesis": "Filtrar crashes demasiado violentos podia mejorar la cartera real sin romper la simplicidad del edge de V10.",
+      "decision_summary": "Promovido como nuevo champion por mejor equilibrio broad/core y por mejorar tanto el modelo independiente como la cartera real.",
+      "source_sessions": [
+        "Sesion 27"
+      ],
+      "evidence_paths": [
+        "SCANNER/invertir_v11.py",
+        "backtests/investigacion_v11_cap_operativo.py",
+        "backtests/investigacion_v12_portfolio_operativo.py"
+      ],
+      "metrics": {
+        "independent_broad": {
+          "sharpe": 1.6,
+          "win_rate_pct": 62.39,
+          "mdd_pct": -78.6
+        },
+        "independent_core": {
+          "sharpe": 3.39,
+          "win_rate_pct": 68.6,
+          "mdd_pct": -30.67
+        },
+        "portfolio_broad": {
+          "sharpe": 0.71,
+          "total_return_pct": 138.6,
+          "mdd_pct": -37.88
+        },
+        "portfolio_core": {
+          "sharpe": 0.88,
+          "total_return_pct": 67.9,
+          "mdd_pct": -11.14
+        }
+      },
+      "notes": "Scanner champion vigente. La salida visual ya esta integrada en este mismo archivo. La prioridad por memoria vive como mejora aplicada in place separada."
+    },
+    {
+      "entry_id": "EXP-V13-MEMORIA-GATES",
+      "date": "2026-04-08",
+      "family": "scanner",
+      "candidate": "Memory gates por regimen",
+      "scanner_file": null,
+      "change_scope": "in_place_enhancement",
+      "status": "rejected",
+      "replaces": null,
+      "applies_to": "SCN-V11-CAP-OPERATIVO",
+      "hypothesis": "La memoria operativa podia justificar hard gates nuevos sobre C5 en PELIGRO o por breadth.",
+      "decision_summary": "Rechazado como cambio productivo: la memoria aporto contexto, pero los hard gates empeoraron la cartera broad vs V11 base.",
+      "source_sessions": [
+        "Sesion 34"
+      ],
+      "evidence_paths": [
+        "backtests/investigacion_v13_memoria_operativa.py"
+      ],
+      "metrics": {
+        "context_signal": {
+          "c5_d7_peligro_hit_pct": 80.15,
+          "c5_d7_peligro_avg_return_pct": 5.299
+        }
+      },
+      "notes": "La memoria si sirve, pero no justifico un V12 ni filtros duros nuevos."
+    },
+    {
+      "entry_id": "EXP-V14-PRIORIDAD-MEMORIA",
+      "date": "2026-04-08",
+      "family": "scanner",
+      "candidate": "Prioridad por memoria C5_D4",
+      "scanner_file": "SCANNER/invertir_v11.py",
+      "change_scope": "in_place_enhancement",
+      "status": "applied_in_place",
+      "replaces": null,
+      "applies_to": "SCN-V11-CAP-OPERATIVO",
+      "hypothesis": "La memoria operativa podia ordenar mejor los dias crowded sin tocar filtros base.",
+      "decision_summary": "Aplicado dentro de V11: mejora el ranking interno broad en ruedas con competencia de slots sin crear un V12 nuevo.",
+      "source_sessions": [
+        "Sesion 35"
+      ],
+      "evidence_paths": [
+        "SCANNER/invertir_v11.py",
+        "herramientas/aprendizaje_operativo_v11.py",
+        "backtests/investigacion_v14_prioridad_memoria.py"
+      ],
+      "metrics": {
+        "portfolio_broad_before": {
+          "sharpe": 0.7085,
+          "total_return_pct": 138.65,
+          "mdd_pct": -37.88
+        },
+        "portfolio_broad_after": {
+          "sharpe": 0.822,
+          "total_return_pct": 183.78,
+          "mdd_pct": -36.85
+        }
+      },
+      "notes": "Mejora aplicada in place. No cambia filtros ni naming del scanner canonico. En broad mejora el ranking; en core no agrega valor material."
+    },
+    {
+      "entry_id": "EXP-V15-ATR-SIZING",
+      "date": "2026-04-09",
+      "family": "scanner",
+      "candidate": "ATR position sizing (volatility targeting)",
+      "scanner_file": "SCANNER/invertir_v11.py",
+      "change_scope": "in_place_enhancement",
+      "status": "applied_in_place",
+      "replaces": null,
+      "applies_to": "SCN-V11-CAP-OPERATIVO",
+      "hypothesis": "Position sizing inversamente proporcional a ATR normaliza riesgo por trade y mejora Sharpe y MDD del portfolio.",
+      "decision_summary": "Aplicado en gestor V11: tamaño de posicion = slot_base * (target_atr / ticker_atr). Target 4%. Mejora Sharpe +35%, MDD +45%, WF de 71% a 86%. No cambia señales ni filtros.",
+      "source_sessions": [
+        "Sesion 36"
+      ],
+      "evidence_paths": [
+        "SCANNER/invertir_v11.py",
+        "herramientas/gestor_posiciones_v11.py",
+        "backtests/investigacion_v15_edge_enhancement.py",
+        "backtests/resultados/v15_output.txt"
+      ],
+      "metrics": {
+        "portfolio_broad_before": {
+          "sharpe": 0.71,
+          "total_return_pct": 138.6,
+          "mdd_pct": -37.9,
+          "wf7_pct": 71
+        },
+        "portfolio_broad_after_atr4": {
+          "sharpe": 0.96,
+          "total_return_pct": 129.5,
+          "mdd_pct": -24.4,
+          "wf7_pct": 86
+        },
+        "portfolio_broad_after_vix30_atr4": {
+          "sharpe": 1.00,
+          "total_return_pct": 140.4,
+          "mdd_pct": -20.8,
+          "wf7_pct": 86
+        },
+        "portfolio_core_before": {
+          "sharpe": 0.88,
+          "mdd_pct": -11.1
+        },
+        "portfolio_core_after_atr4": {
+          "sharpe": 0.92,
+          "mdd_pct": -7.4
+        }
+      },
+      "notes": "Mejora de gestion de riesgo, no de señales. El sizing se aplica en el gestor operativo, no en el scanner. 4 hipotesis probadas (VIX overlay, ATR exit, circuit breaker, ATR sizing) — solo ATR sizing paso todas las validaciones. VIX30+ATR4 es el combo optimo pero VIX overlay es marginal individualmente. Se implementa ATR4 puro como default conservador."
+    },
+    {
+      "entry_id": "EXP-V17-SIGNAL-D-AUDIT",
+      "date": "2026-04-09",
+      "family": "scanner",
+      "candidate": "Signal D liderazgo/tendencia para futuro V12",
+      "scanner_file": null,
+      "change_scope": "new_scanner",
+      "status": "promotion_candidate",
+      "replaces": null,
+      "applies_to": "SCN-V11-CAP-OPERATIVO",
+      "hypothesis": "V11 deja oportunidades ganadoras por carecer de un eje ortogonal de liderazgo/tendencia; un sleeve 2+1 con Signal D puede mejorar el portfolio broad sin romper la integridad del core.",
+      "decision_summary": "Aprobado como proxima frontera del proyecto. V17 paso 7/7 promotion gates y justifica construir `invertir_v12.py`, pero V11 sigue siendo el champion operativo hasta implementar y reauditar ese nuevo scanner.",
+      "source_sessions": [
+        "Sesion 49",
+        "Sesion 50"
+      ],
+      "evidence_paths": [
+        "backtests/investigacion_v16_oportunidades_perdidas.py",
+        "backtests/investigacion_v17_signal_d_audit.py",
+        "backtests/resultados/v17_output.txt"
+      ],
+      "metrics": {
+        "portfolio_broad_before": {
+          "sharpe": 0.77,
+          "total_return_pct": 154.8,
+          "mdd_pct": -38.9
+        },
+        "portfolio_broad_after_d_strict": {
+          "sharpe": 1.36,
+          "total_return_pct": 893.6,
+          "mdd_pct": -39.9,
+          "win_rate_pct": 60.8
+        },
+        "promotion_gate": {
+          "message": "PASS 7/7 | WF 7/10 | MC P(hybrid>base)=73.5%"
+        }
+      },
+      "notes": "No es una mejora aplicada in place. Es la frontera aprobada para construir la proxima generacion del scanner con un tercer eje ortogonal."
+    },
+    {
+      "entry_id": "SCN-V12-SIGNAL-D",
+      "date": "2026-04-10",
+      "family": "scanner",
+      "candidate": "V12 scanner activo (A + C5 + Signal D)",
+      "scanner_file": "SCANNER/invertir_v12.py",
+      "change_scope": "new_scanner",
+      "status": "retired_champion",
+      "replaces": "SCN-V11-CAP-OPERATIVO",
+      "applies_to": null,
+      "hypothesis": "Agregar Signal D de liderazgo/tendencia como tercer eje ortogonal rescata winners que V11 no ve en mercados PELIGRO y mejora la cartera broad sin degradar el core.",
+      "decision_summary": "Promovido a scanner activo en sesion 56b (2026-04-12). V17 paso 7/7 gates, V18 reprodujo el edge, V19 agrego health block + panic mode. V12 genera senales diarias en cualquier regimen; V11 era operativamente inutil en PELIGRO.",
+      "source_sessions": [
+        "Sesion 54",
+        "Sesion 56",
+        "Sesion 56b"
+      ],
+      "evidence_paths": [
+        "SCANNER/invertir_v12.py",
+        "backtests/investigacion_v18_v12_signal_d.py",
+        "backtests/investigacion_v17_signal_d_audit.py",
+        "backtests/investigacion_v19_sector_panic.py"
+      ],
+      "metrics": {
+        "portfolio_broad_before": {
+          "sharpe": 0.77,
+          "total_return_pct": 154.8,
+          "mdd_pct": -38.9
+        },
+        "portfolio_broad_after_v12": {
+          "sharpe": 1.36,
+          "total_return_pct": 893.6,
+          "mdd_pct": -39.9,
+          "win_rate_pct": 60.8
+        },
+        "promotion_gate": {
+          "message": "PASS 7/7 | V18 reproduce V17 | V19 valida sector filter (5/7 gates)"
+        }
+      },
+      "notes": "Retirado 2026-04-13 al ser superado por V13 (+18% Sharpe). Champion desde sesion 57 a sesion 58."
+    },
+    {
+      "entry_id": "EXP-V19-SECTOR-PANIC",
+      "date": "2026-04-12",
+      "family": "experiment",
+      "candidate": "Sector filter C5 + Panic mode display",
+      "scanner_file": null,
+      "change_scope": "in_place_enhancement",
+      "status": "applied_in_place",
+      "replaces": null,
+      "applies_to": "SCN-V12-SIGNAL-D",
+      "hypothesis": "Health sector destruye valor en C5 (WR=33%, avg=-1.84% portfolio). Durante SPY ROC20 < -10% el edge de C5 se amplifica masivamente (WR=88.9%).",
+      "decision_summary": "Aplicado en V11 y V12: health block en build_c5_candidate() + SPY ROC20 en check_regime() + panic display en header. Sharpe portfolio broad sube de 0.708 a 0.819 (+15.7%).",
+      "source_sessions": [
+        "Sesion 56"
+      ],
+      "evidence_paths": [
+        "backtests/investigacion_v19_sector_panic.py"
+      ],
+      "metrics": {
+        "portfolio_broad_before": {
+          "sharpe": 0.708,
+          "wr_pct": 59.5,
+          "mdd_pct": -37.9
+        },
+        "portfolio_broad_after": {
+          "sharpe": 0.819,
+          "wr_pct": 61.3,
+          "mdd_pct": -39.4
+        },
+        "promotion_gate": {
+          "message": "PASS 5/7 — PROMOVER"
+        }
+      },
+      "notes": "D7 exit fijo descartado: peor en portfolio (WR cae a 54%, MDD -43.2%) aunque por trade parece mejor. Semis en C5: WR=83.3%, avg=+10.52%. Panic (SPY ROC20 < -10%): WR=88.9%, avg=+9.21%."
+    },
+    {
+      "entry_id": "EXP-V23-SIGNAL-E-HW",
+      "date": "2026-04-13",
+      "family": "experiment",
+      "candidate": "Signal E_HW RS New High Hardware",
+      "scanner_file": null,
+      "change_scope": "in_place_enhancement",
+      "status": "applied_in_place",
+      "replaces": null,
+      "applies_to": "SCN-V12-SIGNAL-D",
+      "hypothesis": "RS_LINE >= RS_52W_MAX en tickers HW/IndustrialTech tiene WR 75% individual (n=64). Como 4to sleeve (D y E_HW compiten, overlap 13.1%) mejora el portfolio broad sin reemplazar D.",
+      "decision_summary": "Aplicado como Signal E_HW en V13. V20 descubrio RS New High (WR 55.5% global). V21 identifico sector HW (WR 75%, n=64). V22 probo arquitectura 4-slot (Sharpe 1.62 vs V12 1.36). V23 paso 6/7 gates: MC P(WR>50%)=100%, WF 6/7, hold 15d optimo. Unico FAIL: concentracion RKLB=32.8%.",
+      "source_sessions": [
+        "Sesion 58"
+      ],
+      "evidence_paths": [
+        "backtests/investigacion_v20_nuevos_ejes.py",
+        "backtests/investigacion_v21_sector_rs_wrhigh.py",
+        "backtests/investigacion_v22_4slot_portfolio.py",
+        "backtests/investigacion_v23_promotion_gate.py"
+      ],
+      "metrics": {
+        "e_hw_individual": {
+          "trades": 64,
+          "wr_pct": 75.0,
+          "avg_return_pct": 13.75,
+          "hold_days": 15,
+          "bootstrap_p_wr_gt50": 100.0
+        },
+        "portfolio_broad_before": {
+          "sharpe": 1.36,
+          "mdd_pct": -39.9,
+          "total_return_pct": 896.0,
+          "calmar": 22.5
+        },
+        "portfolio_broad_after": {
+          "sharpe": 1.62,
+          "mdd_pct": -37.0,
+          "total_return_pct": 1293.4,
+          "calmar": 35.0
+        },
+        "promotion_gate": {
+          "message": "PASS 6/7 | WF 6/7 | MC P(WR>50%)=100% | Hold=15d | FAIL PG5: RKLB=32.8%"
+        }
+      },
+      "notes": "Riesgo conocido: RKLB concentra 32.8% de trades E_HW. E_HW en SEGURO: WR 76.5%, avg +15.07%. E_HW en PELIGRO: WR 69.2%, avg +8.56%. Overlap D/E_HW: 13.1% (senales complementarias). Parametros: RSI 50-75, ROC20>8%, Vol 0.8-2.5x, RS_LINE>=RS_52W_MAX via shift(1)."
+    },
+    {
+      "entry_id": "SCN-V13-SIGNAL-E-HW",
+      "date": "2026-04-13",
+      "family": "scanner",
+      "candidate": "V13 scanner activo (A + C5 + D + E_HW)",
+      "scanner_file": "SCANNER/invertir_v13.py",
+      "change_scope": "new_scanner",
+      "status": "active_champion",
+      "replaces": "SCN-V12-SIGNAL-D",
+      "applies_to": null,
+      "hypothesis": "Agregar Signal E_HW (RS New High Hardware) como cuarto eje ortogonal mejora el portfolio broad +18% Sharpe con menor MDD. D y E_HW tienen 13.1% overlap -> slot adicional agrega valor genuino.",
+      "decision_summary": "Promovido a scanner activo en sesion 58 (2026-04-13). V23 paso 6/7 gates. 4-slot Sharpe 1.62 vs V12 1.36. MDD mejora de -39.9% a -37.0%. Calmar 35.0 vs 22.5. WF 6/7. E_HW individual WR 75%, MC P(WR>50%)=100%.",
+      "source_sessions": [
+        "Sesion 58"
+      ],
+      "evidence_paths": [
+        "SCANNER/invertir_v13.py",
+        "backtests/investigacion_v22_4slot_portfolio.py",
+        "backtests/investigacion_v23_promotion_gate.py"
+      ],
+      "metrics": {
+        "portfolio_broad_before": {
+          "sharpe": 1.36,
+          "total_return_pct": 896.0,
+          "mdd_pct": -39.9
+        },
+        "portfolio_broad_after_v13": {
+          "sharpe": 1.62,
+          "total_return_pct": 1293.4,
+          "mdd_pct": -37.0,
+          "win_rate_e_hw_pct": 75.0,
+          "calmar": 35.0
+        },
+        "promotion_gate": {
+          "message": "PASS 6/7 | WF 6/7 | MC P(WR>50%)=100% | Hold=15d optimo | FAIL PG5 RKLB"
+        }
+      },
+      "notes": "Scanner activo desde 2026-04-13. 4 slots: 2 para A/C5 (V11 base) + 1 D (liderazgo) + 1 E_HW (RS new high hardware). SIZING_MAX_SLOTS actualizado a 4. Riesgo RKLB conocido y monitoreado."
+    }
+  ]
+}

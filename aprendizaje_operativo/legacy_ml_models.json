@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-04-16T12:10:00",
+  "legacy_ml_models": [
+    {
+      "model_id": "legacy_ml_brain_v11",
+      "label": "ML_BRAIN_V11",
+      "model_prefix": "LEGACY_ML_BRAIN_V11",
+      "signal_code": "BUY",
+      "status": "enabled",
+      "role": "legacy_ml_observed",
+      "source_path": "C:\\Users\\wmx_7\\OneDrive\\Escritorio\\Inversiones\\Machine Winners\\ml_trading_brain_v11.py",
+      "runner_script": "herramientas/aprendizaje_operativo_legacy_ml_brain_v11.py",
+      "native_horizon": 5,
+      "evaluation_mode": "close_on_target",
+      "notes": "Ensamble multiclase historico con filtro BUY por consenso >= 60%."
+    },
+    {
+      "model_id": "legacy_ml_brain_v11_optimized",
+      "label": "ML_BRAIN_V11_OPT",
+      "model_prefix": "LEGACY_ML_BRAIN_V11_OPT",
+      "signal_code": "BUY",
+      "status": "enabled",
+      "role": "legacy_ml_observed",
+      "source_path": "C:\\Users\\wmx_7\\OneDrive\\Escritorio\\Inversiones\\Machine Winners\\ml_trading_brain_v11_optimized.py",
+      "runner_script": "herramientas/aprendizaje_operativo_legacy_ml_brain_v11_optimized.py",
+      "native_horizon": 5,
+      "evaluation_mode": "close_on_target",
+      "notes": "Version optimizada en paralelo del brain v11."
+    },
+    {
+      "model_id": "legacy_ml_v22",
+      "label": "ML_V22",
+      "model_prefix": "LEGACY_ML_V22",
+      "signal_code": "BUY",
+      "status": "disabled",
+      "role": "legacy_ml_observed",
+      "source_path": "C:\\Users\\wmx_7\\OneDrive\\Escritorio\\Inversiones\\Machine Winners\\ml_trading_v22.py",
+      "runner_script": "herramientas/aprendizaje_operativo_legacy_ml_v22.py",
+      "native_horizon": 5,
+      "evaluation_mode": "close_on_target",
+      "notes": "Deshabilitado el 2026-04-16: integracion muy costosa y sembrado parcial tras interrupcion; se conserva el wrapper pero sale de la liga activa hasta relanzamiento limpio."
+    },
+    {
+      "model_id": "legacy_ml_v37",
+      "label": "ML_V37",
+      "model_prefix": "LEGACY_ML_V37",
+      "signal_code": "SURGE",
+      "status": "enabled",
+      "role": "legacy_ml_observed",
+      "source_path": "C:\\Users\\wmx_7\\OneDrive\\Escritorio\\Inversiones\\Machine Winners\\ml_trading_v37.py",
+      "runner_script": "herramientas/aprendizaje_operativo_legacy_ml_v37.py",
+      "native_horizon": 1,
+      "evaluation_mode": "close_on_target",
+      "notes": "NOVA T+1 de squeezes y anomalias de microestructura."
+    },
+    {
+      "model_id": "legacy_ml_v39",
+      "label": "ML_V39",
+      "model_prefix": "LEGACY_ML_V39",
+      "signal_code": "TOP",
+      "status": "enabled",
+      "role": "legacy_ml_observed",
+      "source_path": "C:\\Users\\wmx_7\\OneDrive\\Escritorio\\Inversiones\\Machine Winners\\ml_trading_v39.py",
+      "runner_script": "herramientas/aprendizaje_operativo_legacy_ml_v39.py",
+      "native_horizon": 1,
+      "evaluation_mode": "close_on_target",
+      "notes": "Ensemble cross-sectional de top decile a un dia."
+    },
+    {
+      "model_id": "legacy_ml_v39full",
+      "label": "ML_V39FULL",
+      "model_prefix": "LEGACY_ML_V39FULL",
+      "signal_code": "TOP",
+      "status": "enabled",
+      "role": "legacy_ml_observed",
+      "source_path": "C:\\Users\\wmx_7\\OneDrive\\Escritorio\\Inversiones\\Machine Winners\\ml_trading_v39full.py",
+      "runner_script": "herramientas/aprendizaje_operativo_legacy_ml_v39full.py",
+      "native_horizon": 1,
+      "evaluation_mode": "close_on_target",
+      "notes": "Version full universe del modelo v39."
+    },
+    {
+      "model_id": "legacy_ml_v97",
+      "label": "ML_V97",
+      "model_prefix": "LEGACY_ML_V97",
+      "signal_code": "SURGE",
+      "status": "enabled",
+      "role": "legacy_ml_observed",
+      "source_path": "C:\\Users\\wmx_7\\OneDrive\\Escritorio\\Inversiones\\Machine Winners\\ml_trading_v97.py",
+      "runner_script": "herramientas/aprendizaje_operativo_legacy_ml_v97.py",
+      "native_horizon": 3,
+      "evaluation_mode": "window_max_close",
+      "notes": "Titan Omega T+1/T+3; se evalua contra el mejor close de la ventana."
+    }
+  ]
+}

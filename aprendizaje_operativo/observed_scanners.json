@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-04-14T20:15:00",
+  "observed_scanners": [
+    {
+      "version": 8,
+      "status": "enabled",
+      "role": "observed_competitor",
+      "notes": "Candidato historico para contrastar V7/V8 en live sin promoverlo."
+    },
+    {
+      "version": 9,
+      "status": "enabled",
+      "role": "observed_competitor",
+      "notes": "Path quality historico; sirve para medir si vuelve a leer mejor ciertos crashes."
+    },
+    {
+      "version": 10,
+      "status": "enabled",
+      "role": "observed_competitor",
+      "notes": "Rebound capture historico; referencia observada fuerte previa a V11."
+    }
+  ]
+}

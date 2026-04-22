@@ -1,0 +1,1571 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tablero Maquina Pensante</title>
+  <style>
+:root{
+  --bg:#080b0e;
+  --bg-2:#090d11;
+  --sidebar:#060809;
+  --panel:#0d1117;
+  --panel-2:#111820;
+  --panel-3:#090d12;
+  --ink:#dce9f2;
+  --muted:#5a7080;
+  --line:rgba(160,190,210,0.09);
+  --cyan:#4fc3f7;
+  --cyan-2:#81d4fa;
+  --gold:#ffd54f;
+  --green:#69f0ae;
+  --rose:#ff5252;
+  --violet:#b39ddb;
+  --shadow:0 6px 18px rgba(0,0,0,0.55);
+  --radius:6px;
+  --sidebar-width:220px;
+  --layout-gap:10px;
+  --grid-gap:8px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:"Consolas","JetBrains Mono","Cascadia Code","Courier New",monospace;
+  color:var(--ink);
+  background:var(--bg);
+}
+/* sin gradientes de fondo, puro flat */
+.app-shell{display:grid;grid-template-columns:var(--sidebar-width) minmax(0,1fr);gap:8px;width:min(1680px,calc(100vw - 16px));margin:8px auto 16px auto;transition:grid-template-columns .2s ease}
+.sidebar{
+  position:sticky;top:10px;height:calc(100vh - 20px);overflow:auto;
+  background:var(--sidebar);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:12px 10px;transition:transform .2s ease,opacity .2s ease,width .2s ease,padding .2s ease,border .2s ease
+}
+.content{min-width:0}
+.topbar,.panel,.stat-card,.focus-card,.mini-card,.sidebar{
+  background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow)
+}
+.topbar,.panel,.stat-card,.focus-card,.mini-card{border-radius:var(--radius)}
+.topbar{padding:8px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.eyebrow,.sidebar-label,.section-label{font-size:10px;text-transform:uppercase;letter-spacing:0.18em;color:var(--cyan);font-weight:700}
+.brand{font-family:inherit;font-size:16px;font-weight:800;letter-spacing:.02em}
+.brand span{display:block;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.sidebar-section{margin-top:12px}
+.side-nav{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.nav-link,.side-button{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;text-decoration:none;
+  padding:8px 10px;border-radius:4px;border:1px solid transparent;
+  color:var(--ink);font-weight:600;font-size:12px
+}
+.nav-link:hover,.side-button:hover{background:rgba(255,255,255,0.04);border-color:var(--line)}
+.nav-link.active{background:rgba(79,195,247,0.10);border-color:rgba(79,195,247,0.20);color:var(--cyan)}
+.side-button{justify-content:center;background:rgba(255,255,255,0.03);border-color:var(--line)}
+.drawer{margin-top:8px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.drawer summary{list-style:none;cursor:pointer;padding:8px 10px;font-weight:700;font-size:11px;color:var(--ink)}
+.drawer summary::-webkit-details-marker{display:none}
+.drawer-body{padding:0 10px 10px 10px;color:var(--muted);font-size:11px;line-height:1.6}
+.drawer-body .kpi-line{font-size:11px}
+h1{font-family:inherit;font-size:20px;font-weight:800;margin:2px 0 6px 0;letter-spacing:-.01em}
+h2,h3{font-family:inherit;font-weight:800;margin:0;letter-spacing:-.01em}
+.section-copy,.footer-note,.muted{color:var(--muted);line-height:1.5}
+.header-meta,.pill-row{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;padding:4px 8px;border-radius:3px;background:rgba(255,255,255,0.04);border:1px solid var(--line);font-size:10px;color:#b8ccd8}
+.toolbar{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end}
+.button-link{
+  display:inline-flex;align-items:center;text-decoration:none;color:#060a0e;
+  background:var(--cyan);padding:6px 10px;border-radius:4px;font-weight:800;font-size:11px
+}
+.ghost-link{
+  display:inline-flex;align-items:center;text-decoration:none;color:var(--ink);
+  background:rgba(255,255,255,0.04);border:1px solid var(--line);
+  padding:6px 10px;border-radius:4px;font-weight:700;font-size:11px
+}
+.kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:8px}
+.stat-card{padding:8px 10px;min-height:76px}
+.stat-label{font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:var(--muted);font-weight:700}
+.stat-value{font-size:17px;font-weight:800;letter-spacing:-.02em;margin-top:4px;line-height:1.05}
+.stat-subtitle{font-size:10px;line-height:1.3;color:var(--muted);margin-top:3px}
+/* stat card accents — solo borde izquierdo de color */
+.accent-cyan{border-left:3px solid var(--cyan)!important}
+.accent-gold{border-left:3px solid var(--gold)!important}
+.accent-green{border-left:3px solid var(--green)!important}
+.accent-rose{border-left:3px solid var(--rose)!important}
+.section{margin-bottom:var(--layout-gap)}
+.panel{padding:11px 13px}
+.section-head,.panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.section-title{font-size:14px;font-weight:800}
+.main-grid{display:grid;grid-template-columns:1.3fr 0.9fr;gap:8px;margin-bottom:8px}
+.prime-grid{display:grid;grid-template-columns:0.74fr 1.26fr;gap:8px;margin-bottom:8px}
+.secondary-grid{display:grid;grid-template-columns:1.05fr 1.05fr 0.9fr;gap:8px;margin-bottom:8px}
+.bottom-grid{display:grid;grid-template-columns:1.15fr 0.85fr;gap:8px;margin-bottom:8px}
+.stack{display:grid;gap:8px}
+.hero-chart{min-height:100%}
+.chart-wrap{padding:2px 0 0 0}
+.dense-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--grid-gap)}
+.focus-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.group-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.mini-card{padding:8px 9px;border-radius:4px;background:rgba(255,255,255,0.025);border:1px solid var(--line)}
+.mini-title{font-size:9px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);font-weight:700}
+.mini-value{font-size:14px;font-weight:800;margin-top:4px;line-height:1.15}
+.data-table{width:100%;border-collapse:collapse;font-size:11px}
+.data-table th,.data-table td{padding:6px 6px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+.data-table thead th{border-top:none;font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted)}
+.data-table.compact th,.data-table.compact td{padding:5px 5px}
+.leaderboard-table td:first-child,.leaderboard-table th:first-child{padding-left:0}
+.kpi-line{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid rgba(255,255,255,0.05);font-size:11px}
+.kpi-line:first-child{border-top:none;padding-top:0}
+.rank-chip{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:3px;background:rgba(79,195,247,0.15);font-weight:800;font-size:10px;color:var(--cyan)}
+.subtle-box,.window-block{padding:7px 8px;border-radius:4px;background:rgba(255,255,255,0.03);border:1px solid var(--line)}
+.window-title{font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);font-weight:700;margin-bottom:5px}
+.window-value{font-size:14px;font-weight:800}
+.window-caption,.mini{font-size:10px;color:var(--muted)}
+.focus-card{padding:11px;display:flex;flex-direction:column;gap:8px}
+.focus-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.focus-name{font-size:16px;font-weight:800}
+.focus-meta{display:flex;flex-wrap:wrap;gap:6px}
+.model-card{padding:9px 10px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);box-shadow:var(--shadow)}
+.model-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:7px}
+.model-card-title{font-size:13px;font-weight:800}
+.model-card-chart{margin:1px 0 6px 0}
+.model-card-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-bottom:6px}
+.model-kpi{padding:5px 6px;border-radius:3px;background:rgba(255,255,255,0.03);border:1px solid var(--line)}
+.model-kpi span{display:block;font-size:8px;text-transform:uppercase;letter-spacing:0.10em;color:var(--muted);font-weight:700}
+.model-kpi strong{display:block;font-size:11px;margin-top:3px;line-height:1.1}
+.card-details{margin-top:8px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.card-details summary{list-style:none;cursor:pointer;padding:7px 9px;font-weight:700;font-size:11px}
+.card-details summary::-webkit-details-marker{display:none}
+.card-details-body{padding:0 9px 9px 9px}
+.detail-picks{margin-top:6px;color:var(--muted);font-size:10px;line-height:1.4}
+.ticker-cloud{font-size:10px;line-height:1.5;color:#c8dce8}
+.ticker-cloud code{background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:2px;margin-right:3px;display:inline-block;margin-bottom:3px}
+.badge{display:inline-flex;align-items:center;padding:2px 6px;border-radius:2px;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;font-weight:800;background:rgba(255,255,255,0.07);color:var(--muted)}
+.badge-active{background:rgba(79,195,247,0.14);color:#81d4fa}
+.badge-reference{background:rgba(255,213,79,0.14);color:#ffd54f}
+.badge-base{background:rgba(255,255,255,0.09);color:#c8d8e2}
+.badge-observed{background:rgba(105,240,174,0.14);color:#69f0ae}
+.badge-legacy{background:rgba(179,157,219,0.16);color:#b39ddb}
+.badge-fresh{background:rgba(105,240,174,0.14);color:#69f0ae}
+.badge-warn{background:rgba(255,213,79,0.14);color:#ffd54f}
+.badge-stale{background:rgba(255,82,82,0.14);color:#ff8a80}
+.badge-muted{background:rgba(255,255,255,0.07);color:#7090a0}
+.heat-table{width:100%;border-collapse:separate;border-spacing:3px;table-layout:fixed}
+.heat-table th{font-size:9px;text-transform:uppercase;letter-spacing:0.10em;color:var(--muted);padding:0 2px 4px 2px}
+.heat-table td{padding:5px 3px;border-radius:3px;text-align:center;font-size:10px;font-weight:800;cursor:help}
+.heat-table .row-label{background:none;border:none;text-align:left;padding-left:0;font-size:10px;min-width:80px}
+.sparkline{display:block;width:100%;height:auto}
+.footer-note{margin-top:7px;font-size:10px}
+.compact-ranking-grid{display:grid;grid-template-columns:0.8fr 1.2fr;gap:8px;margin-bottom:8px}
+.champion-compact .chart-wrap{max-width:100%}
+.scanner-top-note{font-size:10px;color:var(--muted);margin-bottom:6px}
+.sidebar-toggle{
+  display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border:1px solid var(--line);border-radius:3px;
+  background:rgba(255,255,255,0.04);color:var(--ink);cursor:pointer;font-size:13px;font-weight:900
+}
+.floating-sidebar-toggle{
+  position:fixed;top:8px;left:8px;z-index:62;display:none;align-items:center;justify-content:center;
+  width:34px;height:34px;border:1px solid var(--line);border-radius:4px;
+  background:var(--panel);color:var(--ink);box-shadow:var(--shadow);cursor:pointer
+}
+body.sidebar-collapsed .floating-sidebar-toggle{display:flex}
+body.sidebar-collapsed .app-shell{grid-template-columns:0 minmax(0,1fr)}
+body.sidebar-collapsed .sidebar{transform:translateX(-110%);opacity:0;pointer-events:none;width:0;padding:0;border-color:transparent}
+.editable-block{position:relative;transition:outline-color .15s ease}
+.editable-text{transition:box-shadow .15s ease}
+body.edit-mode .editable-text{box-shadow:inset 0 -1px 0 rgba(79,195,247,0.5);cursor:text}
+body.edit-mode [data-block-id]{outline:1px dashed rgba(79,195,247,0.25)}
+body.edit-mode [data-block-id]:hover{outline-color:rgba(79,195,247,0.6)}
+.selected-block{outline:2px solid rgba(79,195,247,0.9) !important;box-shadow:0 0 0 3px rgba(79,195,247,0.10) !important}
+.dragging-block{opacity:.4}
+.block-handle{
+  position:absolute;top:7px;right:7px;z-index:4;display:none;
+  width:24px;height:24px;border-radius:3px;border:1px solid var(--line);
+  background:var(--panel);color:var(--muted);font-size:12px;
+  align-items:center;justify-content:center;cursor:grab
+}
+body.edit-mode .block-handle{display:flex}
+body.edit-mode .editable-block{overflow:visible;min-height:unset}
+.editor-toggle{
+  position:fixed;right:16px;bottom:16px;z-index:60;border:none;border-radius:4px;
+  background:var(--cyan);color:#040a0e;padding:9px 14px;font-weight:900;font-size:11px;
+  letter-spacing:.02em;box-shadow:var(--shadow);cursor:pointer
+}
+.builder-panel{
+  position:fixed;top:12px;right:12px;bottom:12px;z-index:70;width:320px;
+  padding:14px;background:var(--panel);
+  border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);overflow:auto;
+  transform:translateX(calc(100% + 20px));transition:transform .2s ease
+}
+body.builder-open .builder-panel{transform:translateX(0)}
+.builder-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.builder-head h3{font-size:18px}
+.builder-close{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:3px;width:28px;height:28px;cursor:pointer;font-size:15px;font-weight:800}
+.builder-group{padding:10px;border-radius:4px;background:rgba(255,255,255,0.03);border:1px solid var(--line);margin-bottom:10px}
+.builder-group h4{margin:0 0 8px 0;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:var(--muted)}
+.builder-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.builder-field{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.builder-field label{font-size:10px;text-transform:uppercase;letter-spacing:.10em;color:var(--muted);font-weight:800}
+.builder-field input,.builder-field select,.builder-field textarea{
+  width:100%;border-radius:3px;border:1px solid var(--line);background:rgba(255,255,255,0.04);
+  color:var(--ink);padding:7px 9px;font:inherit;font-size:11px
+}
+.builder-field input[type="color"]{padding:3px;height:36px}
+.builder-field input[type="range"]{padding:0}
+.builder-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.builder-actions button,.builder-actions label{
+  display:flex;align-items:center;justify-content:center;border:1px solid var(--line);
+  border-radius:3px;padding:8px 10px;cursor:pointer;font-weight:800;
+  background:rgba(255,255,255,0.04);color:var(--ink);font-size:11px
+}
+.builder-actions .primary{background:var(--cyan);color:#040a0e;border-color:transparent}
+.builder-note{font-size:10px;line-height:1.5;color:var(--muted)}
+.builder-status{font-size:10px;color:var(--cyan);font-weight:800;min-height:16px;margin-top:6px}
+.selected-block-name{font-size:14px;font-weight:800;margin-bottom:8px}
+.hidden-block{display:none !important}
+.heat-tooltip{
+  position:fixed;z-index:80;max-width:300px;padding:8px 10px;border-radius:4px;
+  background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);
+  color:var(--ink);font-size:10px;line-height:1.4;pointer-events:none;opacity:0;
+  transform:translateY(6px);transition:opacity .08s ease,transform .08s ease
+}
+.heat-tooltip.show{opacity:1;transform:translateY(0)}
+.heat-tooltip strong{display:block;margin-bottom:3px}
+.heat-tooltip .muted-line{color:var(--muted);font-size:9px}
+.bar-track{width:100%;height:6px;border-radius:2px;background:rgba(79,195,247,0.10);overflow:hidden;margin-bottom:5px}
+.bar-fill{height:100%;border-radius:2px;background:var(--cyan)}
+.matrix-table{width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed}
+.matrix-table th{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;text-align:center}
+.matrix-table td{text-align:center;padding:10px 6px;border-radius:3px;font-weight:800;font-size:10px}
+.model-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.model-strip-card{padding:10px;min-height:120px;border-radius:4px;border:1px solid var(--line);background:var(--panel)}
+.model-strip-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.model-strip-fresh{margin-bottom:8px}
+.model-strip-metrics{font-size:11px;font-weight:700;margin-bottom:8px}
+.model-strip-picks{color:var(--muted);font-size:10px;line-height:1.4}
+@media(max-width:1480px){.group-grid,.secondary-grid,.bottom-grid{grid-template-columns:1fr 1fr}.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.prime-grid{grid-template-columns:1fr}.compact-ranking-grid{grid-template-columns:1fr}}
+@media(max-width:1220px){.app-shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.main-grid,.prime-grid,.secondary-grid,.bottom-grid,.dense-grid,.kpi-grid,.focus-grid,.group-grid,.builder-grid,.builder-actions,.compact-ranking-grid{grid-template-columns:1fr}.builder-panel{left:8px;right:8px;width:auto}}
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar editable-block" data-block-id="sidebar-shell" data-block-label="Menu lateral" data-lock-resize="true">
+      <div class="brand">Titan<span>Machine Dashboard</span></div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Menu</div>
+        <nav class="side-nav" data-container-id="sidebar-menu">
+          <a class="nav-link editable-block active" data-block-id="nav-dashboard" data-block-label="Menu Dashboard" href="#overview"><span>Dashboard</span><span>V13</span></a>
+          <a class="nav-link editable-block" data-block-id="nav-champion" data-block-label="Menu Champion" href="#champion"><span>Champion</span><span>4</span></a>
+          <a class="nav-link editable-block" data-block-id="nav-league" data-block-label="Menu Liga" href="#league"><span>Liga</span><span>19</span></a>
+          <a class="nav-link editable-block" data-block-id="nav-competition" data-block-label="Menu Competidores" href="#competition"><span>Competidores</span><span>7</span></a>
+          <a class="nav-link editable-block" data-block-id="nav-heatmap" data-block-label="Menu Heatmap" href="#heatmap"><span>Heatmap</span><span>15</span></a>
+          <a class="nav-link editable-block" data-block-id="nav-data" data-block-label="Menu Data" href="#data"><span>Data</span><span>37</span></a>
+        </nav>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Vistas</div>
+        <div class="side-nav" data-container-id="sidebar-views">
+          <a class="side-button editable-block" data-block-id="view-executive" data-block-label="Boton Executive" href="tablero_maquina_pensante_executive.html">Executive</a>
+          <a class="side-button editable-block" data-block-id="view-lab" data-block-label="Boton Lab" href="tablero_maquina_pensante_lab.html">Lab</a>
+        </div>
+      </div>
+
+      <details class="drawer editable-block" data-block-id="drawer-data" data-block-label="Panel Data">
+        <summary>Data</summary>
+        <div class="drawer-body">
+          <div class="kpi-line"><span>Mercado</span><strong>2026-04-15</strong></div>
+          <div class="kpi-line"><span>Predictions</span><strong>27,756</strong></div>
+          <div class="kpi-line"><span>Outcomes</span><strong>27,470</strong></div>
+          <div class="kpi-line"><span>Regimes</span><strong>1,511</strong></div>
+        </div>
+      </details>
+
+      <details class="drawer editable-block" data-block-id="drawer-configuracion" data-block-label="Panel Configuracion">
+        <summary>Configuracion</summary>
+        <div class="drawer-body">
+          <div class="kpi-line"><span>Champion</span><strong>V13</strong></div>
+          <div class="kpi-line"><span>Referencia</span><strong>V12</strong></div>
+          <div class="kpi-line"><span>Muestra igualada</span><strong>19 ruedas</strong></div>
+          <div class="kpi-line"><span>Snapshot</span><strong>tablero_maquina_pensante_snapshot.json</strong></div>
+        </div>
+      </details>
+
+      <details class="drawer editable-block" data-block-id="drawer-metodologia" data-block-label="Panel Metodologia">
+        <summary>Metodologia</summary>
+        <div class="drawer-body">
+          La liga principal compara la misma cantidad de dias activos por familia para evitar rankings injustos.
+          Los paneles de 30 ruedas quedan visibles solo como contexto complementario.
+        </div>
+      </details>
+
+      <details class="drawer editable-block" data-block-id="drawer-validacion" data-block-label="Panel Validacion">
+        <summary>Validacion</summary>
+        <div class="drawer-body">
+          <div class="kpi-line"><span>V13 hits</span><strong>65/95</strong></div>
+          <div class="kpi-line"><span>V9 hits</span><strong>34/42</strong></div>
+          <div class="kpi-line"><span>V12 vs V13</span><strong>41 fechas distintas</strong></div>
+          <div class="kpi-line"><span>Lectura</span><strong>Metricas desde outcomes</strong></div>
+        </div>
+      </details>
+    </aside>
+
+    <main class="content" data-container-id="main-root">
+      <header class="topbar editable-block" data-block-id="header-overview" data-block-label="Cabecera principal" id="overview">
+        <div>
+          <div class="eyebrow">Dashboard operativo</div>
+          <h1>Champion, liga y competencia diaria</h1>
+          <div class="header-meta">
+            <span class="pill">Generado 2026-04-16T18:33:22</span>
+            <span class="pill">Mercado 2026-04-15</span>
+            <span class="pill">Muestra igualada 19 ruedas</span>
+            <span class="pill">Cobertura 30/30</span>
+          </div>
+        </div>
+        <div class="toolbar" data-container-id="topbar-actions">
+          <button class="sidebar-toggle editable-block" data-block-id="toolbar-sidebar-toggle" data-block-label="Boton menu" id="sidebarToggle" type="button">|||</button>
+          <a class="button-link editable-block" data-block-id="toolbar-league" data-block-label="Boton Ver liga" href="#league">Ver liga</a>
+          <a class="ghost-link editable-block" data-block-id="toolbar-competition" data-block-label="Boton Competidores" href="#competition">Competidores</a>
+          <a class="ghost-link editable-block" data-block-id="toolbar-data" data-block-label="Boton Data" href="#data">Data</a>
+        </div>
+      </header>
+
+      <section class="kpi-grid editable-block" data-block-id="section-kpi-grid" data-block-label="Franja KPI" data-container-id="kpi-grid">
+        <div class="stat-card accent-cyan editable-block" data-block-id="kpi-champion" data-block-label="KPI Champion"><div class="stat-label">Champion</div><div class="stat-value">V13 | 68.42%</div><div class="stat-subtitle">ret +3.153% | rank #7</div></div>
+        <div class="stat-card accent-green editable-block" data-block-id="kpi-lider" data-block-label="KPI Lider actual"><div class="stat-label">Lider actual</div><div class="stat-value">V9</div><div class="stat-subtitle">80.95% | +3.956%</div></div>
+        <div class="stat-card accent-gold editable-block" data-block-id="kpi-picks" data-block-label="KPI Picks vivos"><div class="stat-label">Picks vivos</div><div class="stat-value">4 | PELIGRO</div><div class="stat-subtitle">breadth 58.9% | target 2026-04-16</div></div>
+        <div class="stat-card accent-rose editable-block" data-block-id="kpi-db" data-block-label="KPI DB viva"><div class="stat-label">DB viva</div><div class="stat-value">27,470</div><div class="stat-subtitle">outcomes | pred 27,756</div></div>
+        <div class="stat-card editable-block" data-block-id="kpi-divergencia" data-block-label="KPI V12 vs V13"><div class="stat-label">V12 vs V13</div><div class="stat-value">41</div><div class="stat-subtitle">fechas distintas sobre 1,203</div></div>
+        <div class="stat-card editable-block" data-block-id="kpi-integridad" data-block-label="KPI Integridad"><div class="stat-label">Integridad</div><div class="stat-value">30/30</div><div class="stat-subtitle">pred | out | regime alineados</div></div>
+      </section>
+
+      <section class="prime-grid" data-container-id="champion-league-grid" id="champion">
+        <article class="panel hero-chart champion-compact editable-block" data-block-id="panel-champion-hero" data-block-label="Panel Champion">
+          <div class="panel-head">
+            <div>
+              <div class="section-label">Champion activo</div>
+              <h2 class="section-title">V13 | resumen reciente</h2>
+            </div>
+            <div class="header-meta">
+              <span class='badge badge-active'>activo</span>
+              <span class='badge badge-fresh'>al dia</span>
+            </div>
+          </div>
+          <div class="chart-wrap"><svg viewBox='0 0 420 94' class='sparkline'><polyline points='0,90 420,90' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,90 4.00,43.72 18.21,45.17 32.41,46.80 46.62,50.55 60.83,55.90 75.03,61.60 89.24,67.20 103.45,75.47 117.66,84.91 131.86,86.00 146.07,76.23 160.28,71.27 174.48,70.36 188.69,68.33 202.90,56.62 217.10,51.10 231.31,47.39 245.52,38.64 259.72,35.28 273.93,32.18 288.14,31.48 302.34,27.68 316.55,22.77 330.76,19.87 344.97,18.88 359.17,10.19 373.38,8.00 387.59,10.57 401.79,12.56 416.00,14.35 416,90' fill='#21c7c4' opacity='0.18' /><polyline points='4.00,43.72 18.21,45.17 32.41,46.80 46.62,50.55 60.83,55.90 75.03,61.60 89.24,67.20 103.45,75.47 117.66,84.91 131.86,86.00 146.07,76.23 160.28,71.27 174.48,70.36 188.69,68.33 202.90,56.62 217.10,51.10 231.31,47.39 245.52,38.64 259.72,35.28 273.93,32.18 288.14,31.48 302.34,27.68 316.55,22.77 330.76,19.87 344.97,18.88 359.17,10.19 373.38,8.00 387.59,10.57 401.79,12.56 416.00,14.35' fill='none' stroke='#21c7c4' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='416.00' cy='14.35' r='3.5' fill='#21c7c4' /></svg></div>
+          <div class="dense-grid" data-container-id="champion-mini-grid">
+            <div class="mini-card editable-block" data-block-id="mini-champion-equalized" data-block-label="Mini muestra igualada">
+              <div class="mini-title">Muestra igualada</div>
+              <div class="mini-value">68.42% | +3.153%</div>
+              <div class="kpi-line"><span>Hits</span><strong>65/95</strong></div>
+              <div class="kpi-line"><span>Peor rueda</span><strong>-2.53%</strong></div>
+            </div>
+            <div class="mini-card editable-block" data-block-id="mini-champion-context" data-block-label="Mini contexto 30 ruedas">
+              <div class="mini-title">Contexto 30 ruedas</div>
+              <div class="mini-value">45.70% | -0.760%</div>
+              <div class="kpi-line"><span>Universo</span><strong>191</strong></div>
+              <div class="kpi-line"><span>Picks</span><strong>4</strong></div>
+            </div>
+            <div class="mini-card editable-block" data-block-id="mini-champion-sleeve-d" data-block-label="Mini sleeve D">
+              <div class="mini-title">Sleeve D_D10</div>
+              <div class="mini-value">55.53%</div>
+              <div class="kpi-line"><span>Ret medio</span><strong>+1.682%</strong></div>
+              <div class="kpi-line"><span>Racha</span><strong>losses 7</strong></div>
+            </div>
+            <div class="mini-card editable-block" data-block-id="mini-champion-sleeve-e" data-block-label="Mini sleeve E">
+              <div class="mini-title">Sleeve E_D15</div>
+              <div class="mini-value">64.00%</div>
+              <div class="kpi-line"><span>Ret medio</span><strong>+4.586%</strong></div>
+              <div class="kpi-line"><span>Referencia</span><strong>69.15% | +3.217%</strong></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel editable-block" data-block-id="section-historical-family" data-block-label="Scanners historicos" id="competition">
+          <div class="panel-head">
+            <div>
+              <div class="section-label">Scanners historicos</div>
+              <h2 class="section-title">Familia scanner en foco</h2>
+            </div>
+            <span class="pill">Muestra comun 19 ruedas</span>
+          </div>
+          <div class="compact-ranking-grid">
+            <div class="mini-card editable-block" data-block-id="panel-scanner-ranking" data-block-label="Ranking scanner">
+              <div class="mini-title">Ranking scanner</div>
+              <table class="data-table compact leaderboard-table">
+                <thead><tr><th>#</th><th>Modelo</th><th>WR</th><th>Muestra</th><th>Picks</th></tr></thead>
+                <tbody><tr><td><span class='rank-chip'>1</span></td><td><strong>V9</strong><br><span class='badge badge-observed'>observado</span></td><td>80.95%<br><span class='mini'>+3.956%</span></td><td>19/19<br><span class='mini'>42 picks</span></td><td class='tight'>SNOW</td></tr><tr><td><span class='rank-chip'>2</span></td><td><strong>V8</strong><br><span class='badge badge-observed'>observado</span></td><td>80.95%<br><span class='mini'>+3.956%</span></td><td>19/19<br><span class='mini'>42 picks</span></td><td class='tight'>SNOW</td></tr><tr><td><span class='rank-chip'>3</span></td><td><strong>V11</strong><br><span class='badge badge-base'>base</span></td><td>76.19%<br><span class='mini'>+2.935%</span></td><td>19/19<br><span class='mini'>42 picks</span></td><td class='tight'>SNOW</td></tr><tr><td><span class='rank-chip'>4</span></td><td><strong>V10</strong><br><span class='badge badge-observed'>observado</span></td><td>75.51%<br><span class='mini'>+2.761%</span></td><td>19/19<br><span class='mini'>49 picks</span></td><td class='tight'>SNOW</td></tr></tbody>
+              </table>
+            </div>
+            <div class="mini-card editable-block" data-block-id="panel-scanner-leader" data-block-label="Lider scanner">
+              <div class="mini-title">Lider scanner</div>
+              <div class="mini-value">V9 | 80.95%</div>
+              <div class="scanner-top-note">ret +3.956% | rank global #1</div>
+              <svg viewBox='0 0 220 54' class='sparkline'><polyline points='0,50 220,50' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,50 4.00,46.00 15.78,38.14 27.56,33.05 39.33,33.29 51.11,35.50 62.89,26.86 74.67,24.49 86.44,26.54 98.22,25.11 110.00,24.62 121.78,23.53 133.56,16.45 145.33,14.46 157.11,13.79 168.89,13.99 180.67,8.43 192.44,10.83 204.22,8.06 216.00,8.00 216,50' fill='#5ed39d' opacity='0.18' /><polyline points='4.00,46.00 15.78,38.14 27.56,33.05 39.33,33.29 51.11,35.50 62.89,26.86 74.67,24.49 86.44,26.54 98.22,25.11 110.00,24.62 121.78,23.53 133.56,16.45 145.33,14.46 157.11,13.79 168.89,13.99 180.67,8.43 192.44,10.83 204.22,8.06 216.00,8.00' fill='none' stroke='#5ed39d' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='216.00' cy='8.00' r='3.5' fill='#5ed39d' /></svg>
+              <div class="kpi-line"><span>Champion</span><strong>#7</strong></div>
+              <div class="kpi-line"><span>Picks actuales</span><strong>GRMN, IREN, LRCX, ZM</strong></div>
+            </div>
+          </div>
+          <div class="group-grid" data-container-id="historical-group"><article class='model-card editable-block' data-block-id='model-observado-v9' data-block-label='V9'><div class='model-card-head'><div><div class='model-card-title'>V9</div><div class='focus-meta'><span class='badge badge-observed'>observado</span> <span class='badge badge-stale'>3 ruedas atras</span></div></div><div class='rank-chip'>1</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,76.00 19.11,61.93 34.22,52.82 49.33,53.25 64.44,57.20 79.56,41.74 94.67,37.51 109.78,41.18 124.89,38.62 140.00,37.74 155.11,35.79 170.22,23.12 185.33,19.57 200.44,18.36 215.56,18.72 230.67,8.77 245.78,13.06 260.89,8.11 276.00,8.00 276,80' fill='#5ed39d' opacity='0.18' /><polyline points='4.00,76.00 19.11,61.93 34.22,52.82 49.33,53.25 64.44,57.20 79.56,41.74 94.67,37.51 109.78,41.18 124.89,38.62 140.00,37.74 155.11,35.79 170.22,23.12 185.33,19.57 200.44,18.36 215.56,18.72 230.67,8.77 245.78,13.06 260.89,8.11 276.00,8.00' fill='none' stroke='#5ed39d' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='8.00' r='3.5' fill='#5ed39d' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>80.95%</strong></div><div class='model-kpi'><span>Ret</span><strong>+3.956%</strong></div><div class='model-kpi'><span>Hits</span><strong>34/42</strong></div><div class='model-kpi'><span>Activos</span><strong>1</strong></div></div><div class='ticker-cloud'><code>SNOW</code></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>80.95%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>+3.956%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>34 / 8</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+5.58%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-2.93%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-04 -> 2026-04-14</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>80.95% | +3.956%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-10</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-13 -> 2026-04-21</strong></div><div class='kpi-line'><span>Universo total</span><strong>157</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>0.00%</strong></div><div class='detail-picks'>SNOW</div></div></details></article><article class='model-card editable-block' data-block-id='model-observado-v8' data-block-label='V8'><div class='model-card-head'><div><div class='model-card-title'>V8</div><div class='focus-meta'><span class='badge badge-observed'>observado</span> <span class='badge badge-stale'>3 ruedas atras</span></div></div><div class='rank-chip'>2</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,76.00 19.11,61.93 34.22,52.82 49.33,53.25 64.44,57.20 79.56,41.74 94.67,37.51 109.78,41.18 124.89,38.62 140.00,37.74 155.11,35.79 170.22,23.12 185.33,19.57 200.44,18.36 215.56,18.72 230.67,8.77 245.78,13.06 260.89,8.11 276.00,8.00 276,80' fill='#5ed39d' opacity='0.18' /><polyline points='4.00,76.00 19.11,61.93 34.22,52.82 49.33,53.25 64.44,57.20 79.56,41.74 94.67,37.51 109.78,41.18 124.89,38.62 140.00,37.74 155.11,35.79 170.22,23.12 185.33,19.57 200.44,18.36 215.56,18.72 230.67,8.77 245.78,13.06 260.89,8.11 276.00,8.00' fill='none' stroke='#5ed39d' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='8.00' r='3.5' fill='#5ed39d' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>80.95%</strong></div><div class='model-kpi'><span>Ret</span><strong>+3.956%</strong></div><div class='model-kpi'><span>Hits</span><strong>34/42</strong></div><div class='model-kpi'><span>Activos</span><strong>1</strong></div></div><div class='ticker-cloud'><code>SNOW</code></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>80.95%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>+3.956%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>34 / 8</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+5.58%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-2.93%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-04 -> 2026-04-14</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>80.95% | +3.956%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-10</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-13 -> 2026-04-21</strong></div><div class='kpi-line'><span>Universo total</span><strong>158</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>0.00%</strong></div><div class='detail-picks'>SNOW</div></div></details></article><article class='model-card editable-block' data-block-id='model-base-v11' data-block-label='V11'><div class='model-card-head'><div><div class='model-card-title'>V11</div><div class='focus-meta'><span class='badge badge-base'>base</span> <span class='badge badge-stale'>4 ruedas atras</span></div></div><div class='rank-chip'>3</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,75.18 19.11,75.78 34.22,74.66 49.33,76.00 64.44,54.60 79.56,48.73 94.67,53.82 109.78,49.68 124.89,44.86 140.00,43.27 155.11,40.56 170.22,20.93 185.33,20.10 200.44,20.60 215.56,16.91 230.67,17.53 245.78,23.47 260.89,23.31 276.00,8.00 276,80' fill='#7db8d6' opacity='0.18' /><polyline points='4.00,75.18 19.11,75.78 34.22,74.66 49.33,76.00 64.44,54.60 79.56,48.73 94.67,53.82 109.78,49.68 124.89,44.86 140.00,43.27 155.11,40.56 170.22,20.93 185.33,20.10 200.44,20.60 215.56,16.91 230.67,17.53 245.78,23.47 260.89,23.31 276.00,8.00' fill='none' stroke='#7db8d6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='8.00' r='3.5' fill='#7db8d6' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>76.19%</strong></div><div class='model-kpi'><span>Ret</span><strong>+2.935%</strong></div><div class='model-kpi'><span>Hits</span><strong>32/42</strong></div><div class='model-kpi'><span>Activos</span><strong>1</strong></div></div><div class='ticker-cloud'><code>SNOW</code></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>76.19%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>+2.935%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>32 / 10</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+4.72%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-2.79%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-09 -> 2026-04-15</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>77.78% | +3.333%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-09</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-10 -> 2026-04-20</strong></div><div class='kpi-line'><span>Universo total</span><strong>120</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>0.00%</strong></div><div class='detail-picks'>SNOW</div></div></details></article><article class='model-card editable-block' data-block-id='model-observado-v10' data-block-label='V10'><div class='model-card-head'><div><div class='model-card-title'>V10</div><div class='focus-meta'><span class='badge badge-observed'>observado</span> <span class='badge badge-stale'>3 ruedas atras</span></div></div><div class='rank-chip'>4</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,76.00 19.11,66.27 34.22,74.71 49.33,68.82 64.44,66.81 79.56,58.81 94.67,58.53 109.78,74.77 124.89,70.27 140.00,41.16 155.11,33.00 170.22,30.24 185.33,22.77 200.44,16.65 215.56,20.69 230.67,9.77 245.78,19.62 260.89,8.25 276.00,8.00 276,80' fill='#5ed39d' opacity='0.18' /><polyline points='4.00,76.00 19.11,66.27 34.22,74.71 49.33,68.82 64.44,66.81 79.56,58.81 94.67,58.53 109.78,74.77 124.89,70.27 140.00,41.16 155.11,33.00 170.22,30.24 185.33,22.77 200.44,16.65 215.56,20.69 230.67,9.77 245.78,19.62 260.89,8.25 276.00,8.00' fill='none' stroke='#5ed39d' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='8.00' r='3.5' fill='#5ed39d' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>75.51%</strong></div><div class='model-kpi'><span>Ret</span><strong>+2.761%</strong></div><div class='model-kpi'><span>Hits</span><strong>37/49</strong></div><div class='model-kpi'><span>Activos</span><strong>1</strong></div></div><div class='ticker-cloud'><code>SNOW</code></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>75.51%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>+2.761%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>37 / 12</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+4.76%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-3.40%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-17 -> 2026-04-14</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>75.81% | +3.169%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-10</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-13 -> 2026-04-21</strong></div><div class='kpi-line'><span>Universo total</span><strong>157</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>0.00%</strong></div><div class='detail-picks'>SNOW</div></div></details></article><article class='model-card editable-block' data-block-id='model-referencia-v12' data-block-label='V12'><div class='model-card-head'><div><div class='model-card-title'>V12</div><div class='focus-meta'><span class='badge badge-reference'>referencia</span> <span class='badge badge-fresh'>al dia</span></div></div><div class='rank-chip'>6</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,76.00 19.11,75.04 34.22,72.89 49.33,60.50 64.44,54.65 79.56,50.73 94.67,41.47 109.78,37.91 124.89,34.63 140.00,33.89 155.11,29.87 170.22,24.67 185.33,20.57 200.44,19.51 215.56,10.32 230.67,8.00 245.78,10.72 260.89,12.83 276.00,14.72 276,80' fill='#f3c96a' opacity='0.18' /><polyline points='4.00,76.00 19.11,75.04 34.22,72.89 49.33,60.50 64.44,54.65 79.56,50.73 94.67,41.47 109.78,37.91 124.89,34.63 140.00,33.89 155.11,29.87 170.22,24.67 185.33,20.57 200.44,19.51 215.56,10.32 230.67,8.00 245.78,10.72 260.89,12.83 276.00,14.72' fill='none' stroke='#f3c96a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='14.72' r='3.5' fill='#f3c96a' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>69.15%</strong></div><div class='model-kpi'><span>Ret</span><strong>+3.217%</strong></div><div class='model-kpi'><span>Hits</span><strong>65/94</strong></div><div class='model-kpi'><span>Activos</span><strong>4</strong></div></div><div class='ticker-cloud'><code>GRMN</code><code>IREN</code><code>LRCX</code><code>ZM</code></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>69.15%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>+3.217%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>65 / 29</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+7.11%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-5.50%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-19 -> 2026-04-15</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>45.91% | -0.750%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-15</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-29</strong></div><div class='kpi-line'><span>Universo total</span><strong>191</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>100.00%</strong></div><div class='detail-picks'>GRMN, IREN, LRCX, ZM</div></div></details></article><article class='model-card editable-block' data-block-id='model-activo-v13' data-block-label='V13'><div class='model-card-head'><div><div class='model-card-title'>V13</div><div class='focus-meta'><span class='badge badge-active'>activo</span> <span class='badge badge-fresh'>al dia</span></div></div><div class='rank-chip'>7</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,76.00 19.11,75.02 34.22,72.85 49.33,60.26 64.44,54.32 79.56,50.34 94.67,40.93 109.78,37.32 124.89,33.98 140.00,33.24 155.11,29.15 170.22,23.88 185.33,20.76 200.44,19.69 215.56,10.36 230.67,8.00 245.78,10.76 260.89,12.91 276.00,14.82 276,80' fill='#23c9c8' opacity='0.18' /><polyline points='4.00,76.00 19.11,75.02 34.22,72.85 49.33,60.26 64.44,54.32 79.56,50.34 94.67,40.93 109.78,37.32 124.89,33.98 140.00,33.24 155.11,29.15 170.22,23.88 185.33,20.76 200.44,19.69 215.56,10.36 230.67,8.00 245.78,10.76 260.89,12.91 276.00,14.82' fill='none' stroke='#23c9c8' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='14.82' r='3.5' fill='#23c9c8' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>68.42%</strong></div><div class='model-kpi'><span>Ret</span><strong>+3.153%</strong></div><div class='model-kpi'><span>Hits</span><strong>65/95</strong></div><div class='model-kpi'><span>Activos</span><strong>4</strong></div></div><div class='ticker-cloud'><code>GRMN</code><code>IREN</code><code>LRCX</code><code>ZM</code></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>68.42%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>+3.153%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>65 / 30</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+7.11%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-5.41%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-19 -> 2026-04-15</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>45.70% | -0.760%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-15</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-29</strong></div><div class='kpi-line'><span>Universo total</span><strong>191</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>100.00%</strong></div><div class='detail-picks'>GRMN, IREN, LRCX, ZM</div></div></details></article></div>
+        </article>
+      </section>
+
+      <section class="secondary-grid" data-container-id="operations-grid" id="league">
+        <article class="panel editable-block" data-block-id="panel-league-ranking" data-block-label="Panel ranking igualado">
+          <div class="panel-head">
+            <div>
+              <div class="section-label">Liga principal</div>
+              <h2 class="section-title">Ranking igualado total</h2>
+            </div>
+            <span class="pill">19 ruedas activas</span>
+          </div>
+          <table class="data-table compact leaderboard-table">
+            <thead><tr><th>#</th><th>Modelo</th><th>WR</th><th>Muestra</th><th>Picks</th></tr></thead>
+            <tbody><tr><td><span class='rank-chip'>1</span></td><td><strong>V9</strong><br><span class='badge badge-observed'>observado</span></td><td>80.95%<br><span class='mini'>+3.956%</span></td><td>19/19<br><span class='mini'>42 picks</span></td><td class='tight'>SNOW</td></tr><tr><td><span class='rank-chip'>2</span></td><td><strong>V8</strong><br><span class='badge badge-observed'>observado</span></td><td>80.95%<br><span class='mini'>+3.956%</span></td><td>19/19<br><span class='mini'>42 picks</span></td><td class='tight'>SNOW</td></tr><tr><td><span class='rank-chip'>3</span></td><td><strong>V11</strong><br><span class='badge badge-base'>base</span></td><td>76.19%<br><span class='mini'>+2.935%</span></td><td>19/19<br><span class='mini'>42 picks</span></td><td class='tight'>SNOW</td></tr><tr><td><span class='rank-chip'>4</span></td><td><strong>V10</strong><br><span class='badge badge-observed'>observado</span></td><td>75.51%<br><span class='mini'>+2.761%</span></td><td>19/19<br><span class='mini'>49 picks</span></td><td class='tight'>SNOW</td></tr><tr><td><span class='rank-chip'>5</span></td><td><strong>ML_V97</strong><br><span class='badge badge-legacy'>legacy_ml</span></td><td>74.39%<br><span class='mini'>+4.839%</span></td><td>19/19<br><span class='mini'>285 picks</span></td><td class='tight'>AGRO, ARM, BAK, CAR, CDE</td></tr></tbody>
+          </table>
+          <div class="footer-note">Lider V9 | WR 80.95% | ret +3.956%</div>
+          <svg viewBox='0 0 240 58' class='sparkline'><polyline points='0,54 240,54' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,54 4.00,50.00 16.89,41.31 29.78,35.68 42.67,35.95 55.56,38.39 68.44,28.84 81.33,26.23 94.22,28.49 107.11,26.91 120.00,26.37 132.89,25.16 145.78,17.34 158.67,15.14 171.56,14.40 184.44,14.62 197.33,8.48 210.22,11.12 223.11,8.07 236.00,8.00 236,54' fill='#f0c96f' opacity='0.18' /><polyline points='4.00,50.00 16.89,41.31 29.78,35.68 42.67,35.95 55.56,38.39 68.44,28.84 81.33,26.23 94.22,28.49 107.11,26.91 120.00,26.37 132.89,25.16 145.78,17.34 158.67,15.14 171.56,14.40 184.44,14.62 197.33,8.48 210.22,11.12 223.11,8.07 236.00,8.00' fill='none' stroke='#f0c96f' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='236.00' cy='8.00' r='3.5' fill='#f0c96f' /></svg>
+        </article>
+
+        <article class="panel editable-block" data-block-id="panel-live-picks" data-block-label="Panel prediccion viva">
+          <div class="panel-head">
+            <div>
+              <div class="section-label">Prediccion viva</div>
+              <h2 class="section-title">V13 | activos actuales</h2>
+            </div>
+            <span class="pill">2026-04-16</span>
+          </div>
+          <table class="data-table compact">
+            <thead><tr><th>Ticker</th><th>Setup</th><th>Sector</th><th>Priority</th><th>Ret esp.</th><th>Risk</th></tr></thead>
+            <tbody><tr><td><strong>LRCX</strong></td><td>D (Leadership)</td><td>semis</td><td>57.5</td><td>+2.98%</td><td>9.6%</td></tr><tr><td><strong>ZM</strong></td><td>D (Leadership)</td><td>tech</td><td>57.5</td><td>+3.00%</td><td>7.6%</td></tr><tr><td><strong>IREN</strong></td><td>D (Leadership)</td><td>other</td><td>55.7</td><td>+2.29%</td><td>13.5%</td></tr><tr><td><strong>GRMN</strong></td><td>D (Leadership)</td><td>industrial</td><td>55.5</td><td>+2.18%</td><td>5.2%</td></tr></tbody>
+          </table>
+        </article>
+
+        <article class="panel editable-block" data-block-id="panel-control" data-block-label="Panel control operativo">
+          <div class="panel-head">
+            <div>
+              <div class="section-label">Control</div>
+              <h2 class="section-title">Estado operativo</h2>
+            </div>
+          </div>
+          <div class="dense-grid" data-container-id="control-mini-grid">
+            <div class="mini-card editable-block" data-block-id="mini-control-continuidad" data-block-label="Mini continuidad">
+              <div class="mini-title">Continuidad</div>
+              <div class="mini-value">30/30</div>
+              <div class="kpi-line"><span>Pred</span><strong>30</strong></div>
+              <div class="kpi-line"><span>Out</span><strong>30</strong></div>
+            </div>
+            <div class="mini-card editable-block" data-block-id="mini-control-snapshot" data-block-label="Mini snapshot">
+              <div class="mini-title">Snapshot</div>
+              <div class="mini-value">PELIGRO</div>
+              <div class="kpi-line"><span>prediction_for</span><strong>2026-04-16</strong></div>
+              <div class="kpi-line"><span>Memoria</span><strong>4</strong></div>
+            </div>
+            <div class="mini-card editable-block" data-block-id="mini-control-reference" data-block-label="Mini referencia">
+              <div class="mini-title">Referencia V12</div>
+              <div class="mini-value">69.15% | +3.217%</div>
+              <div class="kpi-line"><span>Ultimos activos</span><strong>4</strong></div>
+              <div class="kpi-line"><span>Fecha</span><strong>2026-04-15</strong></div>
+            </div>
+            <div class="mini-card editable-block" data-block-id="mini-control-honestidad" data-block-label="Mini honestidad">
+              <div class="mini-title">Honestidad</div>
+              <div class="mini-value">igual hoy</div>
+              <div class="kpi-line"><span>Fecha comun</span><strong>2026-04-15</strong></div>
+              <div class="kpi-line"><span>Cambios</span><strong>41</strong></div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="bottom-grid">
+      <section class="section panel editable-block" data-block-id="section-legacy-family" data-block-label="Legacy ML externos">
+        <div class="section-head">
+          <div>
+            <div class="section-label">Legacy ML externos</div>
+            <h2 class="section-title">Familia legacy ML</h2>
+          </div>
+        </div>
+        <div class="group-grid" data-container-id="legacy-group"><article class='model-card editable-block' data-block-id='model-legacy-ml-ml-v97' data-block-label='ML_V97'><div class='model-card-head'><div><div class='model-card-title'>ML_V97</div><div class='focus-meta'><span class='badge badge-legacy'>legacy_ml</span> <span class='badge badge-warn'>1 rueda atras</span></div></div><div class='rank-chip'>5</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,75.78 19.11,75.41 34.22,76.00 49.33,73.12 64.44,72.30 79.56,67.48 94.67,62.76 109.78,62.70 124.89,62.95 140.00,58.41 155.11,53.64 170.22,45.62 185.33,41.73 200.44,33.68 215.56,28.32 230.67,21.36 245.78,20.19 260.89,14.37 276.00,8.00 276,80' fill='#a989ff' opacity='0.18' /><polyline points='4.00,75.78 19.11,75.41 34.22,76.00 49.33,73.12 64.44,72.30 79.56,67.48 94.67,62.76 109.78,62.70 124.89,62.95 140.00,58.41 155.11,53.64 170.22,45.62 185.33,41.73 200.44,33.68 215.56,28.32 230.67,21.36 245.78,20.19 260.89,14.37 276.00,8.00' fill='none' stroke='#a989ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='8.00' r='3.5' fill='#a989ff' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>74.39%</strong></div><div class='model-kpi'><span>Ret</span><strong>+4.839%</strong></div><div class='model-kpi'><span>Hits</span><strong>212/285</strong></div><div class='model-kpi'><span>Activos</span><strong>15</strong></div></div><div class='ticker-cloud'><code>AGRO</code><code>ARM</code><code>BAK</code><code>CAR</code><code>CDE</code><code>GPRK</code><code>LAR</code><code>NG</code><span class='mini'>+7</span></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>74.39%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>+4.839%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>212 / 73</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+7.40%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-2.59%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-18 -> 2026-04-14</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>69.52% | +4.083%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-14</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-17</strong></div><div class='kpi-line'><span>Universo total</span><strong>56</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>0.00%</strong></div><div class='detail-picks'>AGRO, ARM, BAK, CAR, CDE, GPRK, LAR, NG, ORCL, PLTR, RIOT, SNAP, SNOW, SPCE, XRX</div></div></details></article><article class='model-card editable-block' data-block-id='model-legacy-ml-ml-v39' data-block-label='ML_V39'><div class='model-card-head'><div><div class='model-card-title'>ML_V39</div><div class='focus-meta'><span class='badge badge-legacy'>legacy_ml</span> <span class='badge badge-warn'>1 rueda atras</span></div></div><div class='rank-chip'>8</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,29.93 19.11,42.55 34.22,47.09 49.33,42.90 64.44,40.86 79.56,55.44 94.67,55.20 109.78,76.00 124.89,60.17 140.00,48.63 155.11,27.92 170.22,26.84 185.33,24.91 200.44,27.40 215.56,22.95 230.67,24.32 245.78,12.78 260.89,11.85 276.00,8.00 276,80' fill='#a989ff' opacity='0.18' /><polyline points='4.00,29.93 19.11,42.55 34.22,47.09 49.33,42.90 64.44,40.86 79.56,55.44 94.67,55.20 109.78,76.00 124.89,60.17 140.00,48.63 155.11,27.92 170.22,26.84 185.33,24.91 200.44,27.40 215.56,22.95 230.67,24.32 245.78,12.78 260.89,11.85 276.00,8.00' fill='none' stroke='#a989ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='8.00' r='3.5' fill='#a989ff' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>60.77%</strong></div><div class='model-kpi'><span>Ret</span><strong>+0.574%</strong></div><div class='model-kpi'><span>Hits</span><strong>79/130</strong></div><div class='model-kpi'><span>Activos</span><strong>10</strong></div></div><div class='ticker-cloud'><code>AMAT</code><code>AMD</code><code>AMZN</code><code>AVGO</code><code>CRM</code><code>INTC</code><code>META</code><code>MU</code><span class='mini'>+2</span></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>60.77%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>+0.574%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>79 / 51</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+2.57%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-2.52%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-19 -> 2026-04-15</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>57.21% | +0.554%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-14</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-15</strong></div><div class='kpi-line'><span>Universo total</span><strong>24</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>0.00%</strong></div><div class='detail-picks'>AMAT, AMD, AMZN, AVGO, CRM, INTC, META, MU, NKE, ORCL</div></div></details></article><article class='model-card editable-block' data-block-id='model-legacy-ml-ml-v39full' data-block-label='ML_V39FULL'><div class='model-card-head'><div><div class='model-card-title'>ML_V39FULL</div><div class='focus-meta'><span class='badge badge-legacy'>legacy_ml</span> <span class='badge badge-warn'>1 rueda atras</span></div></div><div class='rank-chip'>9</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,34.03 19.11,57.34 34.22,56.14 49.33,51.39 64.44,51.42 79.56,56.06 94.67,65.70 109.78,76.00 124.89,48.89 140.00,43.69 155.11,29.64 170.22,29.39 185.33,27.36 200.44,29.76 215.56,22.76 230.67,23.55 245.78,11.00 260.89,12.40 276.00,8.00 276,80' fill='#a989ff' opacity='0.18' /><polyline points='4.00,34.03 19.11,57.34 34.22,56.14 49.33,51.39 64.44,51.42 79.56,56.06 94.67,65.70 109.78,76.00 124.89,48.89 140.00,43.69 155.11,29.64 170.22,29.39 185.33,27.36 200.44,29.76 215.56,22.76 230.67,23.55 245.78,11.00 260.89,12.40 276.00,8.00' fill='none' stroke='#a989ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='8.00' r='3.5' fill='#a989ff' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>53.08%</strong></div><div class='model-kpi'><span>Ret</span><strong>+0.479%</strong></div><div class='model-kpi'><span>Hits</span><strong>69/130</strong></div><div class='model-kpi'><span>Activos</span><strong>10</strong></div></div><div class='ticker-cloud'><code>INTC</code><code>LRCX</code><code>MOS</code><code>MRVL</code><code>MU</code><code>NIO</code><code>ORCL</code><code>PANW</code><span class='mini'>+2</span></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>53.08%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>+0.479%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>69 / 61</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+3.25%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-2.66%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-19 -> 2026-04-15</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>50.23% | +0.225%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-14</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-15</strong></div><div class='kpi-line'><span>Universo total</span><strong>30</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>7.70%</strong></div><div class='detail-picks'>INTC, LRCX, MOS, MRVL, MU, NIO, ORCL, PANW, SNAP, TEAM</div></div></details></article><article class='model-card editable-block' data-block-id='model-legacy-ml-ml-v37' data-block-label='ML_V37'><div class='model-card-head'><div><div class='model-card-title'>ML_V37</div><div class='focus-meta'><span class='badge badge-legacy'>legacy_ml</span> <span class='badge badge-stale'>2 ruedas atras</span></div></div><div class='rank-chip'>10</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,38.47 19.11,38.20 34.22,27.04 49.33,41.21 64.44,29.08 79.56,20.20 94.67,8.00 109.78,16.57 124.89,34.23 140.00,60.46 155.11,50.99 170.22,55.68 185.33,61.04 200.44,62.31 215.56,62.17 230.67,72.16 245.78,76.00 260.89,61.91 276.00,59.42 276,80' fill='#a989ff' opacity='0.18' /><polyline points='4.00,38.47 19.11,38.20 34.22,27.04 49.33,41.21 64.44,29.08 79.56,20.20 94.67,8.00 109.78,16.57 124.89,34.23 140.00,60.46 155.11,50.99 170.22,55.68 185.33,61.04 200.44,62.31 215.56,62.17 230.67,72.16 245.78,76.00 260.89,61.91 276.00,59.42' fill='none' stroke='#a989ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='59.42' r='3.5' fill='#a989ff' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>52.38%</strong></div><div class='model-kpi'><span>Ret</span><strong>-0.281%</strong></div><div class='model-kpi'><span>Hits</span><strong>22/42</strong></div><div class='model-kpi'><span>Activos</span><strong>2</strong></div></div><div class='ticker-cloud'><code>ARM</code><code>PLTR</code></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>52.38%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>-0.281%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>22 / 20</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+1.80%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-2.57%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-16 -> 2026-04-14</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>46.88% | -0.202%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-13</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-14</strong></div><div class='kpi-line'><span>Universo total</span><strong>13</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>0.00%</strong></div><div class='detail-picks'>ARM, PLTR</div></div></details></article><article class='model-card editable-block' data-block-id='model-legacy-ml-ml-brain-v11' data-block-label='ML_BRAIN_V11'><div class='model-card-head'><div><div class='model-card-title'>ML_BRAIN_V11</div><div class='focus-meta'><span class='badge badge-legacy'>legacy_ml</span> <span class='badge badge-warn'>1 rueda atras</span></div></div><div class='rank-chip'>11</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,38.42 19.11,42.31 34.22,47.74 49.33,60.27 64.44,76.00 79.56,64.36 94.67,66.95 109.78,61.01 124.89,58.83 140.00,56.30 155.11,52.31 170.22,53.32 185.33,45.19 200.44,34.77 215.56,33.61 230.67,24.09 245.78,16.73 260.89,13.25 276.00,8.00 276,80' fill='#a989ff' opacity='0.18' /><polyline points='4.00,38.42 19.11,42.31 34.22,47.74 49.33,60.27 64.44,76.00 79.56,64.36 94.67,66.95 109.78,61.01 124.89,58.83 140.00,56.30 155.11,52.31 170.22,53.32 185.33,45.19 200.44,34.77 215.56,33.61 230.67,24.09 245.78,16.73 260.89,13.25 276.00,8.00' fill='none' stroke='#a989ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='8.00' r='3.5' fill='#a989ff' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>52.10%</strong></div><div class='model-kpi'><span>Ret</span><strong>+0.817%</strong></div><div class='model-kpi'><span>Hits</span><strong>87/167</strong></div><div class='model-kpi'><span>Activos</span><strong>13</strong></div></div><div class='ticker-cloud'><code>ASML</code><code>BBD</code><code>BHP</code><code>BIDU</code><code>GILD</code><code>GS</code><code>INTC</code><code>JD</code><span class='mini'>+5</span></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>52.10%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>+0.817%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>87 / 80</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+6.22%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-5.06%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-18 -> 2026-04-14</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>47.55% | +0.209%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-14</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-21</strong></div><div class='kpi-line'><span>Universo total</span><strong>73</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>0.00%</strong></div><div class='detail-picks'>ASML, BBD, BHP, BIDU, GILD, GS, INTC, JD, NVDA, SE, TSM, VZ, WFC</div></div></details></article><article class='model-card editable-block' data-block-id='model-legacy-ml-ml-brain-v11-opt' data-block-label='ML_BRAIN_V11_OPT'><div class='model-card-head'><div><div class='model-card-title'>ML_BRAIN_V11_OPT</div><div class='focus-meta'><span class='badge badge-legacy'>legacy_ml</span> <span class='badge badge-warn'>1 rueda atras</span></div></div><div class='rank-chip'>12</div></div><div class='model-card-chart'><svg viewBox='0 0 280 84' class='sparkline'><polyline points='0,80 280,80' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,80 4.00,44.23 19.11,44.50 34.22,49.98 49.33,53.77 64.44,59.33 79.56,60.73 94.67,64.85 109.78,69.27 124.89,74.25 140.00,76.00 155.11,72.01 170.22,61.74 185.33,52.01 200.44,45.24 215.56,31.27 230.67,22.14 245.78,16.88 260.89,11.27 276.00,8.00 276,80' fill='#a989ff' opacity='0.18' /><polyline points='4.00,44.23 19.11,44.50 34.22,49.98 49.33,53.77 64.44,59.33 79.56,60.73 94.67,64.85 109.78,69.27 124.89,74.25 140.00,76.00 155.11,72.01 170.22,61.74 185.33,52.01 200.44,45.24 215.56,31.27 230.67,22.14 245.78,16.88 260.89,11.27 276.00,8.00' fill='none' stroke='#a989ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='276.00' cy='8.00' r='3.5' fill='#a989ff' /></svg></div><div class='model-card-kpis'><div class='model-kpi'><span>WR</span><strong>51.44%</strong></div><div class='model-kpi'><span>Ret</span><strong>+0.746%</strong></div><div class='model-kpi'><span>Hits</span><strong>125/243</strong></div><div class='model-kpi'><span>Activos</span><strong>5</strong></div></div><div class='ticker-cloud'><code>GOLD</code><code>ORCL</code><code>SAP</code><code>SNOW</code><code>VZ</code></div><details class='card-details'><summary>Mas data</summary><div class='card-details-body'><div class='kpi-line'><span>WR igualado</span><strong>51.44%</strong></div><div class='kpi-line'><span>Ret igualado</span><strong>+0.746%</strong></div><div class='kpi-line'><span>Hits / Misses</span><strong>125 / 118</strong></div><div class='kpi-line'><span>Ganancia media aciertos</span><strong>+5.34%</strong></div><div class='kpi-line'><span>Perdida media errores</span><strong>-4.12%</strong></div><div class='kpi-line'><span>Rango muestra igualada</span><strong>2026-03-18 -> 2026-04-14</strong></div><div class='kpi-line'><span>Contexto 30 ruedas</span><strong>50.88% | +0.596%</strong></div><div class='kpi-line'><span>Ultima fecha</span><strong>2026-04-14</strong></div><div class='kpi-line'><span>Target de picks</span><strong>2026-04-21</strong></div><div class='kpi-line'><span>Universo total</span><strong>55</strong></div><div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>0.00%</strong></div><div class='detail-picks'>GOLD, ORCL, SAP, SNOW, VZ</div></div></details></article></div>
+      </section>
+
+      <section class="section panel editable-block" data-block-id="section-heatmap" data-block-label="Heatmap" id="heatmap">
+        <div class="section-head">
+          <div>
+            <div class="section-label">Heatmap</div>
+            <h2 class="section-title">Rendimiento por rueda</h2>
+          </div>
+        </div>
+        <table class='heat-table'><thead><tr><th></th><th>03-25</th><th>03-26</th><th>03-27</th><th>03-30</th><th>03-31</th><th>04-01</th><th>04-02</th><th>04-06</th><th>04-07</th><th>04-08</th><th>04-09</th><th>04-10</th><th>04-13</th><th>04-14</th><th>04-15</th></tr></thead><tbody><tr><th class='row-label'><strong>V13</strong><br><span class='mini'>activo</span></th><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='V13 | 2026-03-25
+ret +5.43% | WR 87.50% | picks 8
+EQNR, OXY, BP, MU, SHEL, NG, AEM, B' data-preview='V13 | 2026-03-25
+ret +5.43% | WR 87.50% | picks 8
+EQNR, OXY, BP, MU, SHEL, NG, AEM, B'>+5.4</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.530)' title='V13 | 2026-03-26
+ret +3.64% | WR 71.43% | picks 7
+EQNR, AEM, NEM, CDE, HMY, MUX, PAAS' data-preview='V13 | 2026-03-26
+ret +3.64% | WR 71.43% | picks 7
+EQNR, AEM, NEM, CDE, HMY, MUX, PAAS'>+3.6</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='V13 | 2026-03-27
+ret +8.60% | WR 100.00% | picks 3
+OXY, BP, SHEL' data-preview='V13 | 2026-03-27
+ret +8.60% | WR 100.00% | picks 3
+OXY, BP, SHEL'>+8.6</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.497)' title='V13 | 2026-03-30
+ret +3.31% | WR 100.00% | picks 4
+BP, NG, AEM, B' data-preview='V13 | 2026-03-30
+ret +3.31% | WR 100.00% | picks 4
+BP, NG, AEM, B'>+3.3</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.473)' title='V13 | 2026-03-31
+ret +3.05% | WR 70.00% | picks 10
+EBAY, BP, MU, RKLB, AEM, NEM, CDE, HMY, MUX, PAAS' data-preview='V13 | 2026-03-31
+ret +3.05% | WR 70.00% | picks 10
+EBAY, BP, MU, RKLB, AEM, NEM, CDE, HMY, MUX, PAAS'>+3.1</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.246)' title='V13 | 2026-04-01
+ret +0.68% | WR 100.00% | picks 1
+SYY' data-preview='V13 | 2026-04-01
+ret +0.68% | WR 100.00% | picks 1
+SYY'>+0.7</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.539)' title='V13 | 2026-04-02
+ret +3.74% | WR 100.00% | picks 2
+OXY, SHEL' data-preview='V13 | 2026-04-02
+ret +3.74% | WR 100.00% | picks 2
+OXY, SHEL'>+3.7</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.643)' title='V13 | 2026-04-06
+ret +4.83% | WR 75.00% | picks 4
+BP, SHEL, PSX, NKE' data-preview='V13 | 2026-04-06
+ret +4.83% | WR 75.00% | picks 4
+BP, SHEL, PSX, NKE'>+4.8</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.453)' title='V13 | 2026-04-07
+ret +2.85% | WR 71.43% | picks 7
+ERIC, EQNR, E, OXY, PSX, SHEL, SYY' data-preview='V13 | 2026-04-07
+ret +2.85% | WR 71.43% | picks 7
+ERIC, EQNR, E, OXY, PSX, SHEL, SYY'>+2.8</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.274)' title='V13 | 2026-04-08
+ret +0.98% | WR 100.00% | picks 4
+EQNR, BP, SHEL, TTE' data-preview='V13 | 2026-04-08
+ret +0.98% | WR 100.00% | picks 4
+EQNR, BP, SHEL, TTE'>+1.0</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='V13 | 2026-04-09
+ret +8.54% | WR 66.67% | picks 3
+MRVL, E, NKE' data-preview='V13 | 2026-04-09
+ret +8.54% | WR 66.67% | picks 3
+MRVL, E, NKE'>+8.5</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.387)' title='V13 | 2026-04-10
+ret +2.16% | WR 60.00% | picks 5
+MRVL, BP, PSX, SYY, SNOW' data-preview='V13 | 2026-04-10
+ret +2.16% | WR 60.00% | picks 5
+MRVL, BP, PSX, SYY, SNOW'>+2.2</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.423)' title='V13 | 2026-04-13
+ret -2.53% | WR 0.00% | picks 3
+BP, E, HAL' data-preview='V13 | 2026-04-13
+ret -2.53% | WR 0.00% | picks 3
+BP, E, HAL'>-2.5</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.368)' title='V13 | 2026-04-14
+ret -1.96% | WR 50.00% | picks 2
+BP, NKE' data-preview='V13 | 2026-04-14
+ret -1.96% | WR 50.00% | picks 2
+BP, NKE'>-2.0</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.348)' title='V13 | 2026-04-15
+ret -1.75% | WR 25.00% | picks 4
+BP, PSX, SHEL, SNOW' data-preview='V13 | 2026-04-15
+ret -1.75% | WR 25.00% | picks 4
+BP, PSX, SHEL, SNOW'>-1.8</td></tr><tr><th class='row-label'><strong>V9</strong><br><span class='mini'>observado</span></th><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V9 | 2026-03-25
+ret - | WR - | picks 0
+Sin picks' data-preview='V9 | 2026-03-25
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V9 | 2026-03-26
+ret - | WR - | picks 0
+Sin picks' data-preview='V9 | 2026-03-26
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V9 | 2026-03-27
+ret - | WR - | picks 0
+Sin picks' data-preview='V9 | 2026-03-27
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.334)' title='V9 | 2026-03-30
+ret +1.60% | WR 100.00% | picks 3
+NG, AEM, B' data-preview='V9 | 2026-03-30
+ret +1.60% | WR 100.00% | picks 3
+NG, AEM, B'>+1.6</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='V9 | 2026-03-31
+ret +10.35% | WR 100.00% | picks 8
+NG, HMY, PAAS, CDE, MUX, AEM, NEM, SYY' data-preview='V9 | 2026-03-31
+ret +10.35% | WR 100.00% | picks 8
+NG, HMY, PAAS, CDE, MUX, AEM, NEM, SYY'>+10.4</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.458)' title='V9 | 2026-04-01
+ret +2.90% | WR 100.00% | picks 2
+CDE, SYY' data-preview='V9 | 2026-04-01
+ret +2.90% | WR 100.00% | picks 2
+CDE, SYY'>+2.9</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.274)' title='V9 | 2026-04-02
+ret +0.98% | WR 100.00% | picks 1
+NKE' data-preview='V9 | 2026-04-02
+ret +0.98% | WR 100.00% | picks 1
+NKE'>+1.0</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.208)' title='V9 | 2026-04-06
+ret -0.29% | WR 0.00% | picks 1
+NKE' data-preview='V9 | 2026-04-06
+ret -0.29% | WR 0.00% | picks 1
+NKE'>-0.3</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V9 | 2026-04-07
+ret - | WR - | picks 0
+Sin picks' data-preview='V9 | 2026-04-07
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V9 | 2026-04-08
+ret - | WR - | picks 0
+Sin picks' data-preview='V9 | 2026-04-08
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='V9 | 2026-04-09
+ret +8.13% | WR 100.00% | picks 1
+SYY' data-preview='V9 | 2026-04-09
+ret +8.13% | WR 100.00% | picks 1
+SYY'>+8.1</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.516)' title='V9 | 2026-04-10
+ret -3.50% | WR 50.00% | picks 2
+SYY, SNOW' data-preview='V9 | 2026-04-10
+ret -3.50% | WR 50.00% | picks 2
+SYY, SNOW'>-3.5</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.568)' title='V9 | 2026-04-13
+ret +4.04% | WR 50.00% | picks 2
+NKE, SNOW' data-preview='V9 | 2026-04-13
+ret +4.04% | WR 50.00% | picks 2
+NKE, SNOW'>+4.0</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.189)' title='V9 | 2026-04-14
+ret +0.09% | WR 100.00% | picks 1
+NKE' data-preview='V9 | 2026-04-14
+ret +0.09% | WR 100.00% | picks 1
+NKE'>+0.1</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V9 | 2026-04-15
+ret - | WR - | picks 0
+Sin picks' data-preview='V9 | 2026-04-15
+ret - | WR - | picks 0
+Sin picks'>-</td></tr><tr><th class='row-label'><strong>V8</strong><br><span class='mini'>observado</span></th><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V8 | 2026-03-25
+ret - | WR - | picks 0
+Sin picks' data-preview='V8 | 2026-03-25
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V8 | 2026-03-26
+ret - | WR - | picks 0
+Sin picks' data-preview='V8 | 2026-03-26
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V8 | 2026-03-27
+ret - | WR - | picks 0
+Sin picks' data-preview='V8 | 2026-03-27
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.334)' title='V8 | 2026-03-30
+ret +1.60% | WR 100.00% | picks 3
+NG, AEM, B' data-preview='V8 | 2026-03-30
+ret +1.60% | WR 100.00% | picks 3
+NG, AEM, B'>+1.6</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='V8 | 2026-03-31
+ret +10.35% | WR 100.00% | picks 8
+NG, HMY, PAAS, CDE, MUX, AEM, NEM, SYY' data-preview='V8 | 2026-03-31
+ret +10.35% | WR 100.00% | picks 8
+NG, HMY, PAAS, CDE, MUX, AEM, NEM, SYY'>+10.4</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.458)' title='V8 | 2026-04-01
+ret +2.90% | WR 100.00% | picks 2
+CDE, SYY' data-preview='V8 | 2026-04-01
+ret +2.90% | WR 100.00% | picks 2
+CDE, SYY'>+2.9</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.274)' title='V8 | 2026-04-02
+ret +0.98% | WR 100.00% | picks 1
+NKE' data-preview='V8 | 2026-04-02
+ret +0.98% | WR 100.00% | picks 1
+NKE'>+1.0</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.208)' title='V8 | 2026-04-06
+ret -0.29% | WR 0.00% | picks 1
+NKE' data-preview='V8 | 2026-04-06
+ret -0.29% | WR 0.00% | picks 1
+NKE'>-0.3</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V8 | 2026-04-07
+ret - | WR - | picks 0
+Sin picks' data-preview='V8 | 2026-04-07
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V8 | 2026-04-08
+ret - | WR - | picks 0
+Sin picks' data-preview='V8 | 2026-04-08
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='V8 | 2026-04-09
+ret +8.13% | WR 100.00% | picks 1
+SYY' data-preview='V8 | 2026-04-09
+ret +8.13% | WR 100.00% | picks 1
+SYY'>+8.1</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.516)' title='V8 | 2026-04-10
+ret -3.50% | WR 50.00% | picks 2
+SYY, SNOW' data-preview='V8 | 2026-04-10
+ret -3.50% | WR 50.00% | picks 2
+SYY, SNOW'>-3.5</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.568)' title='V8 | 2026-04-13
+ret +4.04% | WR 50.00% | picks 2
+NKE, SNOW' data-preview='V8 | 2026-04-13
+ret +4.04% | WR 50.00% | picks 2
+NKE, SNOW'>+4.0</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.189)' title='V8 | 2026-04-14
+ret +0.09% | WR 100.00% | picks 1
+NKE' data-preview='V8 | 2026-04-14
+ret +0.09% | WR 100.00% | picks 1
+NKE'>+0.1</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V8 | 2026-04-15
+ret - | WR - | picks 0
+Sin picks' data-preview='V8 | 2026-04-15
+ret - | WR - | picks 0
+Sin picks'>-</td></tr><tr><th class='row-label'><strong>V11</strong><br><span class='mini'>base</span></th><td class='heat-cell' style='background:rgba(94, 211, 157, 0.453)' title='V11 | 2026-03-25
+ret +2.84% | WR 100.00% | picks 3
+NG, AEM, B' data-preview='V11 | 2026-03-25
+ret +2.84% | WR 100.00% | picks 3
+NG, AEM, B'>+2.8</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.270)' title='V11 | 2026-03-26
+ret +0.94% | WR 66.67% | picks 6
+HMY, PAAS, CDE, MUX, AEM, NEM' data-preview='V11 | 2026-03-26
+ret +0.94% | WR 66.67% | picks 6
+HMY, PAAS, CDE, MUX, AEM, NEM'>+0.9</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V11 | 2026-03-27
+ret - | WR - | picks 0
+Sin picks' data-preview='V11 | 2026-03-27
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.334)' title='V11 | 2026-03-30
+ret +1.60% | WR 100.00% | picks 3
+NG, AEM, B' data-preview='V11 | 2026-03-30
+ret +1.60% | WR 100.00% | picks 3
+NG, AEM, B'>+1.6</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='V11 | 2026-03-31
+ret +11.58% | WR 100.00% | picks 6
+HMY, PAAS, CDE, MUX, AEM, NEM' data-preview='V11 | 2026-03-31
+ret +11.58% | WR 100.00% | picks 6
+HMY, PAAS, CDE, MUX, AEM, NEM'>+11.6</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.227)' title='V11 | 2026-04-01
+ret +0.49% | WR 100.00% | picks 1
+SYY' data-preview='V11 | 2026-04-01
+ret +0.49% | WR 100.00% | picks 1
+SYY'>+0.5</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V11 | 2026-04-02
+ret - | WR - | picks 0
+Sin picks' data-preview='V11 | 2026-04-02
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.208)' title='V11 | 2026-04-06
+ret -0.29% | WR 0.00% | picks 1
+NKE' data-preview='V11 | 2026-04-06
+ret -0.29% | WR 0.00% | picks 1
+NKE'>-0.3</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.389)' title='V11 | 2026-04-07
+ret +2.18% | WR 100.00% | picks 1
+SYY' data-preview='V11 | 2026-04-07
+ret +2.18% | WR 100.00% | picks 1
+SYY'>+2.2</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V11 | 2026-04-08
+ret - | WR - | picks 0
+Sin picks' data-preview='V11 | 2026-04-08
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.215)' title='V11 | 2026-04-09
+ret -0.36% | WR 0.00% | picks 1
+NKE' data-preview='V11 | 2026-04-09
+ret -0.36% | WR 0.00% | picks 1
+NKE'>-0.4</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.516)' title='V11 | 2026-04-10
+ret -3.50% | WR 50.00% | picks 2
+SNOW, SYY' data-preview='V11 | 2026-04-10
+ret -3.50% | WR 50.00% | picks 2
+SNOW, SYY'>-3.5</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='V11 | 2026-04-13
+ret - | WR - | picks 0
+Sin picks' data-preview='V11 | 2026-04-13
+ret - | WR - | picks 0
+Sin picks'>-</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.189)' title='V11 | 2026-04-14
+ret +0.09% | WR 100.00% | picks 1
+NKE' data-preview='V11 | 2026-04-14
+ret +0.09% | WR 100.00% | picks 1
+NKE'>+0.1</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='V11 | 2026-04-15
+ret +9.04% | WR 100.00% | picks 1
+SNOW' data-preview='V11 | 2026-04-15
+ret +9.04% | WR 100.00% | picks 1
+SNOW'>+9.0</td></tr><tr><th class='row-label'><strong>ML_V97</strong><br><span class='mini'>legacy_ml</span></th><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V97 | 2026-03-25
+ret +6.50% | WR 100.00% | picks 15
+AGRO, BAK, CDE, GLW, HDB, HL, LAR, MRNA, MUX, NG, NIO, RIOT' data-preview='ML_V97 | 2026-03-25
+ret +6.50% | WR 100.00% | picks 15
+AGRO, BAK, CDE, GLW, HDB, HL, LAR, MRNA, MUX, NG, NIO, RIOT'>+6.5</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V97 | 2026-03-26
+ret +6.38% | WR 100.00% | picks 15
+AGRO, BAK, CDE, GLW, HL, LAC, LAR, MRNA, MUX, NG, NXE, RIOT' data-preview='ML_V97 | 2026-03-26
+ret +6.38% | WR 100.00% | picks 15
+AGRO, BAK, CDE, GLW, HL, LAC, LAR, MRNA, MUX, NG, NXE, RIOT'>+6.4</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.187)' title='ML_V97 | 2026-03-27
+ret +0.08% | WR 46.67% | picks 15
+AGRO, ARM, BAK, CDE, COIN, ETSY, GLW, LAR, MRNA, NG, NIO, NXE' data-preview='ML_V97 | 2026-03-27
+ret +0.08% | WR 46.67% | picks 15
+AGRO, ARM, BAK, CDE, COIN, ETSY, GLW, LAR, MRNA, NG, NIO, NXE'>+0.1</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.212)' title='ML_V97 | 2026-03-30
+ret -0.33% | WR 33.33% | picks 15
+AGRO, ARM, BAK, CDE, COIN, GLW, HL, INTC, LAC, LAR, MUX, NG' data-preview='ML_V97 | 2026-03-30
+ret -0.33% | WR 33.33% | picks 15
+AGRO, ARM, BAK, CDE, COIN, GLW, HL, INTC, LAC, LAR, MUX, NG'>-0.3</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V97 | 2026-03-31
+ret +6.13% | WR 86.67% | picks 15
+AGRO, AMD, ARM, BAK, CAAP, CAR, CDE, GLW, HL, KGC, LAR, MUX' data-preview='ML_V97 | 2026-03-31
+ret +6.13% | WR 86.67% | picks 15
+AGRO, AMD, ARM, BAK, CAAP, CAR, CDE, GLW, HL, KGC, LAR, MUX'>+6.1</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V97 | 2026-04-01
+ret +6.44% | WR 86.67% | picks 15
+AGRO, ARM, BAK, CAR, COIN, GLW, HL, LAR, NG, RIOT, SID, SNAP' data-preview='ML_V97 | 2026-04-01
+ret +6.44% | WR 86.67% | picks 15
+AGRO, ARM, BAK, CAR, COIN, GLW, HL, LAR, NG, RIOT, SID, SNAP'>+6.4</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V97 | 2026-04-02
+ret +10.82% | WR 100.00% | picks 15
+AGRO, ARM, BAK, CAR, CDE, GLW, HL, LAC, LAR, MUX, NG, RIOT' data-preview='ML_V97 | 2026-04-02
+ret +10.82% | WR 100.00% | picks 15
+AGRO, ARM, BAK, CAR, CDE, GLW, HL, LAC, LAR, MUX, NG, RIOT'>+10.8</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V97 | 2026-04-06
+ret +5.25% | WR 60.00% | picks 15
+AGRO, ARM, BAK, CAR, CDE, GLW, HL, LAC, LAR, NG, RIOT, SID' data-preview='ML_V97 | 2026-04-06
+ret +5.25% | WR 60.00% | picks 15
+AGRO, ARM, BAK, CAR, CDE, GLW, HL, LAC, LAR, NG, RIOT, SID'>+5.3</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V97 | 2026-04-07
+ret +10.87% | WR 86.67% | picks 15
+AGRO, BAK, CAR, CDE, COIN, GLW, HL, LAC, LAR, MUX, NG, RIOT' data-preview='ML_V97 | 2026-04-07
+ret +10.87% | WR 86.67% | picks 15
+AGRO, BAK, CAR, CDE, COIN, GLW, HL, LAC, LAR, MUX, NG, RIOT'>+10.9</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V97 | 2026-04-08
+ret +7.24% | WR 86.67% | picks 15
+AGRO, ARM, CAR, COIN, GLW, HL, INTC, LAC, LAR, LRCX, NOK, SNAP' data-preview='ML_V97 | 2026-04-08
+ret +7.24% | WR 86.67% | picks 15
+AGRO, ARM, CAR, COIN, GLW, HL, INTC, LAC, LAR, LRCX, NOK, SNAP'>+7.2</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V97 | 2026-04-09
+ret +9.39% | WR 93.33% | picks 15
+AGRO, BAK, CAR, CDE, COIN, GLW, HL, INTC, LAC, LAR, NG, RIOT' data-preview='ML_V97 | 2026-04-09
+ret +9.39% | WR 93.33% | picks 15
+AGRO, BAK, CAR, CDE, COIN, GLW, HL, INTC, LAC, LAR, NG, RIOT'>+9.4</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.332)' title='ML_V97 | 2026-04-10
+ret +1.58% | WR 46.67% | picks 15
+AGRO, ARM, BAK, CAR, CDE, COIN, HL, INTC, LAC, LAR, MUX, NG' data-preview='ML_V97 | 2026-04-10
+ret +1.58% | WR 46.67% | picks 15
+AGRO, ARM, BAK, CAR, CDE, COIN, HL, INTC, LAC, LAR, MUX, NG'>+1.6</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V97 | 2026-04-13
+ret +7.86% | WR 86.67% | picks 15
+ARM, BAK, CAR, CDE, COIN, INTC, LAC, LAR, MUX, NG, PLTR, RIOT' data-preview='ML_V97 | 2026-04-13
+ret +7.86% | WR 86.67% | picks 15
+ARM, BAK, CAR, CDE, COIN, INTC, LAC, LAR, MUX, NG, PLTR, RIOT'>+7.9</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V97 | 2026-04-14
+ret +8.59% | WR 100.00% | picks 15
+AGRO, BAK, CAR, CDE, COIN, GLOB, GLW, LAR, NG, NIO, PLTR, RIOT' data-preview='ML_V97 | 2026-04-14
+ret +8.59% | WR 100.00% | picks 15
+AGRO, BAK, CAR, CDE, COIN, GLOB, GLW, LAR, NG, NIO, PLTR, RIOT'>+8.6</td><td class='heat-cell' style='background:rgba(255,255,255,0.06)' title='ML_V97 | 2026-04-15
+ret - | WR - | picks 0
+Sin picks' data-preview='ML_V97 | 2026-04-15
+ret - | WR - | picks 0
+Sin picks'>-</td></tr><tr><th class='row-label'><strong>ML_V39</strong><br><span class='mini'>legacy_ml</span></th><td class='heat-cell' style='background:rgba(94, 211, 157, 0.232)' title='ML_V39 | 2026-03-25
+ret +0.54% | WR 40.00% | picks 5
+AMAT, INTC, MU, ORCL, SLB' data-preview='ML_V39 | 2026-03-25
+ret +0.54% | WR 40.00% | picks 5
+AMAT, INTC, MU, ORCL, SLB'>+0.5</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.550)' title='ML_V39 | 2026-03-26
+ret -3.85% | WR 20.00% | picks 5
+AMAT, AMD, INTC, MU, SLB' data-preview='ML_V39 | 2026-03-26
+ret -3.85% | WR 20.00% | picks 5
+AMAT, AMD, INTC, MU, SLB'>-3.9</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.186)' title='ML_V39 | 2026-03-27
+ret +0.06% | WR 40.00% | picks 5
+AMAT, AMD, INTC, MU, SLB' data-preview='ML_V39 | 2026-03-27
+ret +0.06% | WR 40.00% | picks 5
+AMAT, AMD, INTC, MU, SLB'>+0.1</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.660)' title='ML_V39 | 2026-03-30
+ret -5.49% | WR 20.00% | picks 5
+AMAT, AMD, INTC, META, MU' data-preview='ML_V39 | 2026-03-30
+ret -5.49% | WR 20.00% | picks 5
+AMAT, AMD, INTC, META, MU'>-5.5</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.581)' title='ML_V39 | 2026-03-31
+ret +4.18% | WR 100.00% | picks 5
+AMAT, AMD, INTC, META, MU' data-preview='ML_V39 | 2026-03-31
+ret +4.18% | WR 100.00% | picks 5
+AMAT, AMD, INTC, META, MU'>+4.2</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.473)' title='ML_V39 | 2026-04-01
+ret +3.05% | WR 80.00% | picks 5
+AMAT, AMD, INTC, MU, SLB' data-preview='ML_V39 | 2026-04-01
+ret +3.05% | WR 80.00% | picks 5
+AMAT, AMD, INTC, MU, SLB'>+3.1</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V39 | 2026-04-02
+ret +5.47% | WR 100.00% | picks 5
+AMAT, AMD, INTC, MU, NKE' data-preview='ML_V39 | 2026-04-02
+ret +5.47% | WR 100.00% | picks 5
+AMAT, AMD, INTC, MU, NKE'>+5.5</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.208)' title='ML_V39 | 2026-04-06
+ret +0.29% | WR 60.00% | picks 5
+AMAT, AMD, INTC, MU, NKE' data-preview='ML_V39 | 2026-04-06
+ret +0.29% | WR 60.00% | picks 5
+AMAT, AMD, INTC, MU, NKE'>+0.3</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.229)' title='ML_V39 | 2026-04-07
+ret +0.51% | WR 80.00% | picks 10
+AMAT, AMD, INTC, META, MU, NKE, OXY, SBUX, SLB, TSLA' data-preview='ML_V39 | 2026-04-07
+ret +0.51% | WR 80.00% | picks 10
+AMAT, AMD, INTC, META, MU, NKE, OXY, SBUX, SLB, TSLA'>+0.5</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.243)' title='ML_V39 | 2026-04-08
+ret -0.66% | WR 30.00% | picks 10
+AMD, AVGO, CVS, INTC, MU, NKE, ORCL, SLB, TSLA, UNH' data-preview='ML_V39 | 2026-04-08
+ret -0.66% | WR 30.00% | picks 10
+AMD, AVGO, CVS, INTC, MU, NKE, ORCL, SLB, TSLA, UNH'>-0.7</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.293)' title='ML_V39 | 2026-04-09
+ret +1.17% | WR 80.00% | picks 10
+AMAT, AMD, AVGO, INTC, META, MU, NKE, ORCL, OXY, TSLA' data-preview='ML_V39 | 2026-04-09
+ret +1.17% | WR 80.00% | picks 10
+AMAT, AMD, AVGO, INTC, META, MU, NKE, ORCL, OXY, TSLA'>+1.2</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.215)' title='ML_V39 | 2026-04-10
+ret -0.36% | WR 50.00% | picks 10
+AMAT, AVGO, CRM, GE, INTC, META, MU, NKE, ORCL, TSLA' data-preview='ML_V39 | 2026-04-10
+ret -0.36% | WR 50.00% | picks 10
+AMAT, AVGO, CRM, GE, INTC, META, MU, NKE, ORCL, TSLA'>-0.4</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.473)' title='ML_V39 | 2026-04-13
+ret +3.05% | WR 90.00% | picks 10
+AMAT, AMD, AVGO, CRM, INTC, META, MU, NKE, ORCL, UNH' data-preview='ML_V39 | 2026-04-13
+ret +3.05% | WR 90.00% | picks 10
+AMAT, AMD, AVGO, CRM, INTC, META, MU, NKE, ORCL, UNH'>+3.0</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.204)' title='ML_V39 | 2026-04-14
+ret +0.25% | WR 50.00% | picks 10
+ADBE, AMAT, AMD, AVGO, CRM, INTC, MU, NKE, ORCL, UNH' data-preview='ML_V39 | 2026-04-14
+ret +0.25% | WR 50.00% | picks 10
+ADBE, AMAT, AMD, AVGO, CRM, INTC, MU, NKE, ORCL, UNH'>+0.2</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.278)' title='ML_V39 | 2026-04-15
+ret +1.02% | WR 80.00% | picks 10
+AMAT, AMD, AMZN, AVGO, CRM, INTC, META, MU, NKE, ORCL' data-preview='ML_V39 | 2026-04-15
+ret +1.02% | WR 80.00% | picks 10
+AMAT, AMD, AMZN, AVGO, CRM, INTC, META, MU, NKE, ORCL'>+1.0</td></tr><tr><th class='row-label'><strong>ML_V39FULL</strong><br><span class='mini'>legacy_ml</span></th><td class='heat-cell' style='background:rgba(255, 122, 122, 0.181)' title='ML_V39FULL | 2026-03-25
+ret -0.01% | WR 40.00% | picks 5
+DOW, MOS, MU, NIO, TEAM' data-preview='ML_V39FULL | 2026-03-25
+ret -0.01% | WR 40.00% | picks 5
+DOW, MOS, MU, NIO, TEAM'>-0.0</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.282)' title='ML_V39FULL | 2026-03-26
+ret -1.07% | WR 20.00% | picks 5
+MOS, MRVL, MU, NIO, TEAM' data-preview='ML_V39FULL | 2026-03-26
+ret -1.07% | WR 20.00% | picks 5
+MOS, MRVL, MU, NIO, TEAM'>-1.1</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.393)' title='ML_V39FULL | 2026-03-27
+ret -2.22% | WR 20.00% | picks 5
+LRCX, MRNA, MRVL, MU, SNAP' data-preview='ML_V39FULL | 2026-03-27
+ret -2.22% | WR 20.00% | picks 5
+LRCX, MRNA, MRVL, MU, SNAP'>-2.2</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.408)' title='ML_V39FULL | 2026-03-30
+ret -2.37% | WR 40.00% | picks 5
+DOW, MRNA, MU, NIO, TEAM' data-preview='ML_V39FULL | 2026-03-30
+ret -2.37% | WR 40.00% | picks 5
+DOW, MRNA, MU, NIO, TEAM'>-2.4</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.660)' title='ML_V39FULL | 2026-03-31
+ret +6.25% | WR 100.00% | picks 5
+LRCX, MU, NIO, SNAP, TEAM' data-preview='ML_V39FULL | 2026-03-31
+ret +6.25% | WR 100.00% | picks 5
+LRCX, MU, NIO, SNAP, TEAM'>+6.2</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.295)' title='ML_V39FULL | 2026-04-01
+ret +1.20% | WR 60.00% | picks 5
+DOW, MRNA, MRVL, MU, NIO' data-preview='ML_V39FULL | 2026-04-01
+ret +1.20% | WR 60.00% | picks 5
+DOW, MRNA, MRVL, MU, NIO'>+1.2</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.491)' title='ML_V39FULL | 2026-04-02
+ret +3.24% | WR 80.00% | picks 5
+MRVL, MU, NIO, NKE, SNAP' data-preview='ML_V39FULL | 2026-04-02
+ret +3.24% | WR 80.00% | picks 5
+MRVL, MU, NIO, NKE, SNAP'>+3.2</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.186)' title='ML_V39FULL | 2026-04-06
+ret +0.06% | WR 60.00% | picks 5
+MRVL, MU, NIO, NKE, SNAP' data-preview='ML_V39FULL | 2026-04-06
+ret +0.06% | WR 60.00% | picks 5
+MRVL, MU, NIO, NKE, SNAP'>+0.1</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.225)' title='ML_V39FULL | 2026-04-07
+ret +0.47% | WR 60.00% | picks 10
+DOW, ETSY, GOLD, INTC, MRVL, MSTR, MU, NIO, NKE, SNAP' data-preview='ML_V39FULL | 2026-04-07
+ret +0.47% | WR 60.00% | picks 10
+DOW, ETSY, GOLD, INTC, MRVL, MSTR, MU, NIO, NKE, SNAP'>+0.5</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.233)' title='ML_V39FULL | 2026-04-08
+ret -0.55% | WR 30.00% | picks 10
+DOW, GOLD, INTC, MRVL, MU, NIO, NKE, SNAP, TEAM, UNH' data-preview='ML_V39FULL | 2026-04-08
+ret -0.55% | WR 30.00% | picks 10
+DOW, GOLD, INTC, MRVL, MU, NIO, NKE, SNAP, TEAM, UNH'>-0.6</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.335)' title='ML_V39FULL | 2026-04-09
+ret +1.61% | WR 80.00% | picks 10
+AMAT, DOW, INTC, LRCX, MRVL, MSTR, MU, NKE, SNAP, TEAM' data-preview='ML_V39FULL | 2026-04-09
+ret +1.61% | WR 80.00% | picks 10
+AMAT, DOW, INTC, LRCX, MRVL, MSTR, MU, NKE, SNAP, TEAM'>+1.6</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.198)' title='ML_V39FULL | 2026-04-10
+ret -0.18% | WR 50.00% | picks 10
+DOW, INTC, LRCX, MOS, MRVL, NIO, NKE, SHOP, SNAP, TEAM' data-preview='ML_V39FULL | 2026-04-10
+ret -0.18% | WR 50.00% | picks 10
+DOW, INTC, LRCX, MOS, MRVL, NIO, NKE, SHOP, SNAP, TEAM'>-0.2</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.458)' title='ML_V39FULL | 2026-04-13
+ret +2.89% | WR 80.00% | picks 10
+INTC, LRCX, MOS, MRVL, MSTR, NIO, NKE, PANW, SNAP, TEAM' data-preview='ML_V39FULL | 2026-04-13
+ret +2.89% | WR 80.00% | picks 10
+INTC, LRCX, MOS, MRVL, MSTR, NIO, NKE, PANW, SNAP, TEAM'>+2.9</td><td class='heat-cell' style='background:rgba(255, 122, 122, 0.211)' title='ML_V39FULL | 2026-04-14
+ret -0.32% | WR 40.00% | picks 10
+INTC, LRCX, MOS, MRVL, NIO, NKE, ORCL, PANW, SNAP, TEAM' data-preview='ML_V39FULL | 2026-04-14
+ret -0.32% | WR 40.00% | picks 10
+INTC, LRCX, MOS, MRVL, NIO, NKE, ORCL, PANW, SNAP, TEAM'>-0.3</td><td class='heat-cell' style='background:rgba(94, 211, 157, 0.277)' title='ML_V39FULL | 2026-04-15
+ret +1.01% | WR 40.00% | picks 10
+INTC, LRCX, MOS, MRVL, MU, NIO, ORCL, PANW, SNAP, TEAM' data-preview='ML_V39FULL | 2026-04-15
+ret +1.01% | WR 40.00% | picks 10
+INTC, LRCX, MOS, MRVL, MU, NIO, ORCL, PANW, SNAP, TEAM'>+1.0</td></tr></tbody></table>
+      </section>
+      </section>
+
+      <section class="section panel editable-block" data-block-id="section-data-table" data-block-label="Liga completa" id="data">
+        <div class="section-head">
+          <div>
+            <div class="section-label">Data</div>
+            <h2 class="section-title">Liga completa monitoreada</h2>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Modelo</th><th>Frescura</th><th>Muestra igualada WR/Ret</th><th>Muestra igualada</th><th>30 ruedas WR/Ret</th><th>30 ruedas muestra</th><th>Universo</th><th>Proximos activos</th></tr></thead>
+          <tbody><tr><td><strong>V9</strong><br><span class='badge badge-observed'>observado</span></td><td><span class='badge badge-stale'>3 ruedas atras</span><br><span class='mini'>2026-04-10</span></td><td>80.95%<br><span class='mini'>+3.956%</span></td><td>19/19<br><span class='mini'>42 picks</span></td><td>80.95%<br><span class='mini'>+3.956%</span></td><td>19/30<br><span class='mini'>42 picks</span></td><td>157<br><span class='mini'>1 ultimos</span></td><td class='tight'>SNOW</td></tr><tr><td><strong>V8</strong><br><span class='badge badge-observed'>observado</span></td><td><span class='badge badge-stale'>3 ruedas atras</span><br><span class='mini'>2026-04-10</span></td><td>80.95%<br><span class='mini'>+3.956%</span></td><td>19/19<br><span class='mini'>42 picks</span></td><td>80.95%<br><span class='mini'>+3.956%</span></td><td>19/30<br><span class='mini'>42 picks</span></td><td>158<br><span class='mini'>1 ultimos</span></td><td class='tight'>SNOW</td></tr><tr><td><strong>V11</strong><br><span class='badge badge-base'>base</span></td><td><span class='badge badge-stale'>4 ruedas atras</span><br><span class='mini'>2026-04-09</span></td><td>76.19%<br><span class='mini'>+2.935%</span></td><td>19/19<br><span class='mini'>42 picks</span></td><td>77.78%<br><span class='mini'>+3.333%</span></td><td>21/30<br><span class='mini'>45 picks</span></td><td>120<br><span class='mini'>1 ultimos</span></td><td class='tight'>SNOW</td></tr><tr><td><strong>V10</strong><br><span class='badge badge-observed'>observado</span></td><td><span class='badge badge-stale'>3 ruedas atras</span><br><span class='mini'>2026-04-10</span></td><td>75.51%<br><span class='mini'>+2.761%</span></td><td>19/19<br><span class='mini'>49 picks</span></td><td>75.81%<br><span class='mini'>+3.169%</span></td><td>25/30<br><span class='mini'>62 picks</span></td><td>157<br><span class='mini'>1 ultimos</span></td><td class='tight'>SNOW</td></tr><tr><td><strong>ML_V97</strong><br><span class='badge badge-legacy'>legacy_ml</span></td><td><span class='badge badge-warn'>1 rueda atras</span><br><span class='mini'>2026-04-14</span></td><td>74.39%<br><span class='mini'>+4.839%</span></td><td>19/19<br><span class='mini'>285 picks</span></td><td>69.52%<br><span class='mini'>+4.083%</span></td><td>28/30<br><span class='mini'>420 picks</span></td><td>56<br><span class='mini'>15 ultimos</span></td><td class='tight'>AGRO, ARM, BAK, CAR, CDE, GPRK, LAR, NG, ORCL, PLTR</td></tr><tr><td><strong>V12</strong><br><span class='badge badge-reference'>referencia</span></td><td><span class='badge badge-fresh'>al dia</span><br><span class='mini'>2026-04-15</span></td><td>69.15%<br><span class='mini'>+3.217%</span></td><td>19/19<br><span class='mini'>94 picks</span></td><td>45.91%<br><span class='mini'>-0.750%</span></td><td>30/30<br><span class='mini'>220 picks</span></td><td>191<br><span class='mini'>4 ultimos</span></td><td class='tight'>GRMN, IREN, LRCX, ZM</td></tr><tr><td><strong>V13</strong><br><span class='badge badge-active'>activo</span></td><td><span class='badge badge-fresh'>al dia</span><br><span class='mini'>2026-04-15</span></td><td>68.42%<br><span class='mini'>+3.153%</span></td><td>19/19<br><span class='mini'>95 picks</span></td><td>45.70%<br><span class='mini'>-0.760%</span></td><td>30/30<br><span class='mini'>221 picks</span></td><td>191<br><span class='mini'>4 ultimos</span></td><td class='tight'>GRMN, IREN, LRCX, ZM</td></tr><tr><td><strong>ML_V39</strong><br><span class='badge badge-legacy'>legacy_ml</span></td><td><span class='badge badge-warn'>1 rueda atras</span><br><span class='mini'>2026-04-14</span></td><td>60.77%<br><span class='mini'>+0.574%</span></td><td>19/19<br><span class='mini'>130 picks</span></td><td>57.21%<br><span class='mini'>+0.554%</span></td><td>30/30<br><span class='mini'>215 picks</span></td><td>24<br><span class='mini'>10 ultimos</span></td><td class='tight'>AMAT, AMD, AMZN, AVGO, CRM, INTC, META, MU, NKE, ORCL</td></tr><tr><td><strong>ML_V39FULL</strong><br><span class='badge badge-legacy'>legacy_ml</span></td><td><span class='badge badge-warn'>1 rueda atras</span><br><span class='mini'>2026-04-14</span></td><td>53.08%<br><span class='mini'>+0.479%</span></td><td>19/19<br><span class='mini'>130 picks</span></td><td>50.23%<br><span class='mini'>+0.225%</span></td><td>30/30<br><span class='mini'>215 picks</span></td><td>30<br><span class='mini'>10 ultimos</span></td><td class='tight'>INTC, LRCX, MOS, MRVL, MU, NIO, ORCL, PANW, SNAP, TEAM</td></tr><tr><td><strong>ML_V37</strong><br><span class='badge badge-legacy'>legacy_ml</span></td><td><span class='badge badge-stale'>2 ruedas atras</span><br><span class='mini'>2026-04-13</span></td><td>52.38%<br><span class='mini'>-0.281%</span></td><td>19/19<br><span class='mini'>42 picks</span></td><td>46.88%<br><span class='mini'>-0.202%</span></td><td>27/30<br><span class='mini'>64 picks</span></td><td>13<br><span class='mini'>2 ultimos</span></td><td class='tight'>ARM, PLTR</td></tr><tr><td><strong>ML_BRAIN_V11</strong><br><span class='badge badge-legacy'>legacy_ml</span></td><td><span class='badge badge-warn'>1 rueda atras</span><br><span class='mini'>2026-04-14</span></td><td>52.10%<br><span class='mini'>+0.817%</span></td><td>19/19<br><span class='mini'>167 picks</span></td><td>47.55%<br><span class='mini'>+0.209%</span></td><td>26/30<br><span class='mini'>265 picks</span></td><td>73<br><span class='mini'>13 ultimos</span></td><td class='tight'>ASML, BBD, BHP, BIDU, GILD, GS, INTC, JD, NVDA, SE</td></tr><tr><td><strong>ML_BRAIN_V11_OPT</strong><br><span class='badge badge-legacy'>legacy_ml</span></td><td><span class='badge badge-warn'>1 rueda atras</span><br><span class='mini'>2026-04-14</span></td><td>51.44%<br><span class='mini'>+0.746%</span></td><td>19/19<br><span class='mini'>243 picks</span></td><td>50.88%<br><span class='mini'>+0.596%</span></td><td>26/30<br><span class='mini'>340 picks</span></td><td>55<br><span class='mini'>5 ultimos</span></td><td class='tight'>GOLD, ORCL, SAP, SNOW, VZ</td></tr></tbody>
+        </table>
+      </section>
+    </main>
+    
+  <button class="editor-toggle" id="editorToggle" type="button">Personalizar</button>
+  <button class="floating-sidebar-toggle" id="floatingSidebarToggle" type="button" aria-label="Mostrar menu">|||</button>
+  <aside class="builder-panel" id="builderPanel" aria-hidden="true">
+    <div class="builder-head">
+      <div>
+        <div class="sidebar-label">Editor visual</div>
+        <h3>Personaliza el dashboard</h3>
+      </div>
+      <button class="builder-close" id="builderClose" type="button">×</button>
+    </div>
+
+    <div class="builder-group">
+      <h4>Como usarlo</h4>
+      <div class="builder-note">
+        Abri el modo edicion y despues:
+        <br>1. hace click en cualquier cuadro para seleccionarlo,
+        <br>2. arrastralo para reordenarlo dentro de su zona,
+        <br>3. usa el panel para cambiar ancho, alto minimo u ocultarlo,
+        <br>4. hace doble click en titulos, menus o botones para editar el texto.
+        <br><br>Las metricas y numeros siguen viniendo de la base real: este editor cambia presentacion, no resultados.
+      </div>
+    </div>
+
+    <div class="builder-group">
+      <h4>Tema</h4>
+      <div class="builder-grid">
+        <div class="builder-field"><label for="editorBg">Fondo</label><input id="editorBg" type="color"></div>
+        <div class="builder-field"><label for="editorBg2">Fondo 2</label><input id="editorBg2" type="color"></div>
+        <div class="builder-field"><label for="editorPanel">Panel</label><input id="editorPanel" type="color"></div>
+        <div class="builder-field"><label for="editorInk">Texto</label><input id="editorInk" type="color"></div>
+        <div class="builder-field"><label for="editorMuted">Texto muteado</label><input id="editorMuted" type="color"></div>
+        <div class="builder-field"><label for="editorCyan">Acento</label><input id="editorCyan" type="color"></div>
+        <div class="builder-field"><label for="editorGold">Dorado</label><input id="editorGold" type="color"></div>
+        <div class="builder-field"><label for="editorGreen">Verde</label><input id="editorGreen" type="color"></div>
+        <div class="builder-field"><label for="editorRose">Rojo</label><input id="editorRose" type="color"></div>
+        <div class="builder-field"><label for="editorViolet">Violeta</label><input id="editorViolet" type="color"></div>
+      </div>
+      <div class="builder-field"><label for="editorRadius">Redondeo</label><input id="editorRadius" type="range" min="8" max="36" step="1"></div>
+      <div class="builder-field"><label for="editorSidebarWidth">Ancho menu izquierdo</label><input id="editorSidebarWidth" type="range" min="220" max="420" step="2"></div>
+      <div class="builder-field"><label for="editorGap">Separacion general</label><input id="editorGap" type="range" min="8" max="32" step="1"></div>
+    </div>
+
+    <div class="builder-group">
+      <h4>Bloque seleccionado</h4>
+      <div class="selected-block-name" id="selectedBlockName">Ningun bloque seleccionado</div>
+      <div class="builder-field">
+        <label for="blockSpan">Ancho del bloque</label>
+        <select id="blockSpan">
+          <option value="1">Normal</option>
+          <option value="2">Doble</option>
+          <option value="full">Completo</option>
+        </select>
+      </div>
+      <div class="builder-field"><label for="blockHeight">Altura minima</label><input id="blockHeight" type="range" min="110" max="1100" step="10"></div>
+      <div class="builder-field">
+        <label for="blockHidden">Visibilidad</label>
+        <select id="blockHidden">
+          <option value="0">Visible</option>
+          <option value="1">Oculto</option>
+        </select>
+      </div>
+      <div class="builder-actions">
+        <button id="blockMoveUp" type="button">Subir</button>
+        <button id="blockMoveDown" type="button">Bajar</button>
+      </div>
+    </div>
+
+    <div class="builder-group">
+      <h4>Guardar cambios</h4>
+      <div class="builder-note">Los cambios quedan guardados en este navegador para tu seguimiento diario.</div>
+      <div class="builder-actions">
+        <button class="primary" id="builderSave" type="button">Guardar</button>
+        <button id="builderReset" type="button">Resetear</button>
+        <button id="builderCloseAction" type="button">Cerrar editor</button>
+        <button id="sidebarToggleFromEditor" type="button">Ocultar / mostrar menu</button>
+      </div>
+      <div class="builder-status" id="builderStatus"></div>
+    </div>
+  </aside>
+    
+  </div>
+  <script>
+(() => {
+  const STORAGE_KEY = "titan-dashboard-builder-v1";
+  const THEME_FIELDS = [
+    { id: "editorBg", cssVar: "--bg", type: "color" },
+    { id: "editorBg2", cssVar: "--bg-2", type: "color" },
+    { id: "editorPanel", cssVar: "--panel", type: "color" },
+    { id: "editorInk", cssVar: "--ink", type: "color" },
+    { id: "editorMuted", cssVar: "--muted", type: "color" },
+    { id: "editorCyan", cssVar: "--cyan", type: "color" },
+    { id: "editorGold", cssVar: "--gold", type: "color" },
+    { id: "editorGreen", cssVar: "--green", type: "color" },
+    { id: "editorRose", cssVar: "--rose", type: "color" },
+    { id: "editorViolet", cssVar: "--violet", type: "color" },
+    { id: "editorRadius", cssVar: "--radius", type: "range", suffix: "px" },
+    { id: "editorSidebarWidth", cssVar: "--sidebar-width", type: "range", suffix: "px" },
+    { id: "editorGap", cssVar: "--layout-gap", type: "range", suffix: "px", also: [["--grid-gap", "px"]] },
+  ];
+  const TEXT_SELECTOR = [
+    ".brand",
+    ".brand span",
+    ".sidebar-label",
+    ".nav-link span:first-child",
+    ".side-button",
+    ".drawer summary",
+    ".eyebrow",
+    "header h1",
+    ".toolbar a",
+    ".stat-label",
+    ".section-label",
+    ".section-title",
+    ".mini-title",
+    ".window-title",
+    ".card-details summary",
+    ".editor-toggle",
+  ].join(",");
+
+  let state = loadState();
+  let selectedBlockId = null;
+  let dragState = null;
+  let dragHandleBlockId = null;
+
+  function qs(selector) {
+    return document.querySelector(selector);
+  }
+
+  function qsa(selector) {
+    return Array.from(document.querySelectorAll(selector));
+  }
+
+  function loadState() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      return {
+        theme: parsed.theme || {},
+        text: parsed.text || {},
+        ui: parsed.ui || { sidebarCollapsed: false },
+        layout: {
+          containers: (parsed.layout && parsed.layout.containers) || {},
+          blocks: (parsed.layout && parsed.layout.blocks) || {},
+        },
+      };
+    } catch (error) {
+      return { theme: {}, text: {}, ui: { sidebarCollapsed: false }, layout: { containers: {}, blocks: {} } };
+    }
+  }
+
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function setStatus(message) {
+    const status = qs("#builderStatus");
+    if (!status) return;
+    status.textContent = message || "";
+    if (message) {
+      window.clearTimeout(setStatus._timer);
+      setStatus._timer = window.setTimeout(() => {
+        if (status.textContent === message) {
+          status.textContent = "";
+        }
+      }, 1800);
+    }
+  }
+
+  function currentCssValue(cssVar) {
+    return getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
+  }
+
+  function normalizeColor(value) {
+    const color = (value || "").trim();
+    if (color.startsWith("#")) return color;
+    const probe = document.createElement("span");
+    probe.style.color = color;
+    document.body.appendChild(probe);
+    const rgb = getComputedStyle(probe).color;
+    probe.remove();
+    const match = rgb.match(/\d+/g);
+    if (!match || match.length < 3) return "#ffffff";
+    return "#" + match.slice(0, 3).map((part) => Number(part).toString(16).padStart(2, "0")).join("");
+  }
+
+  function syncThemeInputs() {
+    THEME_FIELDS.forEach((field) => {
+      const input = qs("#" + field.id);
+      if (!input) return;
+      const stored = state.theme[field.cssVar];
+      const value = stored || currentCssValue(field.cssVar);
+      if (field.type === "color") {
+        input.value = normalizeColor(value);
+      } else {
+        input.value = parseInt(String(value || "").replace(/[^\d.-]/g, ""), 10) || 0;
+      }
+    });
+  }
+
+  function applyTheme() {
+    THEME_FIELDS.forEach((field) => {
+      const raw = state.theme[field.cssVar];
+      if (raw) {
+        document.documentElement.style.setProperty(field.cssVar, raw);
+        (field.also || []).forEach(([cssVar, suffix]) => {
+          document.documentElement.style.setProperty(cssVar, suffix ? raw : raw);
+        });
+      }
+    });
+    syncThemeInputs();
+  }
+
+  function applyUi() {
+    document.body.classList.toggle("sidebar-collapsed", !!(state.ui && state.ui.sidebarCollapsed));
+    const toggle = qs("#sidebarToggle");
+    const floating = qs("#floatingSidebarToggle");
+    const label = state.ui && state.ui.sidebarCollapsed ? "Mostrar menu" : "Ocultar menu";
+    [toggle, floating].forEach((button) => {
+      if (!button) return;
+      button.setAttribute("aria-label", label);
+      button.textContent = "|||";
+    });
+  }
+
+  function textRole(el) {
+    const classes = Array.from(el.classList || []);
+    const known = [
+      "brand", "sidebar-label", "eyebrow", "stat-label", "section-label",
+      "section-title", "mini-title", "window-title", "side-button",
+      "button-link", "ghost-link", "editor-toggle"
+    ];
+    return classes.find((item) => known.includes(item)) || el.tagName.toLowerCase();
+  }
+
+  function assignTextTargets() {
+    const counters = {};
+    qsa(TEXT_SELECTOR).forEach((el) => {
+      if (el.closest("#builderPanel")) return;
+      const blockId = el.closest("[data-block-id]")?.dataset.blockId || "root";
+      const base = blockId + "::" + textRole(el);
+      counters[base] = (counters[base] || 0) + 1;
+      const key = base + "::" + counters[base];
+      el.dataset.editKey = key;
+      el.classList.add("editable-text");
+      el.setAttribute("spellcheck", "false");
+      if (el.dataset.editorBound === "1") return;
+      el.dataset.editorBound = "1";
+      el.addEventListener("dblclick", (event) => {
+        if (!document.body.classList.contains("edit-mode")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        el.contentEditable = "true";
+        el.focus();
+        document.execCommand?.("selectAll", false, null);
+      });
+      el.addEventListener("blur", () => {
+        if (el.contentEditable !== "true") return;
+        el.contentEditable = "false";
+        state.text[key] = el.textContent || "";
+        saveState();
+      });
+      el.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          el.blur();
+        }
+      });
+    });
+  }
+
+  function applyTexts() {
+    qsa("[data-edit-key]").forEach((el) => {
+      const key = el.dataset.editKey;
+      if (key in state.text) {
+        el.textContent = state.text[key];
+      }
+    });
+  }
+
+  function ensureLayoutDefaults() {
+    qsa("[data-container-id]").forEach((container) => {
+      const containerId = container.dataset.containerId;
+      const children = Array.from(container.children).filter((child) => child.dataset.blockId);
+      if (!state.layout.containers[containerId]) {
+        state.layout.containers[containerId] = children.map((child) => child.dataset.blockId);
+      }
+    });
+    qsa("[data-block-id]").forEach((block) => {
+      const blockId = block.dataset.blockId;
+      if (!state.layout.blocks[blockId]) {
+        state.layout.blocks[blockId] = {
+          span: block.dataset.defaultSpan || "1",
+          hidden: false,
+          height: "",
+        };
+      }
+    });
+  }
+
+  function blockSpanValue(span) {
+    if (span === "2") return "span 2";
+    if (span === "full") return "1 / -1";
+    return "";
+  }
+
+  function applyLayout() {
+    qsa("[data-container-id]").forEach((container) => {
+      const containerId = container.dataset.containerId;
+      const order = state.layout.containers[containerId] || [];
+      order.forEach((blockId) => {
+        const block = document.querySelector('[data-block-id="' + blockId + '"]');
+        if (block && block.parentElement === container) {
+          container.appendChild(block);
+        }
+      });
+    });
+
+    qsa("[data-block-id]").forEach((block) => {
+      const blockId = block.dataset.blockId;
+      const config = state.layout.blocks[blockId] || {};
+      block.classList.toggle("hidden-block", !!config.hidden);
+      block.style.gridColumn = blockSpanValue(config.span || "1");
+      block.style.minHeight = config.height ? config.height + "px" : "";
+      block.style.height = "";
+    });
+    refreshSelectedBlockPanel();
+  }
+
+  function getBlockName(block) {
+    return (
+      block.dataset.blockLabel ||
+      block.querySelector(".section-title, .model-card-title, .mini-title, .stat-label, .sidebar-label, .section-label")?.textContent?.trim() ||
+      block.dataset.blockId
+    );
+  }
+
+  function selectBlock(blockId) {
+    selectedBlockId = blockId;
+    qsa("[data-block-id]").forEach((block) => {
+      block.classList.toggle("selected-block", block.dataset.blockId === blockId);
+    });
+    refreshSelectedBlockPanel();
+  }
+
+  function refreshSelectedBlockPanel() {
+    const nameEl = qs("#selectedBlockName");
+    const spanEl = qs("#blockSpan");
+    const heightEl = qs("#blockHeight");
+    const hiddenEl = qs("#blockHidden");
+    if (!selectedBlockId) {
+      nameEl.textContent = "Ningun bloque seleccionado";
+      spanEl.value = "1";
+      heightEl.value = 220;
+      hiddenEl.value = "0";
+      return;
+    }
+    const block = document.querySelector('[data-block-id="' + selectedBlockId + '"]');
+    const config = state.layout.blocks[selectedBlockId] || {};
+    if (!block) return;
+    nameEl.textContent = getBlockName(block);
+    spanEl.value = config.span || "1";
+    heightEl.value = config.height || Math.round(block.getBoundingClientRect().height) || 220;
+    hiddenEl.value = config.hidden ? "1" : "0";
+  }
+
+  function saveContainerOrder(container) {
+    const containerId = container.dataset.containerId;
+    state.layout.containers[containerId] = Array.from(container.children)
+      .filter((child) => child.dataset.blockId)
+      .map((child) => child.dataset.blockId);
+    saveState();
+  }
+
+  function closestDropReference(container, draggedId, clientX, clientY) {
+    const siblings = Array.from(container.children).filter((child) => child.dataset.blockId && child.dataset.blockId !== draggedId);
+    let best = null;
+    siblings.forEach((child) => {
+      const box = child.getBoundingClientRect();
+      const cx = box.left + box.width / 2;
+      const cy = box.top + box.height / 2;
+      const score = Math.hypot(clientX - cx, clientY - cy);
+      if (!best || score < best.score) {
+        best = { child, box, score };
+      }
+    });
+    if (!best) return null;
+    return {
+      child: best.child,
+      after: clientY > best.box.top + best.box.height / 2,
+    };
+  }
+
+  function bindBlocks() {
+    qsa("[data-block-id]").forEach((block) => {
+      block.classList.add("editable-block");
+      if (!block.querySelector(":scope > .block-handle")) {
+        const handle = document.createElement("button");
+        handle.type = "button";
+        handle.className = "block-handle";
+        handle.textContent = "⋮⋮";
+        handle.tabIndex = -1;
+        handle.addEventListener("mousedown", () => {
+          dragHandleBlockId = block.dataset.blockId;
+        });
+        block.appendChild(handle);
+      }
+      if (block.dataset.editorBound === "1") return;
+      block.dataset.editorBound = "1";
+      block.draggable = true;
+      block.addEventListener("click", (event) => {
+        if (!document.body.classList.contains("edit-mode")) return;
+        if (event.target.closest("[contenteditable='true']")) return;
+        if (event.target.closest(".block-handle") || event.target === block) {
+          event.preventDefault();
+        }
+        event.stopPropagation();
+        selectBlock(block.dataset.blockId);
+      });
+      block.addEventListener("dragstart", (event) => {
+        if (!document.body.classList.contains("edit-mode")) {
+          event.preventDefault();
+          return;
+        }
+        if (dragHandleBlockId !== block.dataset.blockId) {
+          event.preventDefault();
+          return;
+        }
+        dragState = {
+          blockId: block.dataset.blockId,
+          containerId: block.parentElement?.dataset.containerId || "",
+        };
+        block.classList.add("dragging-block");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", block.dataset.blockId);
+      });
+      block.addEventListener("dragend", () => {
+        block.classList.remove("dragging-block");
+        dragState = null;
+        dragHandleBlockId = null;
+      });
+    });
+  }
+
+  function bindContainers() {
+    qsa("[data-container-id]").forEach((container) => {
+      if (container.dataset.editorDropBound === "1") return;
+      container.dataset.editorDropBound = "1";
+      container.addEventListener("dragover", (event) => {
+        if (!document.body.classList.contains("edit-mode") || !dragState) return;
+        if (dragState.containerId !== container.dataset.containerId) return;
+        event.preventDefault();
+      });
+      container.addEventListener("drop", (event) => {
+        if (!document.body.classList.contains("edit-mode") || !dragState) return;
+        if (dragState.containerId !== container.dataset.containerId) return;
+        event.preventDefault();
+        const dragged = document.querySelector('[data-block-id="' + dragState.blockId + '"]');
+        if (!dragged) return;
+        const ref = closestDropReference(container, dragState.blockId, event.clientX, event.clientY);
+        if (!ref) {
+          container.appendChild(dragged);
+        } else if (ref.after) {
+          ref.child.after(dragged);
+        } else {
+          container.insertBefore(dragged, ref.child);
+        }
+        saveContainerOrder(container);
+        applyLayout();
+      });
+    });
+  }
+
+  function bindResizeObserver() {
+    return null;
+  }
+
+  function moveSelected(delta) {
+    if (!selectedBlockId) return;
+    const block = document.querySelector('[data-block-id="' + selectedBlockId + '"]');
+    const container = block?.parentElement;
+    if (!block || !container || !container.dataset.containerId) return;
+    const siblings = Array.from(container.children).filter((child) => child.dataset.blockId);
+    const index = siblings.indexOf(block);
+    const next = index + delta;
+    if (next < 0 || next >= siblings.length) return;
+    if (delta < 0) {
+      container.insertBefore(block, siblings[next]);
+    } else {
+      siblings[next].after(block);
+    }
+    saveContainerOrder(container);
+    applyLayout();
+    setStatus("Orden actualizado");
+  }
+
+  function bindControls() {
+    qs("#editorToggle")?.addEventListener("click", () => {
+      document.body.classList.add("builder-open", "edit-mode");
+      setStatus("Modo edicion activo");
+    });
+    const toggleSidebar = () => {
+      state.ui = state.ui || {};
+      state.ui.sidebarCollapsed = !state.ui.sidebarCollapsed;
+      saveState();
+      applyUi();
+      setStatus(state.ui.sidebarCollapsed ? "Menu oculto" : "Menu visible");
+    };
+    const closeEditor = () => {
+      document.body.classList.remove("builder-open", "edit-mode");
+      qsa("[contenteditable='true']").forEach((el) => {
+        el.contentEditable = "false";
+      });
+      dragHandleBlockId = null;
+    };
+    qs("#builderClose")?.addEventListener("click", closeEditor);
+    qs("#builderCloseAction")?.addEventListener("click", closeEditor);
+    qs("#sidebarToggle")?.addEventListener("click", toggleSidebar);
+    qs("#floatingSidebarToggle")?.addEventListener("click", toggleSidebar);
+    qs("#sidebarToggleFromEditor")?.addEventListener("click", toggleSidebar);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeEditor();
+    });
+    document.addEventListener("mouseup", () => {
+      dragHandleBlockId = null;
+    });
+    document.addEventListener("click", (event) => {
+      if (!document.body.classList.contains("edit-mode")) return;
+      const link = event.target.closest("a");
+      if (link && !link.closest("#builderPanel")) {
+        event.preventDefault();
+      }
+    }, true);
+
+    THEME_FIELDS.forEach((field) => {
+      const input = qs("#" + field.id);
+      if (!input) return;
+      input.addEventListener("input", () => {
+        const value = field.type === "range" ? input.value + (field.suffix || "") : input.value;
+        state.theme[field.cssVar] = value;
+        if (field.also) {
+          field.also.forEach(([cssVar, suffix]) => {
+            state.theme[cssVar] = input.value + (suffix || "");
+          });
+        }
+        saveState();
+        applyTheme();
+        setStatus("Tema actualizado");
+      });
+    });
+
+    qs("#blockSpan")?.addEventListener("change", (event) => {
+      if (!selectedBlockId) return;
+      state.layout.blocks[selectedBlockId].span = event.target.value;
+      saveState();
+      applyLayout();
+      setStatus("Bloque actualizado");
+    });
+    qs("#blockHeight")?.addEventListener("input", (event) => {
+      if (!selectedBlockId) return;
+      state.layout.blocks[selectedBlockId].height = Number(event.target.value);
+      saveState();
+      applyLayout();
+      setStatus("Altura minima actualizada");
+    });
+    qs("#blockHidden")?.addEventListener("change", (event) => {
+      if (!selectedBlockId) return;
+      state.layout.blocks[selectedBlockId].hidden = event.target.value === "1";
+      saveState();
+      applyLayout();
+      setStatus("Visibilidad actualizada");
+    });
+    qs("#blockMoveUp")?.addEventListener("click", () => moveSelected(-1));
+    qs("#blockMoveDown")?.addEventListener("click", () => moveSelected(1));
+    qs("#builderSave")?.addEventListener("click", () => {
+      saveState();
+      setStatus("Cambios guardados");
+    });
+    qs("#builderReset")?.addEventListener("click", () => {
+      localStorage.removeItem(STORAGE_KEY);
+      window.location.reload();
+    });
+  }
+
+  function bindHeatmapPreview() {
+    let tooltip = qs("#heatTooltip");
+    if (!tooltip) {
+      tooltip = document.createElement("div");
+      tooltip.id = "heatTooltip";
+      tooltip.className = "heat-tooltip";
+      document.body.appendChild(tooltip);
+    }
+    const showTooltip = (event) => {
+      const cell = event.currentTarget;
+      const text = cell.dataset.preview || "";
+      if (!text) return;
+      const lines = text.split("\n");
+      const [head, meta, tickers] = lines;
+      tooltip.innerHTML = "<strong>" + head + "</strong>"
+        + "<div class='muted-line'>" + (meta || "") + "</div>"
+        + "<div style='margin-top:6px'>" + (tickers || "") + "</div>";
+      tooltip.classList.add("show");
+      moveTooltip(event);
+    };
+    const moveTooltip = (event) => {
+      const offsetX = 16;
+      const offsetY = 16;
+      tooltip.style.left = Math.min(window.innerWidth - tooltip.offsetWidth - 16, event.clientX + offsetX) + "px";
+      tooltip.style.top = Math.min(window.innerHeight - tooltip.offsetHeight - 16, event.clientY + offsetY) + "px";
+    };
+    const hideTooltip = () => {
+      tooltip.classList.remove("show");
+    };
+    qsa(".heat-cell").forEach((cell) => {
+      if (cell.dataset.tooltipBound === "1") return;
+      cell.dataset.tooltipBound = "1";
+      cell.addEventListener("mouseenter", showTooltip);
+      cell.addEventListener("mousemove", moveTooltip);
+      cell.addEventListener("mouseleave", hideTooltip);
+    });
+  }
+
+  function applyAll() {
+    applyTheme();
+    applyUi();
+    applyTexts();
+    applyLayout();
+  }
+
+  assignTextTargets();
+  bindBlocks();
+  bindContainers();
+  ensureLayoutDefaults();
+  applyAll();
+  bindControls();
+  bindHeatmapPreview();
+  syncThemeInputs();
+})();
+    </script>
+</body>
+</html>

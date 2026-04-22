@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Test and lint caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Editors and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+**/desktop.ini
+
+# Local caches
+.cache/
+*.log
+
+# Local databases and backups
+titan_system/data/*.db
+titan_system/data/*.db-*
+titan_system/data/*.db.backup
+titan_system/data/*.sqlite
+titan_system/data/*.sqlite3
+
+# Generated runtime artifacts
+aprendizaje_operativo/v*_runs/*.json
+aprendizaje_operativo/v*_reports/*.txt
+aprendizaje_operativo/*_runs/*.json
+aprendizaje_operativo/*_reports/*.txt
+aprendizaje_operativo/*.db
+aprendizaje_operativo/alerts/*.json
+analisis/auditorias/*.txt
+analisis/auditorias/sentinel_status.json
+analisis/staging/*.html
+analisis/tablero_maquina_pensante*.html
+analisis/tablero_maquina_pensante*.json
+backtests/resultados/*.txt
+bitacora/auto_actualizar.log
+dashboards/maquina_pensante/*.html
+dashboards/maquina_pensante/*.json
+signals_q.json
+
+# Local runtime state
+.claude/settings.local.json
+herramientas/v*_open_positions.json

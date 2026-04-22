@@ -1,0 +1,1273 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Titan · Dashboard Operativo</title>
+  <style>
+/* ── RESET & BASE ──────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"Aptos","Segoe UI",system-ui,sans-serif;
+  color:var(--ink);
+  background:var(--bg-gradient);
+  min-height:100vh;
+  font-size:13px;
+  line-height:1.5;
+}
+
+/* ── LAYOUT ─────────────────────────────────────────────── */
+body{display:flex;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{
+  width:var(--sidebar-w);
+  min-width:var(--sidebar-w);
+  height:100vh;
+  position:sticky;
+  top:0;
+  display:flex;
+  flex-direction:column;
+  background:var(--sidebar-bg);
+  border-right:1px solid var(--line);
+  transition:width .25s ease, min-width .25s ease;
+  overflow:hidden;
+  z-index:10;
+  flex-shrink:0;
+}
+.sidebar-inner{
+  flex:1;
+  overflow-y:auto;
+  padding:18px 14px 24px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,0.10) transparent;
+}
+
+/* Sidebar tab — botón de colapso pegado al borde derecho */
+.sidebar-tab{
+  position:absolute;
+  top:50%;
+  right:-14px;
+  transform:translateY(-50%);
+  width:28px;
+  height:52px;
+  border:1px solid var(--line);
+  border-left:none;
+  border-radius:0 10px 10px 0;
+  background:var(--sidebar-bg);
+  color:var(--cyan);
+  cursor:pointer;
+  font-size:14px;
+  font-weight:900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:20;
+  transition:background .15s;
+}
+.sidebar-tab:hover{background:var(--panel-hover)}
+
+body.sidebar-collapsed .sidebar{
+  width:0;
+  min-width:0;
+}
+body.sidebar-collapsed .sidebar-tab{
+  border-radius:0 10px 10px 0;
+  right:-28px;
+}
+
+/* MAIN WRAP */
+.main-wrap{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:var(--gap);
+  padding:var(--page-pad);
+  overflow-x:hidden;
+}
+
+/* ── TOPBAR ──────────────────────────────────────────────── */
+.topbar{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:14px 18px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
+  box-shadow:var(--shadow);
+}
+.tb-title{
+  font-family:var(--font-title);
+  font-size:20px;
+  font-weight:800;
+  letter-spacing:-.03em;
+}
+.tb-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:5px}
+.tb-pill{
+  display:inline-flex;align-items:center;
+  padding:4px 9px;border-radius:999px;
+  background:rgba(255,255,255,0.05);border:1px solid var(--line);
+  font-size:11px;color:var(--muted);
+}
+.tb-pill-regime.regime-peligro{background:rgba(245,184,51,0.12);border-color:rgba(245,184,51,0.25);color:#f5b833}
+.tb-pill-regime.regime-seguro{background:rgba(68,232,144,0.12);border-color:rgba(68,232,144,0.25);color:#44e890}
+.tb-pill-regime.regime-global{background:rgba(100,160,220,0.12);border-color:rgba(100,160,220,0.20);color:#7ab8dc}
+.tb-right{display:flex;align-items:center;gap:10px}
+.tb-btn{
+  display:inline-flex;align-items:center;text-decoration:none;
+  padding:8px 14px;border-radius:999px;
+  background:linear-gradient(135deg,var(--cyan),var(--cyan-2));
+  color:#020c08;font-weight:800;font-size:12px;border:none;cursor:pointer;
+}
+.tb-ghost{background:rgba(255,255,255,0.05);border:1px solid var(--line);color:var(--ink)}
+.tb-edit-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.10);
+  background:rgba(255,255,255,0.05);color:var(--ink);cursor:pointer;
+  font-weight:700;font-size:12px;transition:background .15s;
+}
+.tb-edit-btn:hover{background:rgba(255,255,255,0.09)}
+
+/* ── KPI STRIP ───────────────────────────────────────────── */
+.kpi-strip{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:var(--gap);
+}
+.kpi-card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:12px 14px;
+  box-shadow:var(--shadow);
+  transition:transform .12s;
+}
+.kpi-card:hover{transform:translateY(-2px)}
+.kc-label{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);font-weight:700}
+.kc-value{font-size:22px;font-weight:800;letter-spacing:-.03em;margin-top:5px;line-height:1.05}
+.kc-sub{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35}
+.accent-cyan{border-top:2px solid var(--cyan);background:var(--accent-cyan-bg)}
+.accent-gold{border-top:2px solid var(--gold);background:var(--accent-gold-bg)}
+.accent-green{border-top:2px solid var(--green);background:var(--accent-green-bg)}
+.accent-rose{border-top:2px solid var(--rose);background:var(--accent-rose-bg)}
+
+/* ── PANELS ──────────────────────────────────────────────── */
+.panel{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:16px 18px;
+  box-shadow:var(--shadow);
+}
+.panel-label{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--cyan);font-weight:800}
+.panel-title{font-family:var(--font-title);font-size:18px;letter-spacing:-.03em;margin-top:3px}
+.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.head-badges{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-top:4px}
+
+/* ── GRIDS ───────────────────────────────────────────────── */
+.row-2-3{
+  display:grid;
+  grid-template-columns:5fr 7fr;
+  gap:var(--gap);
+  align-items:start;
+}
+.row-1-1{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:var(--gap);
+  align-items:start;
+}
+.models-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:var(--gap);
+  margin-top:4px;
+}
+
+/* ── CHAMPION ────────────────────────────────────────────── */
+.ch-curve{margin:4px 0 14px 0}
+.ch-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.ch-box{
+  background:var(--inset);
+  border:1px solid var(--line);
+  border-radius:calc(var(--radius) - 6px);
+  padding:10px 12px;
+}
+.ch-box-label{font-size:9px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:700;margin-bottom:4px}
+.ch-box-val{font-size:14px;font-weight:800;margin-bottom:6px}
+
+/* ── LIGA ────────────────────────────────────────────────── */
+.leader-strip{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  background:var(--inset);border:1px solid var(--line);
+  border-radius:calc(var(--radius)-4px);
+  padding:10px 14px;
+  margin-bottom:14px;
+}
+.ls-version{font-size:18px;font-weight:800;letter-spacing:-.02em}
+.ls-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.ls-spark{flex-shrink:0}
+
+/* ── CONTROL ─────────────────────────────────────────────── */
+.ctrl-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.ctrl-box{
+  background:var(--inset);
+  border:1px solid var(--line);
+  border-radius:calc(var(--radius) - 6px);
+  padding:10px 12px;
+}
+
+/* ── MODEL CARD ──────────────────────────────────────────── */
+.model-card{
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:12px 13px;
+  box-shadow:var(--shadow);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.mc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.mc-title{font-size:16px;font-weight:800;letter-spacing:-.02em}
+.mc-badges{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:2px}
+.mc-rank{margin-left:auto;flex-shrink:0}
+.mc-spark{margin:2px 0}
+.mc-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.mk{
+  background:var(--inset);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:6px 7px;
+  text-align:center;
+}
+.mk span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.10em;color:var(--muted);font-weight:700}
+.mk strong{display:block;font-size:12px;font-weight:800;margin-top:3px;line-height:1.1}
+.mc-tickers{font-size:11px;color:var(--muted);line-height:1.45}
+.mc-detail{margin-top:2px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--inset)}
+.mc-detail summary{list-style:none;cursor:pointer;padding:8px 11px;font-weight:700;font-size:11px;color:var(--muted)}
+.mc-detail summary::-webkit-details-marker{display:none}
+.mc-detail-body{padding:0 11px 11px 11px}
+
+/* ── HEATMAP ─────────────────────────────────────────────── */
+.hm-table{width:100%;border-collapse:separate;border-spacing:3px;table-layout:fixed}
+.hm-table th{font-size:9px;text-transform:uppercase;letter-spacing:.10em;color:var(--muted);padding:0 2px 5px 2px;text-align:center}
+.hm-table td{padding:6px 3px;border-radius:6px;text-align:center;font-size:11px;font-weight:800;cursor:help;transition:opacity .12s}
+.hm-table td:hover{opacity:.8}
+.hm-label{background:none!important;border:none!important;text-align:left!important;padding-left:0!important;font-size:11px;min-width:80px;white-space:nowrap}
+.hm-legend{display:flex;gap:16px;margin-top:10px;font-size:11px}
+.hml{padding:3px 8px;border-radius:4px}
+.hml.pos{background:rgba(68,232,144,0.14);color:#44e890}
+.hml.neg{background:rgba(252,92,125,0.14);color:#fc5c7d}
+
+/* ── OVERLAP MATRIX ──────────────────────────────────────── */
+.om-table{width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed}
+.om-table th{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;text-align:center}
+.om-table td{text-align:center;padding:9px 4px;border-radius:7px;font-weight:800;font-size:11px}
+.om-label{background:none!important;text-align:left!important;padding-left:0!important;font-size:11px}
+
+/* ── TABLES ──────────────────────────────────────────────── */
+.data-table{width:100%;border-collapse:collapse;font-size:12px}
+.data-table th,.data-table td{padding:8px 7px;border-top:1px solid var(--line);text-align:left;vertical-align:middle}
+.data-table thead th{border-top:none;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);padding-bottom:8px}
+.data-table tbody tr:hover{background:rgba(255,255,255,0.025)}
+.tbl-scroll{overflow-x:auto}
+.muted-td{color:var(--muted)}
+.ticker-list{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:11px}
+
+/* ── SIDEBAR ELEMENTS ────────────────────────────────────── */
+.brand-block{padding:2px 0 14px 0;border-bottom:1px solid var(--line)}
+.brand-name{font-family:var(--font-title);font-size:20px;font-weight:800;letter-spacing:-.03em;color:var(--ink)}
+.brand-sub{font-size:10px;text-transform:uppercase;letter-spacing:.18em;color:var(--muted);margin-top:4px}
+
+.regime-pill{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;border-radius:10px;
+  background:var(--inset);border:1px solid var(--line);
+  font-size:12px;font-weight:700;
+  margin:10px 0;
+}
+.regime-pill.regime-peligro{border-color:rgba(245,184,51,0.25);color:#f5b833}
+.regime-pill.regime-seguro{border-color:rgba(68,232,144,0.25);color:#44e890}
+.regime-pill.regime-global{border-color:rgba(100,160,220,0.20);color:#7ab8dc}
+.rp-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.rp-breadth{font-size:10px;color:var(--muted);margin-left:auto}
+
+.side-nav{display:flex;flex-direction:column;gap:4px;margin:6px 0 10px 0}
+.sn-link{
+  display:flex;align-items:center;gap:9px;text-decoration:none;
+  padding:9px 10px;border-radius:10px;border:1px solid transparent;
+  color:var(--muted);font-weight:600;font-size:13px;transition:all .15s;
+}
+.sn-link:hover{background:rgba(255,255,255,0.04);border-color:var(--line);color:var(--ink)}
+.sn-link.active{background:rgba(24,232,200,0.12);border-color:rgba(24,232,200,0.22);color:var(--cyan)}
+.sn-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.sn-tag{margin-left:auto;font-size:10px;font-weight:800;color:var(--muted)}
+.sn-link.active .sn-tag{color:var(--cyan)}
+
+.side-section-label{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);font-weight:700;padding:8px 2px 4px 2px}
+.side-views{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.sv-btn{
+  display:flex;align-items:center;justify-content:center;text-decoration:none;
+  padding:8px;border-radius:8px;border:1px solid var(--line);
+  background:rgba(255,255,255,0.03);color:var(--muted);font-size:12px;font-weight:700;
+  transition:background .15s;
+}
+.sv-btn:hover{background:rgba(255,255,255,0.07);color:var(--ink)}
+
+.side-drawer{
+  border:1px solid var(--line);border-radius:10px;
+  overflow:hidden;margin-bottom:6px;background:rgba(255,255,255,0.02);
+}
+.side-drawer summary{list-style:none;cursor:pointer;padding:9px 12px;font-weight:700;font-size:12px;color:var(--muted)}
+.side-drawer summary::-webkit-details-marker{display:none}
+.side-drawer summary:hover{color:var(--ink)}
+.sd-body{padding:0 12px 12px 12px;font-size:11px;color:var(--muted);line-height:1.6}
+.sd-body code{background:rgba(255,255,255,0.07);padding:1px 4px;border-radius:3px;font-size:10px}
+
+/* ── SMALL UTILITIES ─────────────────────────────────────── */
+.kl{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-top:1px solid rgba(255,255,255,0.05);font-size:11px;color:var(--muted)}
+.kl:first-child{border-top:none;padding-top:0}
+.kl strong{color:var(--ink);font-weight:700}
+.rank-num{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:22px;height:22px;border-radius:999px;
+  background:rgba(24,232,200,0.14);color:var(--cyan);
+  font-size:11px;font-weight:800;
+}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9px;text-transform:uppercase;letter-spacing:.08em;font-weight:800}
+.ba-active{background:rgba(24,232,200,0.14);color:#18e8c8}
+.ba-ref{background:rgba(245,184,51,0.14);color:#f5b833}
+.ba-base{background:rgba(255,255,255,0.09);color:#b0c8d8}
+.ba-obs{background:rgba(68,232,144,0.14);color:#44e890}
+.ba-ml{background:rgba(168,130,255,0.14);color:#a882ff}
+.ba-fresh{background:rgba(68,232,144,0.14);color:#44e890}
+.ba-warn{background:rgba(245,184,51,0.14);color:#f5b833}
+.ba-stale{background:rgba(252,92,125,0.14);color:#fc5c7d}
+.ba-muted{background:rgba(255,255,255,0.07);color:#6080a0}
+.pos{color:#44e890}
+.neg{color:#fc5c7d}
+.spark{display:block;width:100%;height:auto}
+
+/* ── EDITOR PANEL ────────────────────────────────────────── */
+.editor-panel{
+  position:fixed;right:-360px;top:0;bottom:0;width:340px;z-index:100;
+  background:var(--sidebar-bg);border-left:1px solid var(--line);
+  box-shadow:-8px 0 30px rgba(0,0,0,0.4);
+  overflow-y:auto;padding:20px 18px;
+  transition:right .25s ease;
+  scrollbar-width:thin;
+}
+.editor-panel.ep-open{right:0}
+.ep-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}
+.ep-label{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--cyan);font-weight:800}
+.ep-title{font-size:20px;font-weight:800;margin-top:2px}
+.ep-close{
+  border:1px solid var(--line);background:rgba(255,255,255,0.05);
+  color:var(--ink);border-radius:999px;width:32px;height:32px;
+  cursor:pointer;font-size:18px;font-weight:800;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.ep-note{
+  background:var(--inset);border:1px solid var(--line);border-radius:10px;
+  padding:12px 14px;font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px;
+}
+.ep-section{
+  background:rgba(255,255,255,0.03);border:1px solid var(--line);
+  border-radius:12px;padding:13px;margin-bottom:12px;
+}
+.ep-section-title{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:800;margin-bottom:10px}
+.ep-selected-name{font-size:15px;font-weight:800;margin-bottom:10px;min-height:22px}
+.ep-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.ep-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ep-field{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.ep-field label{font-size:10px;text-transform:uppercase;letter-spacing:.10em;color:var(--muted);font-weight:800}
+.ep-field input,.ep-field select{
+  width:100%;border-radius:8px;border:1px solid var(--line);
+  background:rgba(255,255,255,0.04);color:var(--ink);
+  padding:8px 10px;font:inherit;font-size:12px;
+}
+.ep-field input[type="color"]{padding:3px;height:38px}
+.ep-field input[type="range"]{padding:4px 0}
+.ep-btn{
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--line);border-radius:8px;
+  padding:9px 12px;cursor:pointer;font-weight:800;font-size:12px;
+  background:rgba(255,255,255,0.05);color:var(--ink);width:100%;margin-bottom:8px;
+}
+.ep-btn:hover{background:rgba(255,255,255,0.09)}
+.ep-apply{background:rgba(24,232,200,0.14)!important;color:var(--cyan)!important}
+.ep-save{background:rgba(68,232,144,0.14)!important;color:#44e890!important;margin-bottom:0}
+.ep-status{font-size:11px;color:var(--cyan);font-weight:800;min-height:18px;margin-top:8px;text-align:center}
+
+/* ── EDITOR EDIT-MODE STATES ─────────────────────────────── */
+.editable-block{position:relative;transition:outline .12s}
+body.edit-mode .editable-block:not(.block-selected){outline:1px dashed rgba(24,232,200,0.18)}
+body.edit-mode .editable-block:not(.block-selected):hover{outline-color:rgba(24,232,200,0.45);cursor:pointer}
+.block-selected{outline:2px solid var(--cyan)!important;box-shadow:0 0 0 3px rgba(24,232,200,0.12)!important}
+.block-hidden{display:none!important}
+.editable-text{transition:background .12s}
+body.edit-mode .editable-text{cursor:text}
+.text-editing{
+  contenteditable:true;
+  outline:none;
+  background:rgba(24,232,200,0.07)!important;
+  border-radius:4px;
+  padding:1px 3px;
+  box-shadow:inset 0 -2px 0 var(--cyan);
+}
+
+/* ── HEAT TOOLTIP ────────────────────────────────────────── */
+.heat-tt{
+  position:fixed;z-index:200;max-width:280px;
+  padding:9px 12px;border-radius:10px;
+  background:rgba(4,8,16,0.97);border:1px solid rgba(24,232,200,0.16);
+  color:var(--ink);font-size:11px;line-height:1.45;
+  pointer-events:none;opacity:0;white-space:pre-line;
+  transition:opacity .08s ease;
+}
+.heat-tt.show{opacity:1}
+
+/* ── PAGE FOOTER ─────────────────────────────────────────── */
+.page-footer{
+  text-align:center;font-size:11px;color:var(--muted);
+  padding:16px 0 8px 0;border-top:1px solid var(--line);
+  margin-top:4px;
+}
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+@media(max-width:1440px){
+  .row-2-3{grid-template-columns:1fr 1fr}
+  .kpi-strip{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:1100px){
+  .row-2-3,.row-1-1{grid-template-columns:1fr}
+  .kpi-strip{grid-template-columns:repeat(2,1fr)}
+  .models-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:760px){
+  .kpi-strip{grid-template-columns:1fr 1fr}
+  .models-grid,.ch-grid,.ctrl-grid{grid-template-columns:1fr}
+  .mc-kpis{grid-template-columns:repeat(2,1fr)}
+}
+
+:root{
+  --bg:#030610;
+  --bg-gradient:
+    radial-gradient(ellipse at 80% 0%,rgba(24,232,200,0.16),transparent 28%),
+    radial-gradient(ellipse at 0% 60%,rgba(168,130,255,0.12),transparent 25%),
+    radial-gradient(ellipse at 50% 100%,rgba(245,184,51,0.08),transparent 25%),
+    linear-gradient(180deg,#050a1a 0%,#020510 100%);
+  --sidebar-bg:linear-gradient(170deg,rgba(6,12,28,0.99) 0%,rgba(2,5,12,0.99) 100%);
+  --panel:linear-gradient(180deg,rgba(12,22,42,0.99) 0%,rgba(7,13,27,0.99) 100%);
+  --panel-2:linear-gradient(180deg,rgba(9,18,34,0.99) 0%,rgba(5,10,20,0.99) 100%);
+  --panel-hover:rgba(12,22,42,0.99);
+  --inset:rgba(24,232,200,0.04);
+  --ink:#f0f6fc;
+  --muted:#5a80a8;
+  --line:rgba(24,232,200,0.10);
+  --cyan:#18e8c8;
+  --cyan-2:#3af5c0;
+  --gold:#f5b833;
+  --green:#44e890;
+  --rose:#fc5c7d;
+  --violet:#a882ff;
+  --shadow:0 20px 60px rgba(0,0,0,0.55),0 0 0 1px rgba(24,232,200,0.04);
+  --radius:20px;
+  --sidebar-w:270px;
+  --gap:15px;
+  --page-pad:15px 18px 24px 18px;
+  --font-title:"Georgia","Times New Roman",serif;
+  --accent-cyan-bg:linear-gradient(135deg,rgba(24,232,200,0.15) 0%,rgba(12,22,42,0.99) 100%);
+  --accent-gold-bg:linear-gradient(135deg,rgba(245,184,51,0.15) 0%,rgba(12,22,42,0.99) 100%);
+  --accent-green-bg:linear-gradient(135deg,rgba(68,232,144,0.15) 0%,rgba(12,22,42,0.99) 100%);
+  --accent-rose-bg:linear-gradient(135deg,rgba(252,92,125,0.15) 0%,rgba(12,22,42,0.99) 100%);
+}
+/* glows en cards activas */
+.accent-cyan{box-shadow:0 0 30px rgba(24,232,200,0.12),var(--shadow)!important}
+.accent-gold{box-shadow:0 0 30px rgba(245,184,51,0.12),var(--shadow)!important}
+.accent-green{box-shadow:0 0 30px rgba(68,232,144,0.12),var(--shadow)!important}
+.accent-rose{box-shadow:0 0 30px rgba(252,92,125,0.12),var(--shadow)!important}
+/* sidebar con borde glowing */
+.sidebar{border-right:1px solid rgba(24,232,200,0.12);box-shadow:2px 0 30px rgba(24,232,200,0.06)}
+.sidebar-tab{border-color:rgba(24,232,200,0.20)}
+/* topbar mayor */
+.topbar{padding:16px 20px}
+.tb-title{font-size:22px}
+/* kpi cards más altas */
+.kpi-card{padding:14px 16px}
+.kc-value{font-size:26px}
+/* panels */
+.panel{padding:18px 20px}
+.panel-title{font-size:20px}
+/* model cards con glow sutil */
+.model-card{box-shadow:0 0 20px rgba(0,0,0,0.40),0 0 0 1px rgba(255,255,255,0.04)}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR ──────────────────────────────────────────────────── -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-inner">
+
+    <div class="brand-block">
+      <div class="brand-name">TITAN</div>
+      <div class="brand-sub">Machine Dashboard</div>
+    </div>
+
+    <div class="regime-pill regime-peligro">
+      <span class="rp-dot"></span>
+      <span>PELIGRO</span>
+      <span class="rp-breadth">breadth 67.0%</span>
+    </div>
+
+    <nav class="side-nav">
+      <a class="sn-link active" href="#overview">
+        <span class="sn-icon">▦</span><span>Dashboard</span>
+        <span class="sn-tag">V13</span>
+      </a>
+      <a class="sn-link" href="#picks">
+        <span class="sn-icon">◎</span><span>Picks hoy</span>
+        <span class="sn-tag">17</span>
+      </a>
+      <a class="sn-link" href="#league">
+        <span class="sn-icon">⬡</span><span>Liga</span>
+        <span class="sn-tag">6d</span>
+      </a>
+      <a class="sn-link" href="#models">
+        <span class="sn-icon">◈</span><span>Modelos</span>
+        <span class="sn-tag">12</span>
+      </a>
+      <a class="sn-link" href="#heatmap">
+        <span class="sn-icon">▤</span><span>Heatmap</span>
+      </a>
+      <a class="sn-link" href="#data">
+        <span class="sn-icon">◻</span><span>Data</span>
+      </a>
+    </nav>
+
+    <div class="side-section-label">Vistas</div>
+    <div class="side-views">
+      <a class="sv-btn" href="tablero_maquina_pensante_executive.html">Executive</a>
+      <a class="sv-btn" href="tablero_maquina_pensante_lab.html">Lab</a>
+    </div>
+
+    <details class="side-drawer">
+      <summary>Datos DB</summary>
+      <div class="sd-body">
+        <div class="kl"><span>Mercado</span><strong>2026-04-17</strong></div>
+        <div class="kl"><span>Predictions</span><strong>27,971</strong></div>
+        <div class="kl"><span>Outcomes</span><strong>27,644</strong></div>
+        <div class="kl"><span>Regimes</span><strong>1,513</strong></div>
+        <div class="kl"><span>Modelos</span><strong>37</strong></div>
+      </div>
+    </details>
+
+    <details class="side-drawer">
+      <summary>Config</summary>
+      <div class="sd-body">
+        <div class="kl"><span>Champion</span><strong>V13</strong></div>
+        <div class="kl"><span>Referencia</span><strong>V12</strong></div>
+        <div class="kl"><span>Muestra común</span><strong>6 ruedas</strong></div>
+      </div>
+    </details>
+
+    <details class="side-drawer">
+      <summary>Metodología</summary>
+      <div class="sd-body">
+        La liga principal compara todos los modelos en la misma cantidad de días activos
+        (muestra igualada). El contexto de 30 ruedas es complementario.
+        Todos los números vienen de <code>predictions + outcomes</code> en SQLite.
+      </div>
+    </details>
+
+  </div><!-- /sidebar-inner -->
+
+  <!-- Toggle tab pegado al borde derecho del sidebar -->
+  <button class="sidebar-tab" id="sidebarTab" title="Ocultar / mostrar menú">‹</button>
+</aside>
+
+<!-- MAIN ─────────────────────────────────────────────────────── -->
+<div class="main-wrap" id="mainWrap">
+
+  <!-- TOPBAR ──────────────────────────────────── -->
+  <header class="topbar" id="overview">
+    <div class="tb-left">
+      <div class="tb-title">Titan · Dashboard Operativo</div>
+      <div class="tb-meta">
+        <span class="tb-pill">Generado 2026-04-20T17:08</span>
+        <span class="tb-pill">Mercado 2026-04-17</span>
+        <span class="tb-pill">Target 2026-04-20</span>
+        <span class="tb-pill tb-pill-regime regime-peligro">PELIGRO</span>
+      </div>
+    </div>
+    <div class="tb-right">
+      <a class="tb-btn" href="#league">Ver liga</a>
+      <a class="tb-btn tb-ghost" href="#data">Data</a>
+      <button class="tb-edit-btn" id="editModeBtn" title="Activar modo edición">✎ Editar</button>
+    </div>
+  </header>
+
+  <!-- KPI STRIP ───────────────────────────────── -->
+  <section class="kpi-strip editable-block" data-bid="kpi-strip" data-blabel="Franja KPI">
+    <div class="kpi-card accent-cyan editable-block" data-bid="kpi-champion" data-blabel="KPI Champion">
+      <div class="kc-label">Champion activo</div>
+      <div class="kc-value">V13</div>
+      <div class="kc-sub">WR 54.55% · ret +6.694% · #10</div>
+    </div>
+    <div class="kpi-card accent-gold editable-block" data-bid="kpi-leader" data-blabel="KPI Líder">
+      <div class="kc-label">Líder liga</div>
+      <div class="kc-value">V11</div>
+      <div class="kc-sub">WR 100.00% · ret +6.131%</div>
+    </div>
+    <div class="kpi-card accent-green editable-block" data-bid="kpi-picks" data-blabel="KPI Picks">
+      <div class="kc-label">Picks hoy</div>
+      <div class="kc-value">17</div>
+      <div class="kc-sub">PELIGRO · breadth 67.0%</div>
+    </div>
+    <div class="kpi-card editable-block" data-bid="kpi-ref" data-blabel="KPI Referencia">
+      <div class="kc-label">Referencia V12</div>
+      <div class="kc-value">54.55%</div>
+      <div class="kc-sub">ret +6.694% · 2 picks</div>
+    </div>
+    <div class="kpi-card accent-rose editable-block" data-bid="kpi-db" data-blabel="KPI DB">
+      <div class="kc-label">Outcomes DB</div>
+      <div class="kc-value">27,644</div>
+      <div class="kc-sub">27,971 pred · 1,513 regimes</div>
+    </div>
+    <div class="kpi-card editable-block" data-bid="kpi-integrity" data-blabel="KPI Integridad">
+      <div class="kc-label">Integridad</div>
+      <div class="kc-value">30/30</div>
+      <div class="kc-sub">cobertura pred últimas 30 ruedas</div>
+    </div>
+  </section>
+
+  <!-- ROW 1: CHAMPION + LIGA ──────────────────── -->
+  <div class="row-2-3" id="champion">
+
+    <section class="panel editable-block" data-bid="champion-panel" data-blabel="Panel Champion">
+      <div class="panel-head">
+        <div>
+          <div class="panel-label">Champion activo</div>
+          <h2 class="panel-title">V13 · Curva reciente</h2>
+        </div>
+        <div class="head-badges">
+          <span class='badge ba-active'>activo</span> <span class='badge ba-fresh'>al día</span>
+        </div>
+      </div>
+      <div class="ch-curve"><svg viewBox='0 0 360 72' class='spark'><polygon points='4,69 4.0,66.0 16.1,64.7 28.3,59.3 40.4,53.1 52.6,44.5 64.7,39.4 76.8,38.2 89.0,37.4 101.1,37.4 113.2,36.4 125.4,30.8 137.5,27.4 149.7,26.7 161.8,21.1 173.9,14.4 186.1,14.8 198.2,16.6 210.3,16.7 222.5,12.0 234.6,6.0 246.8,6.0 258.9,6.0 271.0,6.0 283.2,6.0 295.3,6.0 307.4,6.0 319.6,6.0 331.7,6.0 343.9,6.0 356.0,6.0 356,69' fill='#18e8c8' opacity='0.14'/><polyline points='4.0,66.0 16.1,64.7 28.3,59.3 40.4,53.1 52.6,44.5 64.7,39.4 76.8,38.2 89.0,37.4 101.1,37.4 113.2,36.4 125.4,30.8 137.5,27.4 149.7,26.7 161.8,21.1 173.9,14.4 186.1,14.8 198.2,16.6 210.3,16.7 222.5,12.0 234.6,6.0 246.8,6.0 258.9,6.0 271.0,6.0 283.2,6.0 295.3,6.0 307.4,6.0 319.6,6.0 331.7,6.0 343.9,6.0 356.0,6.0' fill='none' stroke='#18e8c8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='356.0' cy='6.0' r='3' fill='#18e8c8'/></svg></div>
+      <div class="ch-grid">
+        <div class="ch-box editable-block" data-bid="ch-equalized" data-blabel="Champion muestra igualada">
+          <div class="ch-box-label">Muestra igualada</div>
+          <div class="ch-box-val">54.55% · +6.694%</div>
+          <div class="kl"><span>Hits</span><strong>6/11</strong></div>
+          <div class="kl"><span>Peor rueda</span><strong>-4.01%</strong></div>
+        </div>
+        <div class="ch-box editable-block" data-bid="ch-context" data-blabel="Champion contexto 30">
+          <div class="ch-box-label">Contexto 30 ruedas</div>
+          <div class="ch-box-val">75.00% · +7.491%</div>
+          <div class="kl"><span>Universo</span><strong>166</strong></div>
+          <div class="kl"><span>Picks últimos</span><strong>2</strong></div>
+        </div>
+        <div class="ch-box editable-block" data-bid="ch-sleeve-d" data-blabel="Sleeve D">
+          <div class="ch-box-label">Sleeve D (D10)</div>
+          <div class="ch-box-val">55.48%</div>
+          <div class="kl"><span>Ret medio</span><strong>+1.680%</strong></div>
+          <div class="kl"><span>Racha</span><strong>losses 1</strong></div>
+        </div>
+        <div class="ch-box editable-block" data-bid="ch-sleeve-e" data-blabel="Sleeve E">
+          <div class="ch-box-label">Sleeve E (D15)</div>
+          <div class="ch-box-val">64.00%</div>
+          <div class="kl"><span>Ret medio</span><strong>+4.586%</strong></div>
+          <div class="kl"><span>n evaluados</span><strong>25</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel editable-block" data-bid="liga-panel" data-blabel="Panel Liga" id="league">
+      <div class="panel-head">
+        <div>
+          <div class="panel-label">Liga principal</div>
+          <h2 class="panel-title">Ranking igualado · 6 ruedas</h2>
+        </div>
+      </div>
+      <div class="leader-strip">
+        <div class="ls-info">
+          <div class="ls-version">V11</div>
+          <div class="ls-sub">líder actual · WR 100.00% · ret +6.131%</div>
+        </div>
+        <div class="ls-spark"><svg viewBox='0 0 200 50' class='spark'><polygon points='4,47 4.0,44.0 42.4,37.7 80.8,33.7 119.2,9.1 157.6,6.2 196.0,6.0 196,47' fill='#f5b833' opacity='0.14'/><polyline points='4.0,44.0 42.4,37.7 80.8,33.7 119.2,9.1 157.6,6.2 196.0,6.0' fill='none' stroke='#f5b833' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='196.0' cy='6.0' r='3' fill='#f5b833'/></svg></div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>#</th><th>Modelo</th><th>Estado</th><th>WR / Ret</th><th>Muestra · Picks</th><th>Picks actuales</th></tr></thead>
+        <tbody><tr data-bid='leag-V11' data-blabel='V11' class='editable-block'><td><span class='rank-num'>1</span></td><td><strong>V11</strong> <span class='badge ba-base'>base</span></td><td><span class='badge ba-fresh'>al día</span></td><td><strong>100.00%</strong><br><small>+6.131%</small></td><td><small>6/6 · 8 picks</small></td><td class='muted-td ticker-list'>-</td></tr><tr data-bid='leag-V9' data-blabel='V9' class='editable-block'><td><span class='rank-num'>2</span></td><td><strong>V9</strong> <span class='badge ba-obs'>observado</span></td><td><span class='badge ba-fresh'>al día</span></td><td><strong>85.71%</strong><br><small>+4.837%</small></td><td><small>6/6 · 7 picks</small></td><td class='muted-td ticker-list'>-</td></tr><tr data-bid='leag-V8' data-blabel='V8' class='editable-block'><td><span class='rank-num'>3</span></td><td><strong>V8</strong> <span class='badge ba-obs'>observado</span></td><td><span class='badge ba-fresh'>al día</span></td><td><strong>85.71%</strong><br><small>+4.837%</small></td><td><small>6/6 · 7 picks</small></td><td class='muted-td ticker-list'>-</td></tr><tr data-bid='leag-V10' data-blabel='V10' class='editable-block'><td><span class='rank-num'>4</span></td><td><strong>V10</strong> <span class='badge ba-obs'>observado</span></td><td><span class='badge ba-fresh'>al día</span></td><td><strong>85.71%</strong><br><small>+4.837%</small></td><td><small>6/6 · 7 picks</small></td><td class='muted-td ticker-list'>-</td></tr><tr data-bid='leag-ML_V97' data-blabel='ML_V97' class='editable-block'><td><span class='rank-num'>5</span></td><td><strong>ML_V97</strong> <span class='badge ba-ml'>legacy_ml</span></td><td><span class='badge ba-fresh'>al día</span></td><td><strong>83.33%</strong><br><small>+13.660%</small></td><td><small>6/6 · 12 picks</small></td><td class='muted-td ticker-list'>LAR, SPCE</td></tr><tr data-bid='leag-ML_BRAIN_V11_OPT' data-blabel='ML_BRAIN_V11_OPT' class='editable-block'><td><span class='rank-num'>6</span></td><td><strong>ML_BRAIN_V11_OPT</strong> <span class='badge ba-ml'>legacy_ml</span></td><td><span class='badge ba-fresh'>al día</span></td><td><strong>83.33%</strong><br><small>+5.485%</small></td><td><small>6/6 · 12 picks</small></td><td class='muted-td ticker-list'>ASML, GOLD</td></tr><tr data-bid='leag-ML_V37' data-blabel='ML_V37' class='editable-block'><td><span class='rank-num'>7</span></td><td><strong>ML_V37</strong> <span class='badge ba-ml'>legacy_ml</span></td><td><span class='badge ba-fresh'>al día</span></td><td><strong>70.00%</strong><br><small>+1.084%</small></td><td><small>6/6 · 10 picks</small></td><td class='muted-td ticker-list'>AMZN, VIST</td></tr><tr data-bid='leag-ML_BRAIN_V11' data-blabel='ML_BRAIN_V11' class='editable-block'><td><span class='rank-num'>8</span></td><td><strong>ML_BRAIN_V11</strong> <span class='badge ba-ml'>legacy_ml</span></td><td><span class='badge ba-fresh'>al día</span></td><td><strong>66.67%</strong><br><small>+6.599%</small></td><td><small>6/6 · 12 picks</small></td><td class='muted-td ticker-list'>META, HMY</td></tr><tr data-bid='leag-ML_V39' data-blabel='ML_V39' class='editable-block'><td><span class='rank-num'>9</span></td><td><strong>ML_V39</strong> <span class='badge ba-ml'>legacy_ml</span></td><td><span class='badge ba-fresh'>al día</span></td><td><strong>66.67%</strong><br><small>+0.979%</small></td><td><small>6/6 · 12 picks</small></td><td class='muted-td ticker-list'>INTC, ORCL</td></tr><tr data-bid='leag-V13' data-blabel='V13' class='editable-block'><td><span class='rank-num'>10</span></td><td><strong>V13</strong> <span class='badge ba-active'>activo</span></td><td><span class='badge ba-fresh'>al día</span></td><td><strong>54.55%</strong><br><small>+6.694%</small></td><td><small>6/6 · 11 picks</small></td><td class='muted-td ticker-list'>HMY, MUX</td></tr></tbody>
+      </table>
+    </section>
+
+  </div><!-- /row-2-3 -->
+
+  <!-- ROW 2: PICKS + CONTROL ──────────────────── -->
+  <div class="row-1-1" id="picks">
+
+    <section class="panel editable-block" data-bid="picks-panel" data-blabel="Panel Picks vivos">
+      <div class="panel-head">
+        <div>
+          <div class="panel-label">Predicción viva</div>
+          <h2 class="panel-title">V13 · Activos para 2026-04-20</h2>
+        </div>
+        <span class="tb-pill tb-pill-regime regime-peligro">PELIGRO</span>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Ticker</th><th>Setup</th><th>Sector</th><th>Priority</th><th>Ret esp.</th><th>Riesgo</th></tr></thead>
+        <tbody><tr><td><strong>HMY</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>mining</td><td>66.5</td><td>+6.59%</td><td>9.9%</td></tr><tr><td><strong>MUX</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>mining</td><td>64.3</td><td>+5.73%</td><td>10.0%</td></tr><tr><td><strong>FCX</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>mining</td><td>63.6</td><td>+5.43%</td><td>7.4%</td></tr><tr><td><strong>GLW</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>industrial</td><td>59.9</td><td>+3.94%</td><td>11.5%</td></tr><tr><td><strong>GFI</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>mining</td><td>59.4</td><td>+3.76%</td><td>10.2%</td></tr><tr><td><strong>PAAS</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>mining</td><td>59.2</td><td>+3.67%</td><td>8.1%</td></tr><tr><td><strong>TXN</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>semis</td><td>59.1</td><td>+3.65%</td><td>5.4%</td></tr><tr><td><strong>C</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>finance</td><td>58.3</td><td>+3.30%</td><td>5.7%</td></tr><tr><td><strong>BHP</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>mining</td><td>57.8</td><td>+3.12%</td><td>4.9%</td></tr><tr><td><strong>AAP</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>other</td><td>57.6</td><td>+3.02%</td><td>7.8%</td></tr><tr><td><strong>RKLB</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>other</td><td>57.0</td><td>+2.82%</td><td>12.7%</td></tr><tr><td><strong>RIO</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>mining</td><td>56.6</td><td>+2.62%</td><td>4.6%</td></tr><tr><td><strong>BCS</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>other</td><td>56.5</td><td>+2.60%</td><td>6.0%</td></tr><tr><td><strong>CAT</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>industrial</td><td>55.8</td><td>+2.32%</td><td>6.8%</td></tr><tr><td><strong>EBAY</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>tech</td><td>55.8</td><td>+2.30%</td><td>5.5%</td></tr><tr><td><strong>IREN</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>other</td><td>55.8</td><td>+2.34%</td><td>13.7%</td></tr><tr><td><strong>ZM</strong></td><td class='muted-td'>D (Leadership)</td><td class='muted-td'>tech</td><td>55.4</td><td>+2.18%</td><td>7.9%</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="panel editable-block" data-bid="control-panel" data-blabel="Panel Control">
+      <div class="panel-head">
+        <div>
+          <div class="panel-label">Control operativo</div>
+          <h2 class="panel-title">Estado del sistema</h2>
+        </div>
+      </div>
+      <div class="ctrl-grid">
+        <div class="ctrl-box editable-block" data-bid="ctrl-continuidad" data-blabel="Continuidad">
+          <div class="ch-box-label">Cobertura pred</div>
+          <div class="ch-box-val">30/30</div>
+          <div class="kl"><span>Outcomes</span><strong>30/30</strong></div>
+        </div>
+        <div class="ctrl-box editable-block" data-bid="ctrl-snapshot" data-blabel="Snapshot">
+          <div class="ch-box-label">Snapshot</div>
+          <div class="ch-box-val">PELIGRO</div>
+          <div class="kl"><span>Memoria</span><strong>4</strong></div>
+          <div class="kl"><span>DB write</span><strong>2026-04-17</strong></div>
+        </div>
+        <div class="ctrl-box editable-block" data-bid="ctrl-divergencia" data-blabel="Divergencia">
+          <div class="ch-box-label">V12 vs V13</div>
+          <div class="ch-box-val">igual hoy</div>
+          <div class="kl"><span>Fechas distintas</span><strong>41/1,205</strong></div>
+        </div>
+        <div class="ctrl-box editable-block" data-bid="ctrl-ref" data-blabel="Referencia">
+          <div class="ch-box-label">Ref V12</div>
+          <div class="ch-box-val">54.55% / +6.694%</div>
+          <div class="kl"><span>Picks</span><strong>2</strong></div>
+          <div class="kl"><span>Fecha</span><strong>2026-04-17</strong></div>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /row-1-1 -->
+
+  <!-- MODELOS SCANNER ─────────────────────────── -->
+  <section class="panel editable-block" data-bid="scanners-panel" data-blabel="Scanners históricos" id="models">
+    <div class="panel-head">
+      <div>
+        <div class="panel-label">Scanners históricos</div>
+        <h2 class="panel-title">Familia INVERTIR · Muestra igualada 6 ruedas</h2>
+      </div>
+    </div>
+    <div class="models-grid"><article class='model-card editable-block' data-bid='mc-v11' data-blabel='V11'><div class='mc-head'><div class='mc-title'>V11</div><div class='mc-badges'><span class='badge ba-base'>base</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#1</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,54.0 54.4,46.0 104.8,41.0 155.2,9.9 205.6,6.2 256.0,6.0 256,57' fill='#6ea8cc' opacity='0.14'/><polyline points='4.0,54.0 54.4,46.0 104.8,41.0 155.2,9.9 205.6,6.2 256.0,6.0' fill='none' stroke='#6ea8cc' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='6.0' r='3' fill='#6ea8cc'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class='pos'>100.00%</strong></div><div class='mk'><span>Ret</span><strong>+6.131%</strong></div><div class='mk'><span>Hits</span><strong>8/8</strong></div><div class='mk'><span>Picks</span><strong>0</strong></div></div><div class='mc-tickers'>–</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>100.00% / +6.131%</strong></div><div class='kl'><span>Mejor día</span><strong>+13.49%</strong></div><div class='kl'><span>Peor día</span><strong>+0.09%</strong></div><div class='kl'><span>Universo</span><strong>92 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article><article class='model-card editable-block' data-bid='mc-v9' data-blabel='V9'><div class='mc-head'><div class='mc-title'>V9</div><div class='mc-badges'><span class='badge ba-obs'>observado</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#2</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,54.0 54.4,37.5 104.8,11.1 155.2,6.0 205.6,12.3 256.0,12.0 256,57' fill='#44e890' opacity='0.14'/><polyline points='4.0,54.0 54.4,37.5 104.8,11.1 155.2,6.0 205.6,12.3 256.0,12.0' fill='none' stroke='#44e890' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='12.0' r='3' fill='#44e890'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class='pos'>85.71%</strong></div><div class='mk'><span>Ret</span><strong>+4.837%</strong></div><div class='mk'><span>Hits</span><strong>6/7</strong></div><div class='mk'><span>Picks</span><strong>0</strong></div></div><div class='mc-tickers'>–</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>90.91% / +4.932%</strong></div><div class='kl'><span>Mejor día</span><strong>+12.63%</strong></div><div class='kl'><span>Peor día</span><strong>-1.94%</strong></div><div class='kl'><span>Universo</span><strong>130 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article><article class='model-card editable-block' data-bid='mc-v8' data-blabel='V8'><div class='mc-head'><div class='mc-title'>V8</div><div class='mc-badges'><span class='badge ba-obs'>observado</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#3</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,54.0 54.4,37.5 104.8,11.1 155.2,6.0 205.6,12.3 256.0,12.0 256,57' fill='#44e890' opacity='0.14'/><polyline points='4.0,54.0 54.4,37.5 104.8,11.1 155.2,6.0 205.6,12.3 256.0,12.0' fill='none' stroke='#44e890' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='12.0' r='3' fill='#44e890'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class='pos'>85.71%</strong></div><div class='mk'><span>Ret</span><strong>+4.837%</strong></div><div class='mk'><span>Hits</span><strong>6/7</strong></div><div class='mk'><span>Picks</span><strong>0</strong></div></div><div class='mc-tickers'>–</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>90.91% / +4.932%</strong></div><div class='kl'><span>Mejor día</span><strong>+12.63%</strong></div><div class='kl'><span>Peor día</span><strong>-1.94%</strong></div><div class='kl'><span>Universo</span><strong>130 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article><article class='model-card editable-block' data-bid='mc-v10' data-blabel='V10'><div class='mc-head'><div class='mc-title'>V10</div><div class='mc-badges'><span class='badge ba-obs'>observado</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#4</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,54.0 54.4,37.5 104.8,11.1 155.2,6.0 205.6,12.3 256.0,12.0 256,57' fill='#44e890' opacity='0.14'/><polyline points='4.0,54.0 54.4,37.5 104.8,11.1 155.2,6.0 205.6,12.3 256.0,12.0' fill='none' stroke='#44e890' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='12.0' r='3' fill='#44e890'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class='pos'>85.71%</strong></div><div class='mk'><span>Ret</span><strong>+4.837%</strong></div><div class='mk'><span>Hits</span><strong>6/7</strong></div><div class='mk'><span>Picks</span><strong>0</strong></div></div><div class='mc-tickers'>–</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>90.91% / +4.932%</strong></div><div class='kl'><span>Mejor día</span><strong>+12.63%</strong></div><div class='kl'><span>Peor día</span><strong>-1.94%</strong></div><div class='kl'><span>Universo</span><strong>130 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article><article class='model-card editable-block' data-bid='mc-v13' data-blabel='V13'><div class='mc-head'><div class='mc-title'>V13</div><div class='mc-badges'><span class='badge ba-active'>activo</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#10</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,43.8 54.4,45.7 104.8,53.5 155.2,54.0 205.6,33.1 256.0,6.0 256,57' fill='#18e8c8' opacity='0.14'/><polyline points='4.0,43.8 54.4,45.7 104.8,53.5 155.2,54.0 205.6,33.1 256.0,6.0' fill='none' stroke='#18e8c8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='6.0' r='3' fill='#18e8c8'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class=''>54.55%</strong></div><div class='mk'><span>Ret</span><strong>+6.694%</strong></div><div class='mk'><span>Hits</span><strong>6/11</strong></div><div class='mk'><span>Picks</span><strong>2</strong></div></div><div class='mc-tickers'>HMY, MUX</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>75.00% / +7.491%</strong></div><div class='kl'><span>Mejor día</span><strong>+19.88%</strong></div><div class='kl'><span>Peor día</span><strong>-4.01%</strong></div><div class='kl'><span>Universo</span><strong>166 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article><article class='model-card editable-block' data-bid='mc-v12' data-blabel='V12'><div class='mc-head'><div class='mc-title'>V12</div><div class='mc-badges'><span class='badge ba-ref'>referencia</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#11</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,43.8 54.4,45.7 104.8,53.5 155.2,54.0 205.6,33.1 256.0,6.0 256,57' fill='#f5b833' opacity='0.14'/><polyline points='4.0,43.8 54.4,45.7 104.8,53.5 155.2,54.0 205.6,33.1 256.0,6.0' fill='none' stroke='#f5b833' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='6.0' r='3' fill='#f5b833'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class=''>54.55%</strong></div><div class='mk'><span>Ret</span><strong>+6.694%</strong></div><div class='mk'><span>Hits</span><strong>6/11</strong></div><div class='mk'><span>Picks</span><strong>2</strong></div></div><div class='mc-tickers'>HMY, MUX</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>77.14% / +7.790%</strong></div><div class='kl'><span>Mejor día</span><strong>+19.88%</strong></div><div class='kl'><span>Peor día</span><strong>-4.01%</strong></div><div class='kl'><span>Universo</span><strong>166 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article></div>
+  </section>
+
+  <!-- LEGACY ML ───────────────────────────────── -->
+  <section class="panel editable-block" data-bid="legacy-panel" data-blabel="Legacy ML">
+    <div class="panel-head">
+      <div>
+        <div class="panel-label">Legacy ML externos</div>
+        <h2 class="panel-title">Modelos ML · Competencia cruzada</h2>
+      </div>
+    </div>
+    <div class="models-grid"><article class='model-card editable-block' data-bid='mc-ml-v97' data-blabel='ML_V97'><div class='mc-head'><div class='mc-title'>ML_V97</div><div class='mc-badges'><span class='badge ba-ml'>legacy_ml</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#5</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,54.0 54.4,40.9 104.8,29.1 155.2,25.2 205.6,17.6 256.0,6.0 256,57' fill='#a882ff' opacity='0.14'/><polyline points='4.0,54.0 54.4,40.9 104.8,29.1 155.2,25.2 205.6,17.6 256.0,6.0' fill='none' stroke='#a882ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='6.0' r='3' fill='#a882ff'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class='pos'>83.33%</strong></div><div class='mk'><span>Ret</span><strong>+13.660%</strong></div><div class='mk'><span>Hits</span><strong>10/12</strong></div><div class='mk'><span>Picks</span><strong>2</strong></div></div><div class='mc-tickers'>LAR, SPCE</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>75.93% / +6.908%</strong></div><div class='kl'><span>Mejor día</span><strong>+23.48%</strong></div><div class='kl'><span>Peor día</span><strong>-3.19%</strong></div><div class='kl'><span>Universo</span><strong>18 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article><article class='model-card editable-block' data-bid='mc-ml-brain-v11-opt' data-blabel='ML_BRAIN_V11_OPT'><div class='mc-head'><div class='mc-title'>ML_BRAIN_V11_OPT</div><div class='mc-badges'><span class='badge ba-ml'>legacy_ml</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#6</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,51.7 54.4,54.0 104.8,51.8 155.2,37.1 205.6,22.9 256.0,6.0 256,57' fill='#a882ff' opacity='0.14'/><polyline points='4.0,51.7 54.4,54.0 104.8,51.8 155.2,37.1 205.6,22.9 256.0,6.0' fill='none' stroke='#a882ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='6.0' r='3' fill='#a882ff'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class='pos'>83.33%</strong></div><div class='mk'><span>Ret</span><strong>+5.485%</strong></div><div class='mk'><span>Hits</span><strong>10/12</strong></div><div class='mk'><span>Picks</span><strong>2</strong></div></div><div class='mc-tickers'>ASML, GOLD</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>62.00% / +1.902%</strong></div><div class='kl'><span>Mejor día</span><strong>+19.08%</strong></div><div class='kl'><span>Peor día</span><strong>-8.92%</strong></div><div class='kl'><span>Universo</span><strong>22 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article><article class='model-card editable-block' data-bid='mc-ml-v37' data-blabel='ML_V37'><div class='mc-head'><div class='mc-title'>ML_V37</div><div class='mc-badges'><span class='badge ba-ml'>legacy_ml</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#7</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,38.2 54.4,54.0 104.8,42.1 155.2,19.8 205.6,15.8 256.0,6.0 256,57' fill='#a882ff' opacity='0.14'/><polyline points='4.0,38.2 54.4,54.0 104.8,42.1 155.2,19.8 205.6,15.8 256.0,6.0' fill='none' stroke='#a882ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='6.0' r='3' fill='#a882ff'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class='pos'>70.00%</strong></div><div class='mk'><span>Ret</span><strong>+1.084%</strong></div><div class='mk'><span>Hits</span><strong>7/10</strong></div><div class='mk'><span>Picks</span><strong>2</strong></div></div><div class='mc-tickers'>AMZN, VIST</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>45.45% / -0.221%</strong></div><div class='kl'><span>Mejor día</span><strong>+3.01%</strong></div><div class='kl'><span>Peor día</span><strong>-5.61%</strong></div><div class='kl'><span>Universo</span><strong>13 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article><article class='model-card editable-block' data-bid='mc-ml-brain-v11' data-blabel='ML_BRAIN_V11'><div class='mc-head'><div class='mc-title'>ML_BRAIN_V11</div><div class='mc-badges'><span class='badge ba-ml'>legacy_ml</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#8</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,54.0 54.4,31.8 104.8,18.5 155.2,18.1 205.6,13.1 256.0,6.0 256,57' fill='#a882ff' opacity='0.14'/><polyline points='4.0,54.0 54.4,31.8 104.8,18.5 155.2,18.1 205.6,13.1 256.0,6.0' fill='none' stroke='#a882ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='6.0' r='3' fill='#a882ff'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class='pos'>66.67%</strong></div><div class='mk'><span>Ret</span><strong>+6.599%</strong></div><div class='mk'><span>Hits</span><strong>8/12</strong></div><div class='mk'><span>Picks</span><strong>2</strong></div></div><div class='mc-tickers'>META, HMY</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>48.00% / +0.273%</strong></div><div class='kl'><span>Mejor día</span><strong>+13.49%</strong></div><div class='kl'><span>Peor día</span><strong>-14.06%</strong></div><div class='kl'><span>Universo</span><strong>37 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article><article class='model-card editable-block' data-bid='mc-ml-v39' data-blabel='ML_V39'><div class='mc-head'><div class='mc-title'>ML_V39</div><div class='mc-badges'><span class='badge ba-ml'>legacy_ml</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#9</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,54.0 54.4,33.6 104.8,31.2 155.2,26.1 205.6,6.0 256.0,21.3 256,57' fill='#a882ff' opacity='0.14'/><polyline points='4.0,54.0 54.4,33.6 104.8,31.2 155.2,26.1 205.6,6.0 256.0,21.3' fill='none' stroke='#a882ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='21.3' r='3' fill='#a882ff'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class='pos'>66.67%</strong></div><div class='mk'><span>Ret</span><strong>+0.979%</strong></div><div class='mk'><span>Hits</span><strong>8/12</strong></div><div class='mk'><span>Picks</span><strong>2</strong></div></div><div class='mc-tickers'>INTC, ORCL</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>56.90% / +0.808%</strong></div><div class='kl'><span>Mejor día</span><strong>+6.36%</strong></div><div class='kl'><span>Peor día</span><strong>-8.53%</strong></div><div class='kl'><span>Universo</span><strong>9 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article><article class='model-card editable-block' data-bid='mc-ml-v39full' data-blabel='ML_V39FULL'><div class='mc-head'><div class='mc-title'>ML_V39FULL</div><div class='mc-badges'><span class='badge ba-ml'>legacy_ml</span> <span class='badge ba-fresh'>al día</span></div><div class='rank-num mc-rank'>#12</div></div><div class='mc-spark'><svg viewBox='0 0 260 60' class='spark'><polygon points='4,57 4.0,52.3 54.4,14.9 104.8,42.1 155.2,6.0 205.6,22.2 256.0,54.0 256,57' fill='#a882ff' opacity='0.14'/><polyline points='4.0,52.3 54.4,14.9 104.8,42.1 155.2,6.0 205.6,22.2 256.0,54.0' fill='none' stroke='#a882ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='256.0' cy='54.0' r='3' fill='#a882ff'/></svg></div><div class='mc-kpis'><div class='mk'><span>WR</span><strong class='neg'>33.33%</strong></div><div class='mk'><span>Ret</span><strong>-0.168%</strong></div><div class='mk'><span>Hits</span><strong>4/12</strong></div><div class='mk'><span>Picks</span><strong>2</strong></div></div><div class='mc-tickers'>TEAM, DOW</div><details class='mc-detail'><summary>Más datos</summary><div class='mc-detail-body'><div class='kl'><span>30 ruedas</span><strong>51.72% / +0.501%</strong></div><div class='kl'><span>Mejor día</span><strong>+8.89%</strong></div><div class='kl'><span>Peor día</span><strong>-6.70%</strong></div><div class='kl'><span>Universo</span><strong>13 tickers</strong></div><div class='kl'><span>Última fecha</span><strong>2026-04-17</strong></div></div></details></article></div>
+  </section>
+
+  <!-- HEATMAP ─────────────────────────────────── -->
+  <section class="panel editable-block" data-bid="heatmap-panel" data-blabel="Heatmap" id="heatmap">
+    <div class="panel-head">
+      <div>
+        <div class="panel-label">Heatmap</div>
+        <h2 class="panel-title">Rendimiento por rueda · últimas 15 fechas</h2>
+      </div>
+    </div>
+    <table class='hm-table'><thead><tr><th></th><th>03-27</th><th>03-30</th><th>03-31</th><th>04-01</th><th>04-02</th><th>04-06</th><th>04-07</th><th>04-08</th><th>04-09</th><th>04-10</th><th>04-13</th><th>04-14</th><th>04-15</th><th>04-16</th><th>04-17</th></tr></thead><tbody><tr><th class='hm-label'>V13<br><small>activo</small></th><td style='background:rgba(252,92,125,0.25)' title='V13 2026-03-27 | ret -0.98% WR 0.00% picks 2
+BP, E'>-1.0</td><td style='background:rgba(252,92,125,0.55)' title='V13 2026-03-30 | ret -4.01% WR 0.00% picks 1
+BP'>-4.0</td><td style='background:rgba(252,92,125,0.17)' title='V13 2026-03-31 | ret -0.23% WR 50.00% picks 2
+SYY, BP'>-0.2</td><td style='background:rgba(68,232,144,0.65)' title='V13 2026-04-01 | ret +10.72% WR 50.00% picks 2
+MRVL, EQNR'>+10.7</td><td style='background:rgba(68,232,144,0.65)' title='V13 2026-04-02 | ret +13.86% WR 100.00% picks 2
+NKE, MRVL'>+13.9</td><td style='background:rgba(255,255,255,0.04)' title='V13 2026-04-06 | ret - WR - picks 2
+MRVL, GLW'>-</td><td style='background:rgba(255,255,255,0.04)' title='V13 2026-04-07 | ret - WR - picks 2
+E, MRVL'>-</td><td style='background:rgba(255,255,255,0.04)' title='V13 2026-04-08 | ret - WR - picks 2
+INTC, MRVL'>-</td><td style='background:rgba(255,255,255,0.04)' title='V13 2026-04-09 | ret - WR - picks 2
+SNOW, GLW'>-</td><td style='background:rgba(255,255,255,0.04)' title='V13 2026-04-10 | ret - WR - picks 2
+LRCX, AMD'>-</td><td style='background:rgba(255,255,255,0.04)' title='V13 2026-04-13 | ret - WR - picks 2
+LRCX, NUE'>-</td><td style='background:rgba(255,255,255,0.04)' title='V13 2026-04-14 | ret - WR - picks 2
+INTC, LRCX'>-</td><td style='background:rgba(255,255,255,0.04)' title='V13 2026-04-15 | ret - WR - picks 2
+ZM, LRCX'>-</td><td style='background:rgba(255,255,255,0.04)' title='V13 2026-04-16 | ret - WR - picks 2
+GLW, RKLB'>-</td><td style='background:rgba(255,255,255,0.04)' title='V13 2026-04-17 | ret - WR - picks 2
+HMY, MUX'>-</td></tr><tr><th class='hm-label'>V11<br><small>base</small></th><td style='background:rgba(255,255,255,0.04)' title='V11 2026-03-27 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-03-30 | ret - WR - picks 0
+'>-</td><td style='background:rgba(68,232,144,0.31)' title='V11 2026-03-31 | ret +1.59% WR 100.00% picks 1
+SYY'>+1.6</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-04-01 | ret - WR - picks 0
+'>-</td><td style='background:rgba(68,232,144,0.16)' title='V11 2026-04-02 | ret +0.09% WR 100.00% picks 1
+NKE'>+0.1</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-04-06 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-04-07 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-04-08 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-04-09 | ret - WR - picks 1
+SNOW'>-</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-04-10 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-04-13 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-04-14 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-04-15 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-04-16 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V11 2026-04-17 | ret - WR - picks 0
+'>-</td></tr><tr><th class='hm-label'>V9<br><small>observado</small></th><td style='background:rgba(255,255,255,0.04)' title='V9 2026-03-27 | ret - WR - picks 0
+'>-</td><td style='background:rgba(68,232,144,0.65)' title='V9 2026-03-30 | ret +8.13% WR 100.00% picks 1
+SYY'>+8.1</td><td style='background:rgba(68,232,144,0.31)' title='V9 2026-03-31 | ret +1.59% WR 100.00% picks 1
+SYY'>+1.6</td><td style='background:rgba(252,92,125,0.34)' title='V9 2026-04-01 | ret -1.94% WR 0.00% picks 1
+NKE'>-1.9</td><td style='background:rgba(68,232,144,0.16)' title='V9 2026-04-02 | ret +0.09% WR 100.00% picks 1
+NKE'>+0.1</td><td style='background:rgba(255,255,255,0.04)' title='V9 2026-04-06 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V9 2026-04-07 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V9 2026-04-08 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V9 2026-04-09 | ret - WR - picks 1
+SNOW'>-</td><td style='background:rgba(255,255,255,0.04)' title='V9 2026-04-10 | ret - WR - picks 1
+SNOW'>-</td><td style='background:rgba(255,255,255,0.04)' title='V9 2026-04-13 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V9 2026-04-14 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V9 2026-04-15 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V9 2026-04-16 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V9 2026-04-17 | ret - WR - picks 0
+'>-</td></tr><tr><th class='hm-label'>V8<br><small>observado</small></th><td style='background:rgba(255,255,255,0.04)' title='V8 2026-03-27 | ret - WR - picks 0
+'>-</td><td style='background:rgba(68,232,144,0.65)' title='V8 2026-03-30 | ret +8.13% WR 100.00% picks 1
+SYY'>+8.1</td><td style='background:rgba(68,232,144,0.31)' title='V8 2026-03-31 | ret +1.59% WR 100.00% picks 1
+SYY'>+1.6</td><td style='background:rgba(252,92,125,0.34)' title='V8 2026-04-01 | ret -1.94% WR 0.00% picks 1
+NKE'>-1.9</td><td style='background:rgba(68,232,144,0.16)' title='V8 2026-04-02 | ret +0.09% WR 100.00% picks 1
+NKE'>+0.1</td><td style='background:rgba(255,255,255,0.04)' title='V8 2026-04-06 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V8 2026-04-07 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V8 2026-04-08 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V8 2026-04-09 | ret - WR - picks 1
+SNOW'>-</td><td style='background:rgba(255,255,255,0.04)' title='V8 2026-04-10 | ret - WR - picks 1
+SNOW'>-</td><td style='background:rgba(255,255,255,0.04)' title='V8 2026-04-13 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V8 2026-04-14 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V8 2026-04-15 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V8 2026-04-16 | ret - WR - picks 0
+'>-</td><td style='background:rgba(255,255,255,0.04)' title='V8 2026-04-17 | ret - WR - picks 0
+'>-</td></tr><tr><th class='hm-label'>ML_V97<br><small>legacy_ml</small></th><td style='background:rgba(68,232,144,0.65)' title='ML_V97 2026-03-27 | ret +5.12% WR 100.00% picks 2
+BAK, LAR'>+5.1</td><td style='background:rgba(68,232,144,0.65)' title='ML_V97 2026-03-30 | ret +19.17% WR 100.00% picks 2
+CAR, XRX'>+19.2</td><td style='background:rgba(68,232,144,0.65)' title='ML_V97 2026-03-31 | ret +23.48% WR 100.00% picks 2
+CAR, AGRO'>+23.5</td><td style='background:rgba(68,232,144,0.46)' title='ML_V97 2026-04-01 | ret +3.12% WR 100.00% picks 2
+BAK, XRX'>+3.1</td><td style='background:rgba(68,232,144,0.65)' title='ML_V97 2026-04-02 | ret +6.22% WR 50.00% picks 2
+SPCE, AGRO'>+6.2</td><td style='background:rgba(68,232,144,0.65)' title='ML_V97 2026-04-06 | ret +6.89% WR 100.00% picks 2
+BAK, XRX'>+6.9</td><td style='background:rgba(252,92,125,0.32)' title='ML_V97 2026-04-07 | ret -1.67% WR 50.00% picks 2
+SPCE, BAK'>-1.7</td><td style='background:rgba(68,232,144,0.65)' title='ML_V97 2026-04-08 | ret +22.81% WR 100.00% picks 2
+CAR, SPCE'>+22.8</td><td style='background:rgba(68,232,144,0.65)' title='ML_V97 2026-04-09 | ret +20.51% WR 100.00% picks 2
+CAR, SPCE'>+20.5</td><td style='background:rgba(68,232,144,0.65)' title='ML_V97 2026-04-10 | ret +6.77% WR 100.00% picks 2
+RIOT, SPCE'>+6.8</td><td style='background:rgba(68,232,144,0.65)' title='ML_V97 2026-04-13 | ret +13.25% WR 50.00% picks 2
+CAR, SPCE'>+13.3</td><td style='background:rgba(68,232,144,0.65)' title='ML_V97 2026-04-14 | ret +20.28% WR 100.00% picks 2
+CAR, LAR'>+20.3</td><td style='background:rgba(255,255,255,0.04)' title='ML_V97 2026-04-15 | ret - WR - picks 2
+CAR, RIOT'>-</td><td style='background:rgba(255,255,255,0.04)' title='ML_V97 2026-04-16 | ret - WR - picks 2
+CAR, RIOT'>-</td><td style='background:rgba(255,255,255,0.04)' title='ML_V97 2026-04-17 | ret - WR - picks 2
+LAR, SPCE'>-</td></tr><tr><th class='hm-label'>ML_BRAIN_V11_OPT<br><small>legacy_ml</small></th><td style='background:rgba(68,232,144,0.65)' title='ML_BRAIN_V11_OPT 2026-03-27 | ret +6.02% WR 100.00% picks 2
+NEM, GLOB'>+6.0</td><td style='background:rgba(68,232,144,0.26)' title='ML_BRAIN_V11_OPT 2026-03-30 | ret +1.05% WR 50.00% picks 2
+GLOB, NU'>+1.1</td><td style='background:rgba(68,232,144,0.65)' title='ML_BRAIN_V11_OPT 2026-03-31 | ret +19.08% WR 100.00% picks 2
+FCX, INTC'>+19.1</td><td style='background:rgba(68,232,144,0.65)' title='ML_BRAIN_V11_OPT 2026-04-01 | ret +8.86% WR 100.00% picks 2
+GOLD, BABA'>+8.9</td><td style='background:rgba(68,232,144,0.17)' title='ML_BRAIN_V11_OPT 2026-04-02 | ret +0.23% WR 50.00% picks 2
+NKE, MELI'>+0.2</td><td style='background:rgba(252,92,125,0.31)' title='ML_BRAIN_V11_OPT 2026-04-06 | ret -1.63% WR 50.00% picks 2
+SNOW, MELI'>-1.6</td><td style='background:rgba(68,232,144,0.31)' title='ML_BRAIN_V11_OPT 2026-04-07 | ret +1.59% WR 100.00% picks 2
+BABA, NKE'>+1.6</td><td style='background:rgba(68,232,144,0.65)' title='ML_BRAIN_V11_OPT 2026-04-08 | ret +10.48% WR 100.00% picks 2
+GLOB, TSLA'>+10.5</td><td style='background:rgba(68,232,144,0.65)' title='ML_BRAIN_V11_OPT 2026-04-09 | ret +10.15% WR 100.00% picks 2
+GLOB, TSLA'>+10.1</td><td style='background:rgba(68,232,144,0.65)' title='ML_BRAIN_V11_OPT 2026-04-10 | ret +12.08% WR 100.00% picks 2
+NKE, GLOB'>+12.1</td><td style='background:rgba(255,255,255,0.04)' title='ML_BRAIN_V11_OPT 2026-04-13 | ret - WR - picks 2
+SNOW, GS'>-</td><td style='background:rgba(255,255,255,0.04)' title='ML_BRAIN_V11_OPT 2026-04-14 | ret - WR - picks 2
+SNOW, ORCL'>-</td><td style='background:rgba(255,255,255,0.04)' title='ML_BRAIN_V11_OPT 2026-04-15 | ret - WR - picks 2
+SNOW, SAP'>-</td><td style='background:rgba(255,255,255,0.04)' title='ML_BRAIN_V11_OPT 2026-04-16 | ret - WR - picks 2
+GOLD, ASML'>-</td><td style='background:rgba(255,255,255,0.04)' title='ML_BRAIN_V11_OPT 2026-04-17 | ret - WR - picks 2
+ASML, GOLD'>-</td></tr></tbody></table>
+    <div class="hm-legend">
+      <span class="hml pos">Verde = retorno positivo</span>
+      <span class="hml neg">Rojo = retorno negativo</span>
+      <span class="hml muted-td">– = sin picks esa rueda</span>
+    </div>
+  </section>
+
+  <!-- OVERLAP MATRIX ──────────────────────────── -->
+  <section class="panel editable-block" data-bid="overlap-panel" data-blabel="Overlap matrix">
+    <div class="panel-head">
+      <div>
+        <div class="panel-label">Overlap Jaccard</div>
+        <h2 class="panel-title">Diversificación entre modelos · últimas 31 ruedas</h2>
+      </div>
+    </div>
+    <table class='om-table'><thead><tr><th></th><th>V13</th><th>V12</th><th>ML_V97</th><th>ML_V39</th><th>ML_V39FULL</th><th>ML_BRAIN_V11</th><th>ML_BRAIN_V11_OPT</th><th>ML_V37</th></tr></thead><tbody><tr><th class='om-label'>V13</th><td style='background:rgba(24,232,200,0.63)'>1.00</td><td style='background:rgba(24,232,200,0.63)'>1.00</td><td style='background:rgba(24,232,200,0.09)'>0.01</td><td style='background:rgba(24,232,200,0.11)'>0.05</td><td style='background:rgba(24,232,200,0.11)'>0.06</td><td style='background:rgba(24,232,200,0.11)'>0.05</td><td style='background:rgba(24,232,200,0.09)'>0.01</td><td style='background:rgba(24,232,200,0.08)'>0.00</td></tr><tr><th class='om-label'>V12</th><td style='background:rgba(24,232,200,0.63)'>1.00</td><td style='background:rgba(24,232,200,0.63)'>1.00</td><td style='background:rgba(24,232,200,0.09)'>0.01</td><td style='background:rgba(24,232,200,0.11)'>0.05</td><td style='background:rgba(24,232,200,0.11)'>0.06</td><td style='background:rgba(24,232,200,0.11)'>0.05</td><td style='background:rgba(24,232,200,0.09)'>0.01</td><td style='background:rgba(24,232,200,0.08)'>0.00</td></tr><tr><th class='om-label'>ML_V97</th><td style='background:rgba(24,232,200,0.09)'>0.01</td><td style='background:rgba(24,232,200,0.09)'>0.01</td><td style='background:rgba(24,232,200,0.63)'>1.00</td><td style='background:rgba(24,232,200,0.09)'>0.02</td><td style='background:rgba(24,232,200,0.12)'>0.06</td><td style='background:rgba(24,232,200,0.09)'>0.02</td><td style='background:rgba(24,232,200,0.10)'>0.03</td><td style='background:rgba(24,232,200,0.10)'>0.04</td></tr><tr><th class='om-label'>ML_V39</th><td style='background:rgba(24,232,200,0.11)'>0.05</td><td style='background:rgba(24,232,200,0.11)'>0.05</td><td style='background:rgba(24,232,200,0.09)'>0.02</td><td style='background:rgba(24,232,200,0.63)'>1.00</td><td style='background:rgba(24,232,200,0.16)'>0.14</td><td style='background:rgba(24,232,200,0.13)'>0.10</td><td style='background:rgba(24,232,200,0.15)'>0.12</td><td style='background:rgba(24,232,200,0.09)'>0.02</td></tr><tr><th class='om-label'>ML_V39FULL</th><td style='background:rgba(24,232,200,0.11)'>0.06</td><td style='background:rgba(24,232,200,0.11)'>0.06</td><td style='background:rgba(24,232,200,0.12)'>0.06</td><td style='background:rgba(24,232,200,0.16)'>0.14</td><td style='background:rgba(24,232,200,0.63)'>1.00</td><td style='background:rgba(24,232,200,0.12)'>0.07</td><td style='background:rgba(24,232,200,0.12)'>0.07</td><td style='background:rgba(24,232,200,0.08)'>0.01</td></tr><tr><th class='om-label'>ML_BRAIN_V11</th><td style='background:rgba(24,232,200,0.11)'>0.05</td><td style='background:rgba(24,232,200,0.11)'>0.05</td><td style='background:rgba(24,232,200,0.09)'>0.02</td><td style='background:rgba(24,232,200,0.13)'>0.10</td><td style='background:rgba(24,232,200,0.12)'>0.07</td><td style='background:rgba(24,232,200,0.63)'>1.00</td><td style='background:rgba(24,232,200,0.13)'>0.08</td><td style='background:rgba(24,232,200,0.09)'>0.03</td></tr><tr><th class='om-label'>ML_BRAIN_V11_OPT</th><td style='background:rgba(24,232,200,0.09)'>0.01</td><td style='background:rgba(24,232,200,0.09)'>0.01</td><td style='background:rgba(24,232,200,0.10)'>0.03</td><td style='background:rgba(24,232,200,0.15)'>0.12</td><td style='background:rgba(24,232,200,0.12)'>0.07</td><td style='background:rgba(24,232,200,0.13)'>0.08</td><td style='background:rgba(24,232,200,0.63)'>1.00</td><td style='background:rgba(24,232,200,0.09)'>0.02</td></tr><tr><th class='om-label'>ML_V37</th><td style='background:rgba(24,232,200,0.08)'>0.00</td><td style='background:rgba(24,232,200,0.08)'>0.00</td><td style='background:rgba(24,232,200,0.10)'>0.04</td><td style='background:rgba(24,232,200,0.09)'>0.02</td><td style='background:rgba(24,232,200,0.08)'>0.01</td><td style='background:rgba(24,232,200,0.09)'>0.03</td><td style='background:rgba(24,232,200,0.09)'>0.02</td><td style='background:rgba(24,232,200,0.63)'>1.00</td></tr></tbody></table>
+    <div class="hm-legend"><span class="hml muted-td">Verde oscuro = mayor solapamiento de picks. Ideal: valores bajos fuera de la diagonal.</span></div>
+  </section>
+
+  <!-- LIGA COMPLETA ───────────────────────────── -->
+  <section class="panel editable-block" data-bid="data-panel" data-blabel="Liga completa" id="data">
+    <div class="panel-head">
+      <div>
+        <div class="panel-label">Data completa</div>
+        <h2 class="panel-title">Liga · todos los modelos monitoreados</h2>
+      </div>
+    </div>
+    <div class="tbl-scroll">
+      <table class="data-table">
+        <thead><tr>
+          <th>Modelo</th><th>Estado</th>
+          <th>Igualada WR/Ret</th><th>Igualada muestra</th>
+          <th>30 ruedas WR/Ret</th><th>30 ruedas muestra</th>
+          <th>Picks actuales</th>
+        </tr></thead>
+        <tbody><tr><td><strong>V11</strong> <span class='badge ba-base'>base</span></td><td><span class='badge ba-fresh'>al día</span></td><td>100.00% / +6.131%</td><td>6/6 · 8</td><td>100.00% / +6.131%</td><td>6/30 · 8</td><td class='muted-td ticker-list'>-</td></tr><tr><td><strong>V9</strong> <span class='badge ba-obs'>observado</span></td><td><span class='badge ba-fresh'>al día</span></td><td>85.71% / +4.837%</td><td>6/6 · 7</td><td>90.91% / +4.932%</td><td>9/30 · 11</td><td class='muted-td ticker-list'>-</td></tr><tr><td><strong>V8</strong> <span class='badge ba-obs'>observado</span></td><td><span class='badge ba-fresh'>al día</span></td><td>85.71% / +4.837%</td><td>6/6 · 7</td><td>90.91% / +4.932%</td><td>9/30 · 11</td><td class='muted-td ticker-list'>-</td></tr><tr><td><strong>V10</strong> <span class='badge ba-obs'>observado</span></td><td><span class='badge ba-fresh'>al día</span></td><td>85.71% / +4.837%</td><td>6/6 · 7</td><td>90.91% / +4.932%</td><td>9/30 · 11</td><td class='muted-td ticker-list'>-</td></tr><tr><td><strong>ML_V97</strong> <span class='badge ba-ml'>legacy_ml</span></td><td><span class='badge ba-fresh'>al día</span></td><td>83.33% / +13.660%</td><td>6/6 · 12</td><td>75.93% / +6.908%</td><td>27/30 · 54</td><td class='muted-td ticker-list'>LAR, SPCE</td></tr><tr><td><strong>ML_BRAIN_V11_OPT</strong> <span class='badge ba-ml'>legacy_ml</span></td><td><span class='badge ba-fresh'>al día</span></td><td>83.33% / +5.485%</td><td>6/6 · 12</td><td>62.00% / +1.902%</td><td>25/30 · 50</td><td class='muted-td ticker-list'>ASML, GOLD</td></tr><tr><td><strong>ML_V37</strong> <span class='badge ba-ml'>legacy_ml</span></td><td><span class='badge ba-fresh'>al día</span></td><td>70.00% / +1.084%</td><td>6/6 · 10</td><td>45.45% / -0.221%</td><td>25/30 · 44</td><td class='muted-td ticker-list'>AMZN, VIST</td></tr><tr><td><strong>ML_BRAIN_V11</strong> <span class='badge ba-ml'>legacy_ml</span></td><td><span class='badge ba-fresh'>al día</span></td><td>66.67% / +6.599%</td><td>6/6 · 12</td><td>48.00% / +0.273%</td><td>25/30 · 50</td><td class='muted-td ticker-list'>META, HMY</td></tr><tr><td><strong>ML_V39</strong> <span class='badge ba-ml'>legacy_ml</span></td><td><span class='badge ba-fresh'>al día</span></td><td>66.67% / +0.979%</td><td>6/6 · 12</td><td>56.90% / +0.808%</td><td>29/30 · 58</td><td class='muted-td ticker-list'>INTC, ORCL</td></tr><tr><td><strong>V13</strong> <span class='badge ba-active'>activo</span></td><td><span class='badge ba-fresh'>al día</span></td><td>54.55% / +6.694%</td><td>6/6 · 11</td><td>75.00% / +7.491%</td><td>19/30 · 36</td><td class='muted-td ticker-list'>HMY, MUX</td></tr><tr><td><strong>V12</strong> <span class='badge ba-ref'>referencia</span></td><td><span class='badge ba-fresh'>al día</span></td><td>54.55% / +6.694%</td><td>6/6 · 11</td><td>77.14% / +7.790%</td><td>19/30 · 35</td><td class='muted-td ticker-list'>HMY, MUX</td></tr><tr><td><strong>ML_V39FULL</strong> <span class='badge ba-ml'>legacy_ml</span></td><td><span class='badge ba-fresh'>al día</span></td><td>33.33% / -0.168%</td><td>6/6 · 12</td><td>51.72% / +0.501%</td><td>29/30 · 58</td><td class='muted-td ticker-list'>TEAM, DOW</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="page-footer">
+    Titan Machine Dashboard · generado 2026-04-20T17:08:12 · datos desde SQLite local
+  </div>
+
+</div><!-- /main-wrap -->
+
+<!-- EDITOR PANEL ─────────────────────────────── -->
+<div class="editor-panel" id="editorPanel" aria-hidden="true">
+  <div class="ep-head">
+    <div>
+      <div class="ep-label">Editor visual</div>
+      <div class="ep-title">Personalizar dashboard</div>
+    </div>
+    <button class="ep-close" id="editorClose">×</button>
+  </div>
+
+  <div class="ep-note">
+    1 · Hacé clic en cualquier cuadro para seleccionarlo.<br>
+    2 · Usá Subir/Bajar para reordenarlo en su sección.<br>
+    3 · Doble clic en <em>textos</em> (títulos, labels) para editarlos.<br>
+    4 · Los números y métricas vienen de la DB y no se modifican desde aquí.
+  </div>
+
+  <div class="ep-section">
+    <div class="ep-section-title">Bloque seleccionado</div>
+    <div class="ep-selected-name" id="epSelectedName">Ninguno seleccionado</div>
+    <div class="ep-row">
+      <button class="ep-btn" id="epMoveUp">↑ Subir</button>
+      <button class="ep-btn" id="epMoveDown">↓ Bajar</button>
+    </div>
+    <div class="ep-field">
+      <label for="epVisible">Visibilidad</label>
+      <select id="epVisible">
+        <option value="1">Visible</option>
+        <option value="0">Oculto</option>
+      </select>
+    </div>
+    <button class="ep-btn ep-apply" id="epApplyBlock">Aplicar</button>
+  </div>
+
+  <div class="ep-section">
+    <div class="ep-section-title">Tema de color</div>
+    <div class="ep-grid-2">
+      <div class="ep-field"><label for="tc-bg">Fondo</label><input id="tc-bg" type="color"></div>
+      <div class="ep-field"><label for="tc-panel">Panel</label><input id="tc-panel" type="color"></div>
+      <div class="ep-field"><label for="tc-ink">Texto</label><input id="tc-ink" type="color"></div>
+      <div class="ep-field"><label for="tc-muted">Muteado</label><input id="tc-muted" type="color"></div>
+      <div class="ep-field"><label for="tc-accent">Acento</label><input id="tc-accent" type="color"></div>
+      <div class="ep-field"><label for="tc-gold">Dorado</label><input id="tc-gold" type="color"></div>
+      <div class="ep-field"><label for="tc-green">Verde</label><input id="tc-green" type="color"></div>
+      <div class="ep-field"><label for="tc-rose">Rojo</label><input id="tc-rose" type="color"></div>
+    </div>
+    <div class="ep-field">
+      <label for="tc-radius">Redondeo (px) <span id="radiusVal"></span></label>
+      <input id="tc-radius" type="range" min="4" max="28" step="1">
+    </div>
+    <button class="ep-btn ep-apply" id="epApplyTheme">Aplicar tema</button>
+  </div>
+
+  <div class="ep-section">
+    <div class="ep-grid-2">
+      <button class="ep-btn ep-save" id="epSave">💾 Guardar</button>
+      <button class="ep-btn" id="epReset">↺ Resetear</button>
+    </div>
+    <div class="ep-status" id="epStatus"></div>
+  </div>
+</div>
+
+<!-- TOOLTIP heatmap -->
+<div class="heat-tt" id="heatTT"></div>
+
+<script>
+/* ── SIDEBAR TOGGLE ───────────────────────────────────────────────────── */
+(function(){
+  const sidebar  = document.getElementById('sidebar');
+  const mainWrap = document.getElementById('mainWrap');
+  const tab      = document.getElementById('sidebarTab');
+  let collapsed  = JSON.parse(localStorage.getItem('titan-sidebar-collapsed') || 'false');
+
+  function applyState(){
+    document.body.classList.toggle('sidebar-collapsed', collapsed);
+    tab.textContent = collapsed ? '›' : '‹';
+    tab.title       = collapsed ? 'Mostrar menú' : 'Ocultar menú';
+  }
+
+  tab.addEventListener('click', function(){
+    collapsed = !collapsed;
+    localStorage.setItem('titan-sidebar-collapsed', JSON.stringify(collapsed));
+    applyState();
+  });
+
+  applyState();
+})();
+
+/* ── NAV LINKS: smooth scroll + active ──────────────────────────────── */
+document.querySelectorAll('.sn-link').forEach(function(link){
+  link.addEventListener('click', function(){
+    document.querySelectorAll('.sn-link').forEach(function(l){ l.classList.remove('active'); });
+    link.classList.add('active');
+  });
+});
+
+/* ── HEATMAP TOOLTIP ─────────────────────────────────────────────────── */
+(function(){
+  const tt = document.getElementById('heatTT');
+  document.querySelectorAll('.hm-table td[title]').forEach(function(cell){
+    cell.addEventListener('mouseenter', function(e){
+      tt.textContent = cell.getAttribute('title');
+      tt.classList.add('show');
+    });
+    cell.addEventListener('mousemove', function(e){
+      tt.style.left = (e.clientX + 14) + 'px';
+      tt.style.top  = (e.clientY - 8) + 'px';
+    });
+    cell.addEventListener('mouseleave', function(){ tt.classList.remove('show'); });
+  });
+})();
+
+/* ── EDITOR ──────────────────────────────────────────────────────────── */
+(function(){
+  const STORE = 'titan-editor-v2';
+  let state = loadState();
+  let editMode  = false;
+  let selectedId = null;
+
+  function loadState(){
+    try { return JSON.parse(localStorage.getItem(STORE) || '{}'); }
+    catch(e) { return {}; }
+  }
+  function saveState(){
+    localStorage.setItem(STORE, JSON.stringify(state));
+  }
+  function setStatus(msg){
+    const el = document.getElementById('epStatus');
+    if(el){ el.textContent = msg; setTimeout(function(){ if(el.textContent===msg) el.textContent=''; }, 2000); }
+  }
+
+  /* --- restore saved layout & theme on load --- */
+  function restoreAll(){
+    applyThemeVars(state.theme || {});
+    (state.hidden || []).forEach(function(bid){
+      const el = document.querySelector('[data-bid="'+bid+'"]');
+      if(el) el.classList.add('block-hidden');
+    });
+    Object.entries(state.order || {}).forEach(function([containerId, order]){
+      const container = document.querySelector('[data-container="'+containerId+'"]');
+      if(!container) return;
+      order.forEach(function(bid){
+        const el = document.querySelector('[data-bid="'+bid+'"]');
+        if(el && el.parentElement===container) container.appendChild(el);
+      });
+    });
+  }
+
+  /* --- toggle edit mode --- */
+  const editBtn = document.getElementById('editModeBtn');
+  editBtn.addEventListener('click', function(){
+    editMode = !editMode;
+    document.body.classList.toggle('edit-mode', editMode);
+    document.getElementById('editorPanel').classList.toggle('ep-open', editMode);
+    editBtn.textContent = editMode ? '✓ Salir editor' : '✎ Editar';
+  });
+  document.getElementById('editorClose').addEventListener('click', function(){
+    editMode = false;
+    document.body.classList.remove('edit-mode');
+    document.getElementById('editorPanel').classList.remove('ep-open');
+    editBtn.textContent = '✎ Editar';
+    deselectAll();
+  });
+
+  /* --- block click (select) in edit mode --- */
+  document.querySelectorAll('.editable-block').forEach(function(block){
+    block.addEventListener('click', function(e){
+      if(!editMode) return;
+      e.stopPropagation();
+      selectBlock(block.dataset.bid);
+    });
+  });
+
+  function selectBlock(bid){
+    deselectAll();
+    selectedId = bid;
+    const el = document.querySelector('[data-bid="'+bid+'"]');
+    if(el){
+      el.classList.add('block-selected');
+      const nameEl = document.getElementById('epSelectedName');
+      if(nameEl) nameEl.textContent = el.dataset.blabel || bid;
+      const visEl = document.getElementById('epVisible');
+      if(visEl) visEl.value = el.classList.contains('block-hidden') ? '0' : '1';
+    }
+  }
+  function deselectAll(){
+    document.querySelectorAll('.block-selected').forEach(function(el){ el.classList.remove('block-selected'); });
+    selectedId = null;
+    const nameEl = document.getElementById('epSelectedName');
+    if(nameEl) nameEl.textContent = 'Ninguno seleccionado';
+  }
+
+  /* --- move up/down --- */
+  document.getElementById('epMoveUp').addEventListener('click', function(){
+    if(!selectedId) return;
+    const el = document.querySelector('[data-bid="'+selectedId+'"]');
+    if(!el) return;
+    const prev = el.previousElementSibling;
+    if(prev) el.parentNode.insertBefore(el, prev);
+  });
+  document.getElementById('epMoveDown').addEventListener('click', function(){
+    if(!selectedId) return;
+    const el = document.querySelector('[data-bid="'+selectedId+'"]');
+    if(!el) return;
+    const next = el.nextElementSibling;
+    if(next) el.parentNode.insertBefore(next, el);
+  });
+
+  /* --- apply block visibility --- */
+  document.getElementById('epApplyBlock').addEventListener('click', function(){
+    if(!selectedId) return;
+    const el = document.querySelector('[data-bid="'+selectedId+'"]');
+    if(!el) return;
+    const vis = document.getElementById('epVisible').value;
+    if(vis === '0') {
+      el.classList.add('block-hidden');
+      if(!state.hidden) state.hidden = [];
+      if(!state.hidden.includes(selectedId)) state.hidden.push(selectedId);
+    } else {
+      el.classList.remove('block-hidden');
+      state.hidden = (state.hidden || []).filter(function(id){ return id !== selectedId; });
+    }
+    setStatus('Bloque actualizado');
+  });
+
+  /* --- text editing: dblclick on editable-text elements --- */
+  document.querySelectorAll('.editable-text').forEach(function(el){
+    el.addEventListener('dblclick', function(e){
+      if(!editMode) return;
+      e.stopPropagation();
+      el.contentEditable = 'true';
+      el.focus();
+      el.classList.add('text-editing');
+    });
+    el.addEventListener('blur', function(){
+      el.contentEditable = 'false';
+      el.classList.remove('text-editing');
+      if(!state.texts) state.texts = {};
+      state.texts[el.dataset.tid || el.className] = el.textContent;
+    });
+    el.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); el.blur(); }
+      if(e.key === 'Escape') { el.blur(); }
+    });
+  });
+
+  /* --- theme vars --- */
+  const THEME_MAP = [
+    ['tc-bg',    '--bg'],
+    ['tc-panel', '--panel'],
+    ['tc-ink',   '--ink'],
+    ['tc-muted', '--muted'],
+    ['tc-accent','--cyan'],
+    ['tc-gold',  '--gold'],
+    ['tc-green', '--green'],
+    ['tc-rose',  '--rose'],
+  ];
+
+  function normalizeHex(color){
+    try {
+      const span = document.createElement('span');
+      span.style.color = color;
+      document.body.appendChild(span);
+      const rgb = getComputedStyle(span).color;
+      document.body.removeChild(span);
+      const m = rgb.match(/\d+/g);
+      if(!m) return '#888888';
+      return '#' + m.slice(0,3).map(function(n){ return parseInt(n).toString(16).padStart(2,'0'); }).join('');
+    } catch(e) { return color; }
+  }
+
+  function syncThemeInputs(){
+    THEME_MAP.forEach(function(pair){
+      const input = document.getElementById(pair[0]);
+      if(!input) return;
+      const stored = (state.theme || {})[pair[1]];
+      const cur = stored || getComputedStyle(document.documentElement).getPropertyValue(pair[1]).trim();
+      input.value = normalizeHex(cur);
+    });
+    const rInput = document.getElementById('tc-radius');
+    const rVal   = document.getElementById('radiusVal');
+    if(rInput){
+      const stored = (state.theme || {})['--radius'];
+      rInput.value = stored ? parseInt(stored) : 16;
+      if(rVal) rVal.textContent = rInput.value + 'px';
+      rInput.addEventListener('input', function(){ if(rVal) rVal.textContent = rInput.value + 'px'; });
+    }
+  }
+
+  function applyThemeVars(theme){
+    Object.entries(theme).forEach(function([k, v]){
+      document.documentElement.style.setProperty(k, v);
+    });
+  }
+
+  document.getElementById('epApplyTheme').addEventListener('click', function(){
+    if(!state.theme) state.theme = {};
+    THEME_MAP.forEach(function(pair){
+      const input = document.getElementById(pair[0]);
+      if(input) state.theme[pair[1]] = input.value;
+    });
+    const rInput = document.getElementById('tc-radius');
+    if(rInput) state.theme['--radius'] = rInput.value + 'px';
+    applyThemeVars(state.theme);
+    setStatus('Tema aplicado');
+  });
+
+  document.getElementById('epSave').addEventListener('click', function(){
+    /* save block order for each container */
+    state.order = {};
+    document.querySelectorAll('[data-container]').forEach(function(container){
+      const cid = container.dataset.container;
+      state.order[cid] = Array.from(container.querySelectorAll(':scope > .editable-block'))
+        .map(function(el){ return el.dataset.bid; }).filter(Boolean);
+    });
+    saveState();
+    setStatus('💾 Guardado');
+  });
+
+  document.getElementById('epReset').addEventListener('click', function(){
+    localStorage.removeItem(STORE);
+    state = {};
+    location.reload();
+  });
+
+  syncThemeInputs();
+  restoreAll();
+})();
+</script>
+</body>
+</html>

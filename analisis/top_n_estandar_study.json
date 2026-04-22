@@ -1,0 +1,1329 @@
+{
+  "all_current_common_window": {
+    "labels": [
+      "V13",
+      "V12",
+      "V11",
+      "V8",
+      "V9",
+      "V10",
+      "ML_BRAIN_V11",
+      "ML_BRAIN_V11_OPT",
+      "ML_V37",
+      "ML_V39",
+      "ML_V39FULL",
+      "ML_V97"
+    ],
+    "start_date": "2026-03-02",
+    "results": [
+      {
+        "top_n": 1,
+        "eligible_days": 24,
+        "start_date": "2026-03-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 66.08997584541062,
+        "mean_model_return_pct": 2.4956753221767074,
+        "mean_model_day_return_pct": 2.495675322176708,
+        "mean_picks_active_day": 1.0,
+        "leaderboard": [
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 6,
+            "asset_picks": 6,
+            "accuracy_pct": 100.0,
+            "avg_return_pct": 4.823718298300402,
+            "avg_day_return_pct": 4.823718298300402,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V9",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 10,
+            "accuracy_pct": 80.0,
+            "avg_return_pct": 3.705923646099515,
+            "avg_day_return_pct": 3.705923646099516,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V8",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 10,
+            "accuracy_pct": 80.0,
+            "avg_return_pct": 3.705923646099515,
+            "avg_day_return_pct": 3.705923646099516,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V10",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 10,
+            "accuracy_pct": 80.0,
+            "avg_return_pct": 3.705923646099515,
+            "avg_day_return_pct": 3.705923646099516,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "ML_V97",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 24,
+            "accuracy_pct": 79.16666666666667,
+            "avg_return_pct": 6.512014760326757,
+            "avg_day_return_pct": 6.512014760326757,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 23,
+            "asset_picks": 23,
+            "accuracy_pct": 69.56521739130434,
+            "avg_return_pct": 4.915635515256547,
+            "avg_day_return_pct": 4.915635515256547,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 23,
+            "asset_picks": 23,
+            "accuracy_pct": 69.56521739130434,
+            "avg_return_pct": 4.915635515256547,
+            "avg_day_return_pct": 4.915635515256547,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "ML_V39FULL",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 24,
+            "accuracy_pct": 58.333333333333336,
+            "avg_return_pct": 0.4257590446500547,
+            "avg_day_return_pct": 0.4257590446500547,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "ML_V39",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 24,
+            "accuracy_pct": 50.0,
+            "avg_return_pct": 0.16580053162067185,
+            "avg_day_return_pct": 0.16580053162067185,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "ML_BRAIN_V11_OPT",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 24,
+            "accuracy_pct": 50.0,
+            "avg_return_pct": -0.36755528410375327,
+            "avg_day_return_pct": -0.3675552841037533,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "ML_BRAIN_V11",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 24,
+            "accuracy_pct": 41.666666666666664,
+            "avg_return_pct": -2.236048255415166,
+            "avg_day_return_pct": -2.236048255415166,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "ML_V37",
+            "role": "legacy_ml",
+            "active_days": 23,
+            "asset_picks": 23,
+            "accuracy_pct": 34.78260869565217,
+            "avg_return_pct": -0.3246271980701141,
+            "avg_day_return_pct": -0.3246271980701141,
+            "avg_picks_active_day": 1.0
+          }
+        ]
+      },
+      {
+        "top_n": 2,
+        "eligible_days": 24,
+        "start_date": "2026-03-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 66.37051578912043,
+        "mean_model_return_pct": 2.825790687583537,
+        "mean_model_day_return_pct": 2.715800509393692,
+        "mean_picks_active_day": 1.7118357487922706,
+        "leaderboard": [
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 6,
+            "asset_picks": 8,
+            "accuracy_pct": 100.0,
+            "avg_return_pct": 6.131266264408901,
+            "avg_day_return_pct": 5.56857935643973,
+            "avg_picks_active_day": 1.3333333333333333
+          },
+          {
+            "version": "V9",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 12,
+            "accuracy_pct": 83.33333333333333,
+            "avg_return_pct": 4.252273700381875,
+            "avg_day_return_pct": 3.843930055572218,
+            "avg_picks_active_day": 1.2
+          },
+          {
+            "version": "V8",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 12,
+            "accuracy_pct": 83.33333333333333,
+            "avg_return_pct": 4.252273700381875,
+            "avg_day_return_pct": 3.843930055572218,
+            "avg_picks_active_day": 1.2
+          },
+          {
+            "version": "V10",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 12,
+            "accuracy_pct": 83.33333333333333,
+            "avg_return_pct": 4.252273700381875,
+            "avg_day_return_pct": 3.843930055572218,
+            "avg_picks_active_day": 1.2
+          },
+          {
+            "version": "ML_V97",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 48,
+            "accuracy_pct": 70.83333333333333,
+            "avg_return_pct": 5.217588024931408,
+            "avg_day_return_pct": 5.217588024931407,
+            "avg_picks_active_day": 2.0
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 23,
+            "asset_picks": 43,
+            "accuracy_pct": 67.44186046511628,
+            "avg_return_pct": 4.786607903526688,
+            "avg_day_return_pct": 5.002649679397865,
+            "avg_picks_active_day": 1.8695652173913044
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 23,
+            "asset_picks": 44,
+            "accuracy_pct": 65.9090909090909,
+            "avg_return_pct": 4.610751101578689,
+            "avg_day_return_pct": 4.755303373303932,
+            "avg_picks_active_day": 1.9130434782608696
+          },
+          {
+            "version": "ML_BRAIN_V11_OPT",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 48,
+            "accuracy_pct": 58.333333333333336,
+            "avg_return_pct": 1.164216360120312,
+            "avg_day_return_pct": 1.1642163601203117,
+            "avg_picks_active_day": 2.0
+          },
+          {
+            "version": "ML_V39FULL",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 48,
+            "accuracy_pct": 54.166666666666664,
+            "avg_return_pct": 0.6065552910509441,
+            "avg_day_return_pct": 0.6065552910509441,
+            "avg_picks_active_day": 2.0
+          },
+          {
+            "version": "ML_V39",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 48,
+            "accuracy_pct": 52.083333333333336,
+            "avg_return_pct": 0.5430090985377967,
+            "avg_day_return_pct": 0.5430090985377967,
+            "avg_picks_active_day": 2.0
+          },
+          {
+            "version": "ML_BRAIN_V11",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 48,
+            "accuracy_pct": 39.583333333333336,
+            "avg_return_pct": -1.4871836264066494,
+            "avg_day_return_pct": -1.4871836264066494,
+            "avg_picks_active_day": 2.0
+          },
+          {
+            "version": "ML_V37",
+            "role": "legacy_ml",
+            "active_days": 23,
+            "asset_picks": 42,
+            "accuracy_pct": 38.095238095238095,
+            "avg_return_pct": -0.4201432678912741,
+            "avg_day_return_pct": -0.31290161136768324,
+            "avg_picks_active_day": 1.826086956521739
+          }
+        ]
+      },
+      {
+        "top_n": 3,
+        "eligible_days": 24,
+        "start_date": "2026-03-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 66.74388235025445,
+        "mean_model_return_pct": 2.7142033379271635,
+        "mean_model_day_return_pct": 2.535651727988555,
+        "mean_picks_active_day": 2.3694746376811593,
+        "leaderboard": [
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 6,
+            "asset_picks": 10,
+            "accuracy_pct": 100.0,
+            "avg_return_pct": 5.748234030393857,
+            "avg_day_return_pct": 5.168221368219426,
+            "avg_picks_active_day": 1.6666666666666667
+          },
+          {
+            "version": "V9",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 14,
+            "accuracy_pct": 85.71428571428571,
+            "avg_return_pct": 4.862880758871442,
+            "avg_day_return_pct": 3.992765467930797,
+            "avg_picks_active_day": 1.4
+          },
+          {
+            "version": "V8",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 14,
+            "accuracy_pct": 85.71428571428571,
+            "avg_return_pct": 4.862880758871442,
+            "avg_day_return_pct": 3.992765467930797,
+            "avg_picks_active_day": 1.4
+          },
+          {
+            "version": "V10",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 14,
+            "accuracy_pct": 85.71428571428571,
+            "avg_return_pct": 4.862880758871442,
+            "avg_day_return_pct": 3.992765467930797,
+            "avg_picks_active_day": 1.4
+          },
+          {
+            "version": "ML_V97",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 72,
+            "accuracy_pct": 70.83333333333333,
+            "avg_return_pct": 4.778553130207196,
+            "avg_day_return_pct": 4.778553130207196,
+            "avg_picks_active_day": 3.0
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 23,
+            "asset_picks": 62,
+            "accuracy_pct": 62.903225806451616,
+            "avg_return_pct": 3.1691904215123072,
+            "avg_day_return_pct": 3.740219442643803,
+            "avg_picks_active_day": 2.6956521739130435
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 23,
+            "asset_picks": 63,
+            "accuracy_pct": 61.904761904761905,
+            "avg_return_pct": 3.0720430912948844,
+            "avg_day_return_pct": 3.4928731365498713,
+            "avg_picks_active_day": 2.739130434782609
+          },
+          {
+            "version": "ML_V39",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 72,
+            "accuracy_pct": 56.94444444444444,
+            "avg_return_pct": 0.7053361030659251,
+            "avg_day_return_pct": 0.7053361030659252,
+            "avg_picks_active_day": 3.0
+          },
+          {
+            "version": "ML_V39FULL",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 72,
+            "accuracy_pct": 54.166666666666664,
+            "avg_return_pct": 0.22183331959954128,
+            "avg_day_return_pct": 0.22183331959954133,
+            "avg_picks_active_day": 3.0
+          },
+          {
+            "version": "ML_BRAIN_V11_OPT",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 72,
+            "accuracy_pct": 52.77777777777778,
+            "avg_return_pct": 0.9895155300149798,
+            "avg_day_return_pct": 0.9895155300149799,
+            "avg_picks_active_day": 3.0
+          },
+          {
+            "version": "ML_BRAIN_V11",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 71,
+            "accuracy_pct": 42.25352112676056,
+            "avg_return_pct": -0.33793363317514163,
+            "avg_day_return_pct": -0.29003252352417686,
+            "avg_picks_active_day": 2.9583333333333335
+          },
+          {
+            "version": "ML_V37",
+            "role": "legacy_ml",
+            "active_days": 23,
+            "asset_picks": 50,
+            "accuracy_pct": 42.0,
+            "avg_return_pct": -0.3649742144019081,
+            "avg_day_return_pct": -0.3569951747062995,
+            "avg_picks_active_day": 2.1739130434782608
+          }
+        ]
+      },
+      {
+        "top_n": 4,
+        "eligible_days": 24,
+        "start_date": "2026-03-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 67.01092664915244,
+        "mean_model_return_pct": 2.7440249155307233,
+        "mean_model_day_return_pct": 2.477601055614205,
+        "mean_picks_active_day": 2.9450483091787443,
+        "leaderboard": [
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 6,
+            "asset_picks": 11,
+            "accuracy_pct": 100.0,
+            "avg_return_pct": 6.019548280939816,
+            "avg_day_return_pct": 5.04724036694621,
+            "avg_picks_active_day": 1.8333333333333333
+          },
+          {
+            "version": "V9",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 15,
+            "accuracy_pct": 86.66666666666667,
+            "avg_return_pct": 5.067728814298913,
+            "avg_day_return_pct": 3.8792538391355924,
+            "avg_picks_active_day": 1.5
+          },
+          {
+            "version": "V8",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 15,
+            "accuracy_pct": 86.66666666666667,
+            "avg_return_pct": 5.067728814298913,
+            "avg_day_return_pct": 3.8792538391355924,
+            "avg_picks_active_day": 1.5
+          },
+          {
+            "version": "V10",
+            "role": "observado",
+            "active_days": 10,
+            "asset_picks": 15,
+            "accuracy_pct": 86.66666666666667,
+            "avg_return_pct": 5.067728814298913,
+            "avg_day_return_pct": 3.8792538391355924,
+            "avg_picks_active_day": 1.5
+          },
+          {
+            "version": "ML_V97",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 96,
+            "accuracy_pct": 73.95833333333333,
+            "avg_return_pct": 4.731966416726565,
+            "avg_day_return_pct": 4.731966416726566,
+            "avg_picks_active_day": 4.0
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 23,
+            "asset_picks": 78,
+            "accuracy_pct": 60.256410256410255,
+            "avg_return_pct": 2.6854772144827144,
+            "avg_day_return_pct": 3.4820727787405685,
+            "avg_picks_active_day": 3.391304347826087
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 23,
+            "asset_picks": 79,
+            "accuracy_pct": 59.49367088607595,
+            "avg_return_pct": 2.6141282449046384,
+            "avg_day_return_pct": 3.234726472646636,
+            "avg_picks_active_day": 3.4347826086956523
+          },
+          {
+            "version": "ML_V39",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 96,
+            "accuracy_pct": 55.208333333333336,
+            "avg_return_pct": 0.5942002680837927,
+            "avg_day_return_pct": 0.5942002680837927,
+            "avg_picks_active_day": 4.0
+          },
+          {
+            "version": "ML_BRAIN_V11_OPT",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 96,
+            "accuracy_pct": 54.166666666666664,
+            "avg_return_pct": 1.1858670619466418,
+            "avg_day_return_pct": 1.1858670619466418,
+            "avg_picks_active_day": 4.0
+          },
+          {
+            "version": "ML_V39FULL",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 96,
+            "accuracy_pct": 53.125,
+            "avg_return_pct": 0.1070436905082126,
+            "avg_day_return_pct": 0.1070436905082126,
+            "avg_picks_active_day": 4.0
+          },
+          {
+            "version": "ML_V37",
+            "role": "legacy_ml",
+            "active_days": 23,
+            "asset_picks": 54,
+            "accuracy_pct": 44.44444444444444,
+            "avg_return_pct": -0.24711668243972096,
+            "avg_day_return_pct": -0.3412141800115087,
+            "avg_picks_active_day": 2.347826086956522
+          },
+          {
+            "version": "ML_BRAIN_V11",
+            "role": "legacy_ml",
+            "active_days": 24,
+            "asset_picks": 92,
+            "accuracy_pct": 43.47826086956522,
+            "avg_return_pct": 0.033998048319277996,
+            "avg_day_return_pct": 0.05154827437656382,
+            "avg_picks_active_day": 3.8333333333333335
+          }
+        ]
+      }
+    ]
+  },
+  "scanners_2025_plus": {
+    "labels": [
+      "V13",
+      "V12",
+      "V11",
+      "V8",
+      "V9",
+      "V10"
+    ],
+    "start_date": "2025-01-01",
+    "results": [
+      {
+        "top_n": 1,
+        "eligible_days": 313,
+        "start_date": "2025-01-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 63.22936322936323,
+        "mean_model_return_pct": 2.7497904325287075,
+        "mean_model_day_return_pct": 2.7497904325287075,
+        "mean_picks_active_day": 1.0,
+        "leaderboard": [
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 99,
+            "asset_picks": 99,
+            "accuracy_pct": 66.66666666666667,
+            "avg_return_pct": 3.027536651974779,
+            "avg_day_return_pct": 3.027536651974779,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V8",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 117,
+            "accuracy_pct": 63.24786324786325,
+            "avg_return_pct": 1.9816124203828707,
+            "avg_day_return_pct": 1.9816124203828707,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V9",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 117,
+            "accuracy_pct": 62.39316239316239,
+            "avg_return_pct": 1.8866439212800146,
+            "avg_day_return_pct": 1.8866439212800146,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V10",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 117,
+            "accuracy_pct": 62.39316239316239,
+            "avg_return_pct": 1.8866439212800146,
+            "avg_day_return_pct": 1.8866439212800146,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 308,
+            "asset_picks": 308,
+            "accuracy_pct": 62.33766233766234,
+            "avg_return_pct": 3.862397646747762,
+            "avg_day_return_pct": 3.862397646747762,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 308,
+            "asset_picks": 308,
+            "accuracy_pct": 62.33766233766234,
+            "avg_return_pct": 3.8539080335068054,
+            "avg_day_return_pct": 3.8539080335068054,
+            "avg_picks_active_day": 1.0
+          }
+        ]
+      },
+      {
+        "top_n": 2,
+        "eligible_days": 313,
+        "start_date": "2025-01-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 62.7577280592757,
+        "mean_model_return_pct": 2.7520220106829014,
+        "mean_model_day_return_pct": 2.8681730047204095,
+        "mean_picks_active_day": 1.5887399637399637,
+        "leaderboard": [
+          {
+            "version": "V8",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 165,
+            "accuracy_pct": 64.24242424242425,
+            "avg_return_pct": 2.2315152046320366,
+            "avg_day_return_pct": 2.321982710301486,
+            "avg_picks_active_day": 1.4102564102564104
+          },
+          {
+            "version": "V9",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 163,
+            "accuracy_pct": 63.80368098159509,
+            "avg_return_pct": 2.248187501112571,
+            "avg_day_return_pct": 2.378423488370586,
+            "avg_picks_active_day": 1.393162393162393
+          },
+          {
+            "version": "V10",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 163,
+            "accuracy_pct": 63.80368098159509,
+            "avg_return_pct": 2.248187501112571,
+            "avg_day_return_pct": 2.378423488370586,
+            "avg_picks_active_day": 1.393162393162393
+          },
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 99,
+            "asset_picks": 139,
+            "accuracy_pct": 63.30935251798561,
+            "avg_return_pct": 2.615827097600179,
+            "avg_day_return_pct": 2.794435047558107,
+            "avg_picks_active_day": 1.404040404040404
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 308,
+            "asset_picks": 606,
+            "accuracy_pct": 60.726072607260726,
+            "avg_return_pct": 3.608184809274983,
+            "avg_day_return_pct": 3.6875246628930216,
+            "avg_picks_active_day": 1.9675324675324675
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 308,
+            "asset_picks": 605,
+            "accuracy_pct": 60.66115702479339,
+            "avg_return_pct": 3.560229950365065,
+            "avg_day_return_pct": 3.648248630828672,
+            "avg_picks_active_day": 1.9642857142857142
+          }
+        ]
+      },
+      {
+        "top_n": 3,
+        "eligible_days": 313,
+        "start_date": "2025-01-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 61.862705305515114,
+        "mean_model_return_pct": 2.584564703949525,
+        "mean_model_day_return_pct": 2.694348987048629,
+        "mean_picks_active_day": 2.01495263995264,
+        "leaderboard": [
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 99,
+            "asset_picks": 157,
+            "accuracy_pct": 63.69426751592356,
+            "avg_return_pct": 2.6514680469824996,
+            "avg_day_return_pct": 2.744426731264208,
+            "avg_picks_active_day": 1.5858585858585859
+          },
+          {
+            "version": "V9",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 186,
+            "accuracy_pct": 62.903225806451616,
+            "avg_return_pct": 2.3485527185462196,
+            "avg_day_return_pct": 2.4398899296986083,
+            "avg_picks_active_day": 1.5897435897435896
+          },
+          {
+            "version": "V10",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 186,
+            "accuracy_pct": 62.903225806451616,
+            "avg_return_pct": 2.3485527185462196,
+            "avg_day_return_pct": 2.4398899296986083,
+            "avg_picks_active_day": 1.5897435897435896
+          },
+          {
+            "version": "V8",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 188,
+            "accuracy_pct": 62.765957446808514,
+            "avg_return_pct": 2.2862365860933864,
+            "avg_day_return_pct": 2.3508870957109007,
+            "avg_picks_active_day": 1.606837606837607
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 308,
+            "asset_picks": 881,
+            "accuracy_pct": 59.59137343927355,
+            "avg_return_pct": 2.959749602023813,
+            "avg_day_return_pct": 3.1118066495183117,
+            "avg_picks_active_day": 2.8603896103896105
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 308,
+            "asset_picks": 880,
+            "accuracy_pct": 59.31818181818182,
+            "avg_return_pct": 2.912828551505012,
+            "avg_day_return_pct": 3.079193586401134,
+            "avg_picks_active_day": 2.857142857142857
+          }
+        ]
+      },
+      {
+        "top_n": 4,
+        "eligible_days": 313,
+        "start_date": "2025-01-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 60.84326633750391,
+        "mean_model_return_pct": 2.4108541436182587,
+        "mean_model_day_return_pct": 2.540340692322573,
+        "mean_picks_active_day": 2.366143116143116,
+        "leaderboard": [
+          {
+            "version": "V8",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 201,
+            "accuracy_pct": 62.6865671641791,
+            "avg_return_pct": 2.3011040588198437,
+            "avg_day_return_pct": 2.3079188179988397,
+            "avg_picks_active_day": 1.7179487179487178
+          },
+          {
+            "version": "V9",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 199,
+            "accuracy_pct": 62.311557788944725,
+            "avg_return_pct": 2.267347985365185,
+            "avg_day_return_pct": 2.3552929198045396,
+            "avg_picks_active_day": 1.7008547008547008
+          },
+          {
+            "version": "V10",
+            "role": "observado",
+            "active_days": 117,
+            "asset_picks": 199,
+            "accuracy_pct": 62.311557788944725,
+            "avg_return_pct": 2.267347985365185,
+            "avg_day_return_pct": 2.3552929198045396,
+            "avg_picks_active_day": 1.7008547008547008
+          },
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 99,
+            "asset_picks": 169,
+            "accuracy_pct": 61.53846153846154,
+            "avg_return_pct": 2.326243253297884,
+            "avg_day_return_pct": 2.5273529497460854,
+            "avg_picks_active_day": 1.707070707070707
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 308,
+            "asset_picks": 1135,
+            "accuracy_pct": 58.14977973568282,
+            "avg_return_pct": 2.6520554032023735,
+            "avg_day_return_pct": 2.852895092291369,
+            "avg_picks_active_day": 3.685064935064935
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 308,
+            "asset_picks": 1135,
+            "accuracy_pct": 58.06167400881057,
+            "avg_return_pct": 2.651026175659082,
+            "avg_day_return_pct": 2.8432914542900654,
+            "avg_picks_active_day": 3.685064935064935
+          }
+        ]
+      }
+    ]
+  },
+  "legacy_common_window": {
+    "labels": [
+      "ML_BRAIN_V11",
+      "ML_BRAIN_V11_OPT",
+      "ML_V37",
+      "ML_V39",
+      "ML_V39FULL",
+      "ML_V97"
+    ],
+    "start_date": "2026-03-02",
+    "results": [
+      {
+        "top_n": 1,
+        "eligible_days": 29,
+        "start_date": "2026-03-02",
+        "end_date": "2026-04-10",
+        "mean_model_accuracy_pct": 57.322264793529165,
+        "mean_model_return_pct": 1.6941402614298837,
+        "mean_model_day_return_pct": 1.6941402614298837,
+        "mean_picks_active_day": 1.0,
+        "leaderboard": [
+          {
+            "version": "ML_V97",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 29,
+            "accuracy_pct": 79.3103448275862,
+            "avg_return_pct": 8.632256670748736,
+            "avg_day_return_pct": 8.632256670748736,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "ML_V39FULL",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 29,
+            "accuracy_pct": 62.06896551724138,
+            "avg_return_pct": 0.7635868732752484,
+            "avg_day_return_pct": 0.7635868732752484,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "ML_V39",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 29,
+            "accuracy_pct": 58.62068965517241,
+            "avg_return_pct": 0.7101083163195028,
+            "avg_day_return_pct": 0.7101083163195028,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "ML_BRAIN_V11_OPT",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 29,
+            "accuracy_pct": 55.172413793103445,
+            "avg_return_pct": 0.25257950706776433,
+            "avg_day_return_pct": 0.25257950706776433,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "ML_BRAIN_V11",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 29,
+            "accuracy_pct": 51.724137931034484,
+            "avg_return_pct": 0.1875897501941876,
+            "avg_day_return_pct": 0.18758975019418755,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "ML_V37",
+            "role": "legacy_ml",
+            "active_days": 27,
+            "asset_picks": 27,
+            "accuracy_pct": 37.03703703703704,
+            "avg_return_pct": -0.381279549026138,
+            "avg_day_return_pct": -0.381279549026138,
+            "avg_picks_active_day": 1.0
+          }
+        ]
+      },
+      {
+        "top_n": 2,
+        "eligible_days": 29,
+        "start_date": "2026-03-02",
+        "end_date": "2026-04-10",
+        "mean_model_accuracy_pct": 56.657088122605366,
+        "mean_model_return_pct": 1.5853170559687542,
+        "mean_model_day_return_pct": 1.5929209573417669,
+        "mean_picks_active_day": 1.962962962962963,
+        "leaderboard": [
+          {
+            "version": "ML_V97",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 58,
+            "accuracy_pct": 74.13793103448276,
+            "avg_return_pct": 6.2253178186481195,
+            "avg_day_return_pct": 6.2253178186481195,
+            "avg_picks_active_day": 2.0
+          },
+          {
+            "version": "ML_BRAIN_V11_OPT",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 58,
+            "accuracy_pct": 63.793103448275865,
+            "avg_return_pct": 2.0904390594867577,
+            "avg_day_return_pct": 2.0904390594867577,
+            "avg_picks_active_day": 2.0
+          },
+          {
+            "version": "ML_V39FULL",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 58,
+            "accuracy_pct": 58.62068965517241,
+            "avg_return_pct": 0.8493114917710269,
+            "avg_day_return_pct": 0.8493114917710269,
+            "avg_picks_active_day": 2.0
+          },
+          {
+            "version": "ML_V39",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 58,
+            "accuracy_pct": 56.89655172413793,
+            "avg_return_pct": 0.7923882560061329,
+            "avg_day_return_pct": 0.7923882560061329,
+            "avg_picks_active_day": 2.0
+          },
+          {
+            "version": "ML_BRAIN_V11",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 58,
+            "accuracy_pct": 44.827586206896555,
+            "avg_return_pct": -0.22626403871230918,
+            "avg_day_return_pct": -0.22626403871230907,
+            "avg_picks_active_day": 2.0
+          },
+          {
+            "version": "ML_V37",
+            "role": "legacy_ml",
+            "active_days": 27,
+            "asset_picks": 48,
+            "accuracy_pct": 41.666666666666664,
+            "avg_return_pct": -0.21929025138720215,
+            "avg_day_return_pct": -0.17366684314912706,
+            "avg_picks_active_day": 1.7777777777777777
+          }
+        ]
+      },
+      {
+        "top_n": 3,
+        "eligible_days": 29,
+        "start_date": "2026-03-02",
+        "end_date": "2026-04-10",
+        "mean_model_accuracy_pct": 56.438962281405196,
+        "mean_model_return_pct": 1.5708996101742632,
+        "mean_model_day_return_pct": 1.5758806987240674,
+        "mean_picks_active_day": 2.84610472541507,
+        "leaderboard": [
+          {
+            "version": "ML_V97",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 87,
+            "accuracy_pct": 74.71264367816092,
+            "avg_return_pct": 6.2166215833403395,
+            "avg_day_return_pct": 6.2166215833403395,
+            "avg_picks_active_day": 3.0
+          },
+          {
+            "version": "ML_V39",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 87,
+            "accuracy_pct": 59.770114942528735,
+            "avg_return_pct": 0.8351752856322036,
+            "avg_day_return_pct": 0.8351752856322036,
+            "avg_picks_active_day": 3.0
+          },
+          {
+            "version": "ML_BRAIN_V11_OPT",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 87,
+            "accuracy_pct": 58.62068965517241,
+            "avg_return_pct": 2.0241555311555706,
+            "avg_day_return_pct": 2.0241555311555706,
+            "avg_picks_active_day": 3.0
+          },
+          {
+            "version": "ML_V39FULL",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 87,
+            "accuracy_pct": 56.32183908045977,
+            "avg_return_pct": 0.3668923445355006,
+            "avg_day_return_pct": 0.3668923445355006,
+            "avg_picks_active_day": 3.0
+          },
+          {
+            "version": "ML_BRAIN_V11",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 86,
+            "accuracy_pct": 45.348837209302324,
+            "avg_return_pct": 0.28986774834964557,
+            "avg_day_return_pct": 0.322293938158205,
+            "avg_picks_active_day": 2.9655172413793105
+          },
+          {
+            "version": "ML_V37",
+            "role": "legacy_ml",
+            "active_days": 27,
+            "asset_picks": 57,
+            "accuracy_pct": 43.85964912280702,
+            "avg_return_pct": -0.3073148319676797,
+            "avg_day_return_pct": -0.3098544904774144,
+            "avg_picks_active_day": 2.111111111111111
+          }
+        ]
+      },
+      {
+        "top_n": 4,
+        "eligible_days": 29,
+        "start_date": "2026-03-02",
+        "end_date": "2026-04-10",
+        "mean_model_accuracy_pct": 56.926512262302026,
+        "mean_model_return_pct": 1.581930745446541,
+        "mean_model_day_return_pct": 1.5723573366122523,
+        "mean_picks_active_day": 3.693060876968923,
+        "leaderboard": [
+          {
+            "version": "ML_V97",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 116,
+            "accuracy_pct": 77.58620689655173,
+            "avg_return_pct": 6.064967802153557,
+            "avg_day_return_pct": 6.064967802153557,
+            "avg_picks_active_day": 4.0
+          },
+          {
+            "version": "ML_BRAIN_V11_OPT",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 116,
+            "accuracy_pct": 59.48275862068966,
+            "avg_return_pct": 2.177314750302039,
+            "avg_day_return_pct": 2.177314750302039,
+            "avg_picks_active_day": 4.0
+          },
+          {
+            "version": "ML_V39",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 116,
+            "accuracy_pct": 57.758620689655174,
+            "avg_return_pct": 0.7354035127383441,
+            "avg_day_return_pct": 0.7354035127383441,
+            "avg_picks_active_day": 4.0
+          },
+          {
+            "version": "ML_V39FULL",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 116,
+            "accuracy_pct": 56.03448275862069,
+            "avg_return_pct": 0.29843560686578674,
+            "avg_day_return_pct": 0.2984356068657868,
+            "avg_picks_active_day": 4.0
+          },
+          {
+            "version": "ML_BRAIN_V11",
+            "role": "legacy_ml",
+            "active_days": 29,
+            "asset_picks": 112,
+            "accuracy_pct": 45.535714285714285,
+            "avg_return_pct": 0.48135946723055306,
+            "avg_day_return_pct": 0.4804575364189525,
+            "avg_picks_active_day": 3.8620689655172415
+          },
+          {
+            "version": "ML_V37",
+            "role": "legacy_ml",
+            "active_days": 27,
+            "asset_picks": 62,
+            "accuracy_pct": 45.16129032258065,
+            "avg_return_pct": -0.26589666661103434,
+            "avg_day_return_pct": -0.32243518880516564,
+            "avg_picks_active_day": 2.2962962962962963
+          }
+        ]
+      }
+    ]
+  },
+  "active_core_2025_plus": {
+    "labels": [
+      "V13",
+      "V12",
+      "V11"
+    ],
+    "start_date": "2025-01-01",
+    "results": [
+      {
+        "top_n": 1,
+        "eligible_days": 313,
+        "start_date": "2025-01-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 63.78066378066378,
+        "mean_model_return_pct": 3.5812807774097823,
+        "mean_model_day_return_pct": 3.5812807774097823,
+        "mean_picks_active_day": 1.0,
+        "leaderboard": [
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 99,
+            "asset_picks": 99,
+            "accuracy_pct": 66.66666666666667,
+            "avg_return_pct": 3.027536651974779,
+            "avg_day_return_pct": 3.027536651974779,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 308,
+            "asset_picks": 308,
+            "accuracy_pct": 62.33766233766234,
+            "avg_return_pct": 3.862397646747762,
+            "avg_day_return_pct": 3.862397646747762,
+            "avg_picks_active_day": 1.0
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 308,
+            "asset_picks": 308,
+            "accuracy_pct": 62.33766233766234,
+            "avg_return_pct": 3.8539080335068054,
+            "avg_day_return_pct": 3.8539080335068054,
+            "avg_picks_active_day": 1.0
+          }
+        ]
+      },
+      {
+        "top_n": 2,
+        "eligible_days": 313,
+        "start_date": "2025-01-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 61.56552738334657,
+        "mean_model_return_pct": 3.261413952413409,
+        "mean_model_day_return_pct": 3.3767361137599337,
+        "mean_picks_active_day": 1.7786195286195285,
+        "leaderboard": [
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 99,
+            "asset_picks": 139,
+            "accuracy_pct": 63.30935251798561,
+            "avg_return_pct": 2.615827097600179,
+            "avg_day_return_pct": 2.794435047558107,
+            "avg_picks_active_day": 1.404040404040404
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 308,
+            "asset_picks": 606,
+            "accuracy_pct": 60.726072607260726,
+            "avg_return_pct": 3.608184809274983,
+            "avg_day_return_pct": 3.6875246628930216,
+            "avg_picks_active_day": 1.9675324675324675
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 308,
+            "asset_picks": 605,
+            "accuracy_pct": 60.66115702479339,
+            "avg_return_pct": 3.560229950365065,
+            "avg_day_return_pct": 3.648248630828672,
+            "avg_picks_active_day": 1.9642857142857142
+          }
+        ]
+      },
+      {
+        "top_n": 3,
+        "eligible_days": 313,
+        "start_date": "2025-01-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 60.867940924459646,
+        "mean_model_return_pct": 2.841348733503775,
+        "mean_model_day_return_pct": 2.9784756557278844,
+        "mean_picks_active_day": 2.4344636844636844,
+        "leaderboard": [
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 99,
+            "asset_picks": 157,
+            "accuracy_pct": 63.69426751592356,
+            "avg_return_pct": 2.6514680469824996,
+            "avg_day_return_pct": 2.744426731264208,
+            "avg_picks_active_day": 1.5858585858585859
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 308,
+            "asset_picks": 881,
+            "accuracy_pct": 59.59137343927355,
+            "avg_return_pct": 2.959749602023813,
+            "avg_day_return_pct": 3.1118066495183117,
+            "avg_picks_active_day": 2.8603896103896105
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 308,
+            "asset_picks": 880,
+            "accuracy_pct": 59.31818181818182,
+            "avg_return_pct": 2.912828551505012,
+            "avg_day_return_pct": 3.079193586401134,
+            "avg_picks_active_day": 2.857142857142857
+          }
+        ]
+      },
+      {
+        "top_n": 4,
+        "eligible_days": 313,
+        "start_date": "2025-01-02",
+        "end_date": "2026-04-02",
+        "mean_model_accuracy_pct": 59.24997176098498,
+        "mean_model_return_pct": 2.5431082773864464,
+        "mean_model_day_return_pct": 2.7411798321091734,
+        "mean_picks_active_day": 3.0257335257335254,
+        "leaderboard": [
+          {
+            "version": "V11",
+            "role": "base",
+            "active_days": 99,
+            "asset_picks": 169,
+            "accuracy_pct": 61.53846153846154,
+            "avg_return_pct": 2.326243253297884,
+            "avg_day_return_pct": 2.5273529497460854,
+            "avg_picks_active_day": 1.707070707070707
+          },
+          {
+            "version": "V12",
+            "role": "referencia",
+            "active_days": 308,
+            "asset_picks": 1135,
+            "accuracy_pct": 58.14977973568282,
+            "avg_return_pct": 2.6520554032023735,
+            "avg_day_return_pct": 2.852895092291369,
+            "avg_picks_active_day": 3.685064935064935
+          },
+          {
+            "version": "V13",
+            "role": "activo",
+            "active_days": 308,
+            "asset_picks": 1135,
+            "accuracy_pct": 58.06167400881057,
+            "avg_return_pct": 2.651026175659082,
+            "avg_day_return_pct": 2.8432914542900654,
+            "avg_picks_active_day": 3.685064935064935
+          }
+        ]
+      }
+    ]
+  }
+}

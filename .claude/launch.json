@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard-preview",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "7788", "--directory", "analisis"],
+      "port": 7788
+    },
+    {
+      "name": "Titan CLI Menu",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "titan_system.run"],
+      "port": 0
+    }
+  ]
+}

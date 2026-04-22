@@ -1,0 +1,1988 @@
+#!/usr/bin/env python3
+"""
+Refresca el dashboard Aurora Pro canonico a partir del snapshot JSON.
+Se invoca al final del pipeline diario (auto_actualizar.py).
+
+Qué hace:
+  - Reemplaza heatmap, liga y cards visibles con datos frescos del snapshot auditado
+  - Mantiene la UI Aurora Pro sin cambios visuales intencionales
+  - NO toca estilos, temas, editor ni ningún otro componente de UI
+
+Uso standalone:
+  python herramientas/refrescar_datos_dashboard.py
+  python herramientas/refrescar_datos_dashboard.py --add-markers   # primera vez
+"""
+from __future__ import annotations
+import sys, json, re, datetime
+from pathlib import Path
+
+sys.stdout.reconfigure(encoding="utf-8")
+
+ROOT      = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from herramientas.dashboard_paths import AURORA_PRO_HTML as DASHBOARD, SNAPSHOT_PATH as SNAPSHOT, ensure_dashboard_dir
+from herramientas.dashboard_c1_contract import (
+    MARK_CSS_E,
+    MARK_CSS_S,
+    MARK_HERO_E,
+    MARK_HERO_S,
+    MARK_HM_E,
+    MARK_HM_S,
+    MARK_LIGA_E,
+    MARK_LIGA_S,
+    MARK_PRED_E,
+    MARK_PRED_S,
+    REQUIRED_MARKER_PAIRS,
+    liga_static_meta,
+)
+
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+def _esc(v: object) -> str:
+    import html
+    return html.escape("" if v is None else str(v))
+
+def _ret_bg(ret: float | None) -> str:
+    if ret is None:
+        return "transparent"
+    intens = min(abs(ret) / 5.0, 1.0)
+    if ret >= 0:
+        return f"rgba(68,232,144,{0.10 + intens*0.58:.2f})"
+    return f"rgba(252,92,125,{0.10 + intens*0.58:.2f})"
+
+def _cal_bg(ret: float | None) -> str:
+    if ret is None:
+        return "rgba(255,255,255,0.04)"
+    intens = min(abs(ret) / 4.0, 1.0)
+    if ret >= 0:
+        return f"rgba(68,232,144,{0.08 + intens*0.50:.2f})"
+    return f"rgba(252,92,125,{0.08 + intens*0.50:.2f})"
+
+DOW_ES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"]
+MES_ES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+          "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+
+
+# ── CSS nuevas reglas (se inyecta en sentinel css) ───────────────────────────
+HEATMAP_CSS = """
+/* ── HEATMAP: tabla mejorada ─────────────────────────────────── */
+.hm-scroll{overflow-x:auto;overflow-y:hidden;padding-bottom:4px;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.10) transparent}
+.hm-table{width:100%;border-collapse:separate;border-spacing:3px;table-layout:fixed;min-width:620px}
+.hm-table thead th{font-size:9px;color:var(--muted);padding:0 2px 6px 2px;text-align:center;white-space:nowrap}
+.hm-date{display:block;font-size:9px;letter-spacing:.06em;font-weight:700}
+.hm-dow{display:block;font-size:8px;color:var(--muted);opacity:.7;margin-top:1px}
+.hm-table th.hm-label{text-align:left;font-size:10px;font-weight:700;color:var(--muted);
+  white-space:nowrap;padding:0 6px 0 2px;width:120px;min-width:120px;overflow:hidden}
+.hm-v{display:block;font-size:11px;font-weight:800;color:var(--ink)}
+.hm-rl{display:block;font-size:8px;color:var(--muted);margin-top:1px}
+.hm-table td{padding:5px 2px 4px;border-radius:6px;text-align:center;cursor:help;
+  transition:opacity .12s,transform .10s;vertical-align:top}
+.hm-table td:hover{opacity:.75;transform:scale(1.06)}
+.hm-ret{font-size:11px;font-weight:800;line-height:1.1}
+.hm-meta{font-size:8px;color:inherit;opacity:.78;margin-top:2px;line-height:1.1;display:none}
+.hm-table td:hover .hm-meta{display:block}
+.hm-empty .hm-ret{color:var(--muted);font-weight:400}
+.hm-pos .hm-ret{color:#1fcc80}
+.hm-neg .hm-ret{color:#f05070}
+body.theme-white .hm-pos .hm-ret{color:#0a8060}
+body.theme-white .hm-neg .hm-ret{color:#c0203a}
+/* summary row */
+.hm-table tr.hm-summary th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding-top:8px}
+.hm-table tr.hm-summary td{border-radius:6px;font-size:10px;font-weight:700;padding:6px 3px;text-align:center;background:rgba(255,255,255,0.04);border-top:1px solid rgba(255,255,255,0.08)}
+.hm-sum-pos{color:#1fcc80;display:block;font-size:12px;font-weight:800}
+.hm-sum-neg{color:#f05070;display:block;font-size:12px;font-weight:800}
+.hm-sum-wr{display:block;font-size:9px;color:var(--muted);margin-top:2px}
+.hm-sum-pk{display:block;font-size:8px;color:var(--muted);opacity:.7}
+body.theme-white .hm-sum-pos{color:#0a8060}
+body.theme-white .hm-sum-neg{color:#c0203a}
+/* pending future columns — empty (no picks) */
+.hm-pending{opacity:.35;border:1px dashed rgba(255,255,255,0.18)!important;background:rgba(255,255,255,0.02)!important}
+.hm-pending .hm-ret{color:var(--muted);font-weight:400}
+th.hm-pending-hdr{opacity:.35;font-style:italic}
+th.hm-today-hdr{color:#fbbf24!important;opacity:1!important;font-style:normal!important;font-weight:700!important}
+/* active pending — picks open, return not yet computed */
+.hm-active-pending{border:1px solid rgba(24,232,200,0.45)!important;
+  background:rgba(24,232,200,0.07)!important;animation:hm-pulse 2.5s ease-in-out infinite}
+.hm-active-pending .hm-ret{color:var(--cyan)!important;font-weight:700!important;font-size:13px!important}
+.hm-active-pending .hm-meta{color:var(--cyan)!important;opacity:.85!important}
+@keyframes hm-pulse{0%,100%{border-color:rgba(24,232,200,0.45)}50%{border-color:rgba(24,232,200,0.85)}}
+body.theme-white .hm-active-pending{background:rgba(0,160,140,0.07)!important;border-color:rgba(0,160,140,0.45)!important}
+th.hm-active-pending-hdr{color:var(--cyan)!important;opacity:1!important;font-style:normal!important}
+/* today column — picks active, market open, result pending at 19:15 close */
+.hm-today{border:1px solid rgba(251,191,36,0.50)!important;background:rgba(251,191,36,0.08)!important;cursor:help}
+.hm-today .hm-ret{color:#fbbf24!important;font-weight:700!important;font-size:13px!important}
+.hm-today .hm-meta{display:none;color:#fcd34d!important;opacity:.9!important;font-size:7.5px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.hm-table td.hm-today:hover .hm-meta{display:block}
+.hm-today-empty{background:rgba(251,191,36,0.04)!important;border-color:rgba(251,191,36,0.25)!important}
+.hm-today-empty .hm-ret{color:var(--muted)!important;font-weight:400!important;font-size:11px!important}
+/* variant tabs */
+.hm-tabbar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.hm-vtab{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
+  border-radius:12px;padding:3px 10px;font-size:10px;font-weight:700;color:var(--muted);
+  cursor:pointer;transition:background .14s,color .14s;white-space:nowrap}
+.hm-vtab:hover{background:rgba(255,255,255,0.12);color:var(--ink)}
+.hm-vtab.active{background:rgba(99,102,241,0.25);border-color:rgba(99,102,241,0.55);color:#a5b4fc}
+body.theme-white .hm-vtab{background:rgba(0,0,0,0.05);border-color:rgba(0,0,0,0.15);color:#555}
+body.theme-white .hm-vtab.active{background:rgba(99,102,241,0.15);border-color:#6366f1;color:#4338ca}
+/* variant panes */
+.hm-vpane{display:none}
+.hm-vpane.active{display:block}
+/* compact mode for wide tables (>20 cols) */
+.hm-table.hm-compact td{padding:3px 1px 2px}
+.hm-table.hm-compact .hm-ret{font-size:9px}
+.hm-table.hm-compact .hm-meta{font-size:7px}
+/* variant C trend table */
+.hm-trend-table{width:100%;border-collapse:separate;border-spacing:0 3px}
+.hm-trend-table th{font-size:9px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.07em;padding:4px 8px;text-align:left;white-space:nowrap}
+.hm-trend-table th.hm-r{text-align:right}
+.hm-trend-table td{font-size:11px;padding:5px 8px;background:rgba(255,255,255,0.03);vertical-align:middle}
+.hm-trend-table tr:first-child td{border-top-left-radius:6px;border-top-right-radius:6px}
+.hm-trend-up{color:#1fcc80;font-size:14px}
+.hm-trend-dn{color:#f05070;font-size:14px}
+.hm-trend-eq{color:var(--muted);font-size:13px}
+body.theme-white .hm-trend-up{color:#0a8060}
+body.theme-white .hm-trend-dn{color:#c0203a}
+/* ── LIGA: nueva columna Últ. Rueda + badge legacy ──────────── */
+.ult-rueda-td{white-space:nowrap;font-size:12px}
+.ult-rueda-td small{display:block;margin-top:1px}
+.ba-legacy{background:rgba(180,100,220,0.14);color:#b464dc}
+body.theme-white .badge.ba-legacy{background:#f5eeff;color:#7020b0;border:1px solid #a060e040}
+.ba-prov{background:rgba(251,191,36,0.18);color:#fbbf24;font-size:8px;padding:1px 4px;vertical-align:middle}
+body.theme-white .badge.ba-prov{background:#fffbe0;color:#b45309;border:1px solid #d4960060}
+/* ── LIGA: columnas de ventana 30d / 60d / 90d ──────────────────── */
+.wnd-td{text-align:center;white-space:nowrap;font-size:11px;padding:3px 6px}
+.wnd-wr{display:block;font-size:10px;font-weight:700}
+.wnd-ret{display:block;font-size:10px;margin-top:1px}
+.wnd-pos{color:#1fcc80}
+.wnd-neg{color:#f05070}
+.wnd-neu{color:var(--muted)}
+body.theme-white .wnd-pos{color:#0a8060}
+body.theme-white .wnd-neg{color:#c0203a}
+.wnd-na{color:var(--muted);font-style:italic;font-size:10px}
+/* ── HEATMAP: metodología legend card ───────────────────────── */
+.hm-legend{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;
+  padding:8px 12px;border-radius:8px;border:1px solid rgba(99,102,241,0.30);
+  background:rgba(99,102,241,0.07);font-size:10px;line-height:1.5;color:var(--muted)}
+.hm-legend-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.hm-legend-text strong{color:var(--ink);font-weight:700;display:block;margin-bottom:3px;font-size:10px;text-transform:uppercase;letter-spacing:.07em}
+.hm-legend-steps{display:flex;flex-wrap:wrap;gap:0 10px}
+.hm-legend-step{display:flex;align-items:center;gap:4px;white-space:nowrap}
+.hm-legend-step .hm-ls-num{background:rgba(99,102,241,0.25);color:#a5b4fc;border-radius:50%;
+  width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:9px;flex-shrink:0}
+.hm-legend-step .hm-ls-txt{font-size:10px}
+.hm-legend-arrow{color:rgba(99,102,241,0.60);font-weight:700;font-size:11px;margin:0 2px}
+body.theme-white .hm-legend{background:rgba(99,102,241,0.06);border-color:rgba(99,102,241,0.25)}
+body.theme-white .hm-legend-step .hm-ls-num{background:#ede9fe;color:#4338ca}
+/* heatmap corner label */
+.hm-corner-lbl{display:block;font-size:7.5px;color:rgba(99,102,241,0.70);text-transform:uppercase;letter-spacing:.07em;margin-top:3px;font-weight:600}
+"""
+
+ROLE_ICON = {"activo": "OBS", "referencia": "REF", "base": "BASE", "observado": "OBS", "legacy_ml": "ML"}
+ROLE_BADGE_CLASS = {"activo": "ba-active", "referencia": "ba-ref", "base": "ba-base", "observado": "ba-obs", "legacy_ml": "ba-ml"}
+ROLE_SPARK = {"activo": "#18e8c8", "referencia": "#f5b833", "base": "#6ea8cc", "observado": "#44e890", "legacy_ml": "#a882ff"}
+
+
+def _fmt_pct(value: float | None, digits: int = 2, signed: bool = False) -> str:
+    if value is None:
+        return "—"
+    sign = "+" if signed else ""
+    return f"{float(value):{sign}.{digits}f}%"
+
+
+def _fmt_ratio(value: float | None, digits: int = 2) -> str:
+    if value is None:
+        return "—"
+    return f"{float(value):.{digits}f}"
+
+
+def _fmt_int(value: int | None) -> str:
+    return f"{int(value or 0):,}"
+
+
+def _parse_iso_date(value: object) -> datetime.date | None:
+    if value in (None, ""):
+        return None
+    try:
+        return datetime.date.fromisoformat(str(value))
+    except Exception:
+        return None
+
+
+def _fmt_ddmm(value: object) -> str:
+    date_value = _parse_iso_date(value)
+    return date_value.strftime("%d/%m") if date_value else "--/--"
+
+
+def _competition_start_iso(snap: dict) -> str | None:
+    cr = snap.get("competition_recent") or {}
+    candidates: list[object] = [cr.get("competition_start")]
+    for row in cr.get("league_equalized") or []:
+        eq = row.get("equalized_recent") or row.get("window") or {}
+        candidates.extend([eq.get("competition_start"), eq.get("start_date")])
+    parsed = [date_value for candidate in candidates if (date_value := _parse_iso_date(candidate)) is not None]
+    if not parsed:
+        return None
+    return min(parsed).isoformat()
+
+
+def _competition_period_suffix(snap: dict) -> str:
+    start_iso = _competition_start_iso(snap)
+    return f" (desde {_fmt_ddmm(start_iso)})" if start_iso else ""
+
+
+def _observed_holiday(year: int, month: int, day: int) -> datetime.date:
+    holiday = datetime.date(year, month, day)
+    if holiday.weekday() == 5:
+        return holiday - datetime.timedelta(days=1)
+    if holiday.weekday() == 6:
+        return holiday + datetime.timedelta(days=1)
+    return holiday
+
+
+def _nth_weekday_of_month(year: int, month: int, weekday: int, nth: int) -> datetime.date:
+    first_day = datetime.date(year, month, 1)
+    offset = (weekday - first_day.weekday()) % 7
+    return first_day + datetime.timedelta(days=offset + (nth - 1) * 7)
+
+
+def _last_weekday_of_month(year: int, month: int, weekday: int) -> datetime.date:
+    if month == 12:
+        next_month = datetime.date(year + 1, 1, 1)
+    else:
+        next_month = datetime.date(year, month + 1, 1)
+    cursor = next_month - datetime.timedelta(days=1)
+    while cursor.weekday() != weekday:
+        cursor -= datetime.timedelta(days=1)
+    return cursor
+
+
+def _easter_sunday(year: int) -> datetime.date:
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return datetime.date(year, month, day)
+
+
+_NYSE_HOLIDAY_CACHE: dict[int, set[datetime.date]] = {}
+
+
+def _nyse_holidays(year: int) -> set[datetime.date]:
+    cached = _NYSE_HOLIDAY_CACHE.get(year)
+    if cached is not None:
+        return cached
+
+    holidays = {
+        _observed_holiday(year, 1, 1),
+        _nth_weekday_of_month(year, 1, 0, 3),
+        _nth_weekday_of_month(year, 2, 0, 3),
+        _easter_sunday(year) - datetime.timedelta(days=2),
+        _last_weekday_of_month(year, 5, 0),
+        _observed_holiday(year, 7, 4),
+        _nth_weekday_of_month(year, 9, 0, 1),
+        _nth_weekday_of_month(year, 11, 3, 4),
+        _observed_holiday(year, 12, 25),
+    }
+    if year >= 2022:
+        holidays.add(_observed_holiday(year, 6, 19))
+
+    _NYSE_HOLIDAY_CACHE[year] = holidays
+    return holidays
+
+
+def _is_nyse_trading_day(day: datetime.date) -> bool:
+    return day.weekday() < 5 and day not in _nyse_holidays(day.year)
+
+
+def _role_badge_card(role: str) -> str:
+    cls = ROLE_BADGE_CLASS.get(role, "")
+    return f"<span class='badge {cls}'>{_esc(role)}</span>"
+
+
+def _freshness_badge_card(stale_days: int | None) -> str:
+    if stale_days is None:
+        return "<span class='badge ba-muted'>sin fecha</span>"
+    if stale_days <= 0:
+        return "<span class='badge ba-fresh'>al dia</span>"
+    if stale_days == 1:
+        return "<span class='badge ba-warn'>1 rueda</span>"
+    return f"<span class='badge ba-stale'>{int(stale_days)} ruedas</span>"
+
+
+def _model_bid(version: str) -> str:
+    return "mc-" + version.lower().replace("_", "-")
+
+
+def _sparkline_svg(values: list[float], stroke: str, fill: str | None = None, width: int = 260, height: int = 60) -> str:
+    series = [float(v) for v in values if v is not None]
+    if not series:
+        return f"<svg viewBox='0 0 {width} {height}' class='spark'><rect width='{width}' height='{height}' rx='4' fill='rgba(255,255,255,0.03)'/></svg>"
+    lo = min(series)
+    hi = max(series)
+    span = hi - lo or 1.0
+    pts: list[tuple[float, float]] = []
+    for idx, value in enumerate(series):
+        x = idx * (width - 8) / max(len(series) - 1, 1) + 4
+        y = height - 6 - ((value - lo) / span) * (height - 12)
+        pts.append((x, y))
+    line = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    area = f"4,{height-3} " + " ".join(f"{x:.1f},{y:.1f}" for x, y in pts) + f" {width-4},{height-3}"
+    lx, ly = pts[-1]
+    fill = fill or stroke
+    return (
+        f"<svg viewBox='0 0 {width} {height}' class='spark'>"
+        f"<polygon points='{area}' fill='{fill}' opacity='0.14'/>"
+        f"<polyline points='{line}' fill='none' stroke='{stroke}' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"
+        f"<circle cx='{lx:.1f}' cy='{ly:.1f}' r='3' fill='{stroke}'/>"
+        "</svg>"
+    )
+
+
+def _cumulative(values: list[float | None]) -> list[float]:
+    total = 0.0
+    out: list[float] = []
+    for value in values:
+        total += float(value or 0.0)
+        out.append(round(total, 4))
+    return out
+
+
+def _row_window(row: dict, key: str) -> dict:
+    return (row.get(key) or {})
+
+
+def _latest_closed_tickers(row: dict) -> list[str]:
+    cal = (_row_window(row, "recent_30").get("calendar") or [])
+    for entry in reversed(cal):
+        if entry.get("avg_return_pct") is not None and entry.get("tickers"):
+            return list(entry.get("tickers") or [])
+    return []
+
+
+def _hero_live_tickers(snap: dict) -> list[str]:
+    active_run = (snap.get("active") or {}).get("active_run") or {}
+    picks = list(active_run.get("results_d") or []) + list(active_run.get("results_e") or [])
+    return [str(item.get("ticker")) for item in picks if item.get("ticker")]
+
+
+def _leader_by_return(rows: list[dict]) -> dict | None:
+    valid = [row for row in rows if (_row_window(row, "equalized_recent").get("avg_return_pct") is not None)]
+    if not valid:
+        return rows[0] if rows else None
+    return max(valid, key=lambda row: float(_row_window(row, "equalized_recent").get("avg_return_pct") or -1e18))
+
+
+def _render_topbar_meta(snap: dict) -> str:
+    active = snap.get("active") or {}
+    active_run = active.get("active_run") or {}
+    latest_market = latest_market_date(snap) or "—"
+    generated_at = snap.get("generated_at", "")
+    generated_fmt = generated_at
+    if generated_at:
+        try:
+            generated_fmt = datetime.datetime.fromisoformat(generated_at.replace("Z", "")).strftime("%d/%m/%y %H:%M")
+        except ValueError:
+            pass
+    target = active_run.get("prediction_for")
+    if not target and latest_market != "—":
+        next_sessions = _next_trading_days(latest_market, 1)
+        target = next_sessions[0] if next_sessions else None
+    regime = str(active_run.get("regime_label") or "GLOBAL").upper()
+    regime_cls = {"PELIGRO": "regime-peligro", "SEGURO": "regime-seguro"}.get(regime, "regime-global")
+    return (
+        f'<span class="tb-pill">Generado {generated_fmt}</span>'
+        f'<span class="tb-pill">Mercado {latest_market}</span>'
+        f'<span class="tb-pill">Target {target or "—"}</span>'
+        f'<span class="tb-pill tb-pill-regime {regime_cls}">{regime}</span>'
+    )
+
+
+def _render_regime_pill(snap: dict) -> str:
+    active_run = (snap.get("active") or {}).get("active_run") or {}
+    regime = str(active_run.get("regime_label") or "GLOBAL").upper()
+    breadth = active_run.get("breadth_pct")
+    regime_cls = {"PELIGRO": "regime-peligro", "SEGURO": "regime-seguro"}.get(regime, "regime-global")
+    breadth_txt = f"breadth {float(breadth):.1f}%" if breadth is not None else "breadth —"
+    return (
+        f'<div class="regime-pill {regime_cls}">'
+        '<span class="rp-dot"></span>'
+        f"<span>{_esc(regime)}</span>"
+        f'<span class="rp-breadth">{_esc(breadth_txt)}</span>'
+        "</div>"
+    )
+
+
+def _render_sidebar_datos_db(snap: dict) -> str:
+    integrity = snap.get("integrity") or {}
+    return (
+        '<div class="sd-body">'
+        f'<div class="kl"><span>Mercado</span><strong>{_esc(integrity.get("latest_market_date") or "—")}</strong></div>'
+        f'<div class="kl"><span>Predictions</span><strong>{_fmt_int(integrity.get("predictions_count"))}</strong></div>'
+        f'<div class="kl"><span>Outcomes</span><strong>{_fmt_int(integrity.get("outcomes_count"))}</strong></div>'
+        f'<div class="kl"><span>Regimes</span><strong>{_fmt_int(integrity.get("regimes_count"))}</strong></div>'
+        f'<div class="kl"><span>Modelos</span><strong>{_fmt_int(integrity.get("prediction_models"))}</strong></div>'
+        "</div>"
+    )
+
+
+def _render_sidebar_config(snap: dict) -> str:
+    cr = snap.get("competition_recent") or {}
+    active = snap.get("active") or {}
+    return (
+        '<div class="sd-body">'
+        f'<div class="kl"><span>Champion</span><strong>V{_fmt_int(active.get("active_version"))}</strong></div>'
+        f'<div class="kl"><span>Referencia</span><strong>V{_fmt_int(active.get("reference_version"))}</strong></div>'
+        f'<div class="kl"><span>Per\u00edodo comp.</span><strong>{_fmt_int(cr.get("equalized_days"))} ruedas</strong></div>'
+        f'<div class="kl"><span>Desde</span><strong>02/03/2026</strong></div>'
+        "</div>"
+    )
+
+
+def _render_kpi_strip(snap: dict) -> str:
+    cr = snap.get("competition_recent") or {}
+    league = cr.get("league_equalized") or []
+    if not league:
+        return ""
+    active = snap.get("active") or {}
+    integrity = snap.get("integrity") or {}
+    champion_ver = f"V{active.get('active_version')}"
+    champion = next((row for row in league if row.get("version") == champion_ver), league[0])
+    leader = league[0]
+    champion_rank = cr.get("rank_equalized", {}).get(champion_ver, champion.get("rank"))
+    champion_eq = _row_window(champion, "equalized_recent")
+    leader_eq = _row_window(leader, "equalized_recent")
+    live_tickers = _hero_live_tickers(snap)
+    coverage = ((integrity.get("coverage_last_30") or {}).get("predictions") or {})
+    covered = coverage.get("covered_days")
+    expected = coverage.get("expected_days")
+    active_run = active.get("active_run") or {}
+    breadth = active_run.get("breadth_pct")
+    regime = str(active_run.get("regime_label") or "GLOBAL").upper()
+    return (
+        '<div class="kpi-card accent-cyan editable-block" data-bid="kpi-champion" data-blabel="KPI Champion">'
+        '<div class="kc-label">Champion activo</div>'
+        f'<div class="kc-value">{_esc(champion_ver)}</div>'
+        f'<div class="kc-sub">WR {_fmt_pct(champion_eq.get("accuracy_pct"))} · ret {_fmt_pct(champion_eq.get("avg_return_pct"), 3, True)} · #{_esc(champion_rank)}</div>'
+        "</div>"
+        '<div class="kpi-card accent-gold editable-block" data-bid="kpi-leader" data-blabel="KPI Líder">'
+        '<div class="kc-label">Lider liga</div>'
+        f'<div class="kc-value">{_esc(leader.get("version"))}</div>'
+        f'<div class="kc-sub">WR {_fmt_pct(leader_eq.get("accuracy_pct"))} · ret {_fmt_pct(leader_eq.get("avg_return_pct"), 3, True)}</div>'
+        "</div>"
+        '<div class="kpi-card accent-green editable-block" data-bid="kpi-picks" data-blabel="KPI Picks">'
+        '<div class="kc-label">Picks hoy</div>'
+        f'<div class="kc-value">{_fmt_int(len(live_tickers))}</div>'
+        f'<div class="kc-sub">{_esc(regime)} · breadth {_fmt_ratio(breadth, 1)}%</div>'
+        "</div>"
+        '<div class="kpi-card accent-rose editable-block" data-bid="kpi-db" data-blabel="KPI DB">'
+        '<div class="kc-label">Outcomes DB</div>'
+        f'<div class="kc-value">{_fmt_int(integrity.get("outcomes_count"))}</div>'
+        f'<div class="kc-sub">{_fmt_int(integrity.get("predictions_count"))} pred · {_fmt_int(integrity.get("regimes_count"))} regimes</div>'
+        "</div>"
+        '<div class="kpi-card editable-block" data-bid="kpi-integrity" data-blabel="KPI Integridad">'
+        '<div class="kc-label">Integridad</div>'
+        f'<div class="kc-value">{_fmt_int(covered)}/{_fmt_int(expected)}</div>'
+        '<div class="kc-sub">cobertura pred ultimas 30 ruedas</div>'
+        "</div>"
+    )
+
+
+def _hero_card_html(row: dict, *, label: str, card_class: str, subtitle: str, picks_override: int | None = None, live_override: list[str] | None = None) -> str:
+    role = str(row.get("role") or "")
+    eq = _row_window(row, "equalized_recent")
+    recent = _row_window(row, "recent_30")
+    version = str(row.get("version") or "")
+    spark = _sparkline_svg(_cumulative(recent.get("spark_avg_return_pct") or []), ROLE_SPARK.get(role, "#6ea8cc"))
+    rank = row.get("rank") or row.get("rank_equalized") or "—"
+    picks_count = picks_override if picks_override is not None else int(row.get("latest_picks") or 0)
+    closed = _latest_closed_tickers(row)
+    live = live_override if live_override is not None else list(row.get("latest_tickers") or [])
+    best = recent.get("best_day_return_pct")
+    worst = recent.get("worst_day_return_pct")
+    return (
+        f'<div class="hero-card {card_class}">'
+        '<div class="hc-top">'
+        f"<span class=\"hc-label\">{_esc(label)}</span>"
+        f"{_role_badge_card(role)}"
+        "</div>"
+        '<div class="hc-title-row">'
+        f"<span class=\"hc-ver\">{_esc(version)}</span>"
+        f"<span class=\"hc-sub\">{_esc(subtitle)}</span>"
+        "</div>"
+        f"<div class=\"hc-spark-wrap\">{spark}</div>"
+        '<div class="hc-big-row">'
+        f'<div><div class="hc-big-num hc-accent-val">{_fmt_pct(eq.get("accuracy_pct"))}</div><div class="hc-big-lbl">Win Rate igualada</div></div>'
+        f'<div><div class="hc-big-num">{_fmt_pct(eq.get("avg_return_pct"), 2, True)}</div><div class="hc-big-lbl">Ret. promedio/trade</div></div>'
+        "</div>"
+        '<div class="hc-stats">'
+        f'<div class="hc-stat"><span>Hits</span><strong>{_fmt_int(eq.get("hits"))}/{_fmt_int(eq.get("evaluated"))}</strong></div>'
+        f'<div class="hc-stat"><span>Picks hoy</span><strong>{_fmt_int(picks_count)}</strong></div>'
+        f'<div class="hc-stat"><span>Mejor rueda</span><strong class="pos">{_fmt_pct(best, 2, True)}</strong></div>'
+        f'<div class="hc-stat"><span>Peor rueda</span><strong class="neg">{_fmt_pct(worst, 2, True)}</strong></div>'
+        f'<div class="hc-stat"><span>Rank liga</span><strong>#{_esc(rank)}</strong></div>'
+        "</div>"
+        '<div class="hc-picks">'
+        '<div class="hc-picks-row">'
+        '<div class="hc-picks-lbl">Anteriores cerrados</div>'
+        f'<div class="hc-picks-prev">{_esc(" · ".join(closed[:6]) or "—")}</div>'
+        "</div>"
+        '<div class="hc-picks-row">'
+        f'<div class="hc-picks-lbl">Vigentes activos · {_fmt_int(picks_count)}</div>'
+        f'<div class="hc-picks-live">{_esc(" · ".join(live[:8]) or "—")}</div>'
+        "</div>"
+        "</div>"
+        "</div>"
+    )
+
+
+def _render_hero_panel(snap: dict) -> str:
+    cr = snap.get("competition_recent") or {}
+    league = cr.get("league_equalized") or []
+    if not league:
+        return ""
+    active = snap.get("active") or {}
+    champion_ver = f"V{active.get('active_version')}"
+    eq_days = _fmt_int(cr.get("equalized_days"))
+    period_suffix = _competition_period_suffix(snap)
+    champion = next((row for row in league if row.get("version") == champion_ver), league[0])
+    leader_accuracy = league[0]
+    leader_return = _leader_by_return(league) or league[0]
+    champion_live = _hero_live_tickers(snap)
+    return (
+        '<div class="panel-head">'
+        '<div>'
+        '<div class="panel-label">Podio de rendimiento</div>'
+        f'<h2 class="panel-title">Champion · Líder WR · Mayor retorno · Período competencia {eq_days} ruedas{period_suffix}</h2>'
+        "</div>"
+        "</div>"
+        '<div class="hero-row">'
+        + _hero_card_html(
+            champion,
+            label="🏆 Champion activo",
+            card_class="hc-cyan",
+            subtitle="Scanner activo · 4 sleeves",
+            picks_override=len(champion_live),
+            live_override=champion_live,
+        )
+        + _hero_card_html(
+            leader_accuracy,
+            label="🎯 Puntero accuracy",
+            card_class="hc-green",
+            subtitle=f"Maximo WR · {eq_days} ruedas",
+        )
+        + _hero_card_html(
+            leader_return,
+            label="📈 Mayor retorno",
+            card_class="hc-purple",
+            subtitle=f"Mejor ret/trade · {_fmt_int(_row_window(leader_return, 'equalized_recent').get('evaluated'))} picks",
+        )
+        + "</div>"
+    )
+
+
+def _render_liga_tab2_tbody(snap: dict) -> str:
+    league = (snap.get("competition_recent") or {}).get("league_equalized") or []
+    rows = []
+    for row in league:
+        eq = _row_window(row, "equalized_recent")
+        recent = _row_window(row, "recent_30")
+        rows.append(
+            "<tr>"
+            f"<td><strong>{_esc(row.get('version'))}</strong> {_role_badge_card(str(row.get('role') or ''))}</td>"
+            f"<td>{_freshness_badge_card(row.get('stale_market_days'))}</td>"
+            f"<td>{_fmt_pct(eq.get('accuracy_pct'))} / {_fmt_pct(eq.get('avg_return_pct'), 3, True)}</td>"
+            f"<td>{_fmt_int(eq.get('active_days'))}/{_fmt_int((snap.get('competition_recent') or {}).get('equalized_days'))} · {_fmt_int(eq.get('evaluated'))}</td>"
+            f"<td>{_fmt_pct(recent.get('accuracy_pct'))} / {_fmt_pct(recent.get('avg_return_pct'), 3, True)}</td>"
+            f"<td>{_fmt_int(recent.get('active_days'))}/30 · {_fmt_int(recent.get('evaluated'))}</td>"
+            f"<td class='muted-td ticker-list'>{_esc(', '.join((row.get('latest_tickers') or [])[:6]) or 'Sin picks')}</td>"
+            "</tr>"
+        )
+    return "".join(rows)
+
+
+def _render_legacy_grid(snap: dict) -> str:
+    """Build model-card HTML for legacy-panel (legacy_ml role only)."""
+    league = (snap.get("competition_recent") or {}).get("league_equalized") or []
+    ml_rows = [m for m in league if str(m.get("role") or "") == "legacy_ml"]
+    cards = []
+    for row in ml_rows:
+        role = "legacy_ml"
+        version = str(row.get("version") or "")
+        eq = _row_window(row, "equalized_recent")
+        recent = _row_window(row, "recent_30")
+        cards.append(
+            f"<article class='model-card editable-block' data-bid='{_model_bid(version)}' data-blabel='{_esc(version)}'>"
+            "<div class='mc-head'>"
+            f"<div class='mc-title'>{_esc(version)}</div>"
+            f"<div class='mc-badges'>{_role_badge_card(role)} {_freshness_badge_card(row.get('stale_market_days'))}</div>"
+            f"<div class='rank-num mc-rank'>#{_fmt_int(row.get('rank'))}</div>"
+            "</div>"
+            f"<div class='mc-spark'>{_sparkline_svg(_cumulative(recent.get('spark_avg_return_pct') or []), ROLE_SPARK.get(role, '#6ea8cc'))}</div>"
+            "<div class='mc-kpis'>"
+            f"<div class='mk'><span>WR</span><strong class='{'pos' if (eq.get('accuracy_pct') or 0) >= 60 else ''}'>{_fmt_pct(eq.get('accuracy_pct'))}</strong></div>"
+            f"<div class='mk'><span>Ret</span><strong>{_fmt_pct(eq.get('avg_return_pct'), 3, True)}</strong></div>"
+            f"<div class='mk'><span>Hits</span><strong>{_fmt_int(eq.get('hits'))}/{_fmt_int(eq.get('evaluated'))}</strong></div>"
+            f"<div class='mk'><span>Picks</span><strong>{_fmt_int(row.get('latest_picks'))}</strong></div>"
+            "</div>"
+            f"<div class='mc-tickers'>{_esc(', '.join((row.get('latest_tickers') or [])[:10]) or 'Sin picks recientes')}</div>"
+            "<details class='mc-detail'><summary>Mas datos</summary><div class='mc-detail-body'>"
+            f"<div class='kl'><span>30 ruedas</span><strong>{_fmt_pct(recent.get('accuracy_pct'))} / {_fmt_pct(recent.get('avg_return_pct'), 3, True)}</strong></div>"
+            f"<div class='kl'><span>Mejor rueda</span><strong>{_fmt_pct(recent.get('best_day_return_pct'), 2, True)}</strong></div>"
+            f"<div class='kl'><span>Peor rueda</span><strong>{_fmt_pct(recent.get('worst_day_return_pct'), 2, True)}</strong></div>"
+            f"<div class='kl'><span>Universo</span><strong>{_fmt_int(row.get('unique_tickers'))} tickers</strong></div>"
+            f"<div class='kl'><span>Ultima fecha</span><strong>{_esc(row.get('last_date') or '—')}</strong></div>"
+            "</div></details></article>"
+        )
+    return "".join(cards)
+
+
+def _render_overlap_table_content(snap: dict) -> str:
+    """Build thead+tbody for om-table (without outer <table> tags)."""
+    ovl = snap.get("overlap") or {}
+    labels = ovl.get("labels") or []
+    matrix = ovl.get("matrix") or []
+    if not labels or not matrix:
+        return ""
+
+    def _cell_bg(v: float) -> str:
+        return f"rgba(24,232,200,{round(0.08 + v * 0.55, 2)})"
+
+    header = "<thead><tr><th></th>" + "".join(f"<th>{_esc(lbl)}</th>" for lbl in labels) + "</tr></thead>"
+    rows = []
+    for i, row_vals in enumerate(matrix):
+        lbl = labels[i] if i < len(labels) else str(i)
+        cells = "".join(f"<td style='background:{_cell_bg(float(v))}'>{float(v):.2f}</td>" for v in row_vals)
+        rows.append(f"<tr><th class='om-label'>{_esc(lbl)}</th>{cells}</tr>")
+    return header + "<tbody>" + "".join(rows) + "</tbody>"
+
+
+def _render_models_grid(snap: dict) -> str:
+    league = (snap.get("competition_recent") or {}).get("league_equalized") or []
+    cards = []
+    for row in league:
+        role = str(row.get("role") or "")
+        if role == "legacy_ml":
+            continue  # ML models go to the legacy panel, not here
+        version = str(row.get("version") or "")
+        eq = _row_window(row, "equalized_recent")
+        recent = _row_window(row, "recent_30")
+        cards.append(
+            f"<article class='model-card editable-block' data-bid='{_model_bid(version)}' data-blabel='{_esc(version)}'>"
+            "<div class='mc-head'>"
+            f"<div class='mc-title'>{_esc(version)}</div>"
+            f"<div class='mc-badges'>{_role_badge_card(role)} {_freshness_badge_card(row.get('stale_market_days'))}</div>"
+            f"<div class='rank-num mc-rank'>#{_fmt_int(row.get('rank'))}</div>"
+            "</div>"
+            f"<div class='mc-spark'>{_sparkline_svg(_cumulative(recent.get('spark_avg_return_pct') or []), ROLE_SPARK.get(role, '#6ea8cc'))}</div>"
+            "<div class='mc-kpis'>"
+            f"<div class='mk'><span>WR</span><strong class='{'pos' if (eq.get('accuracy_pct') or 0) >= 60 else ''}'>{_fmt_pct(eq.get('accuracy_pct'))}</strong></div>"
+            f"<div class='mk'><span>Ret</span><strong>{_fmt_pct(eq.get('avg_return_pct'), 3, True)}</strong></div>"
+            f"<div class='mk'><span>Hits</span><strong>{_fmt_int(eq.get('hits'))}/{_fmt_int(eq.get('evaluated'))}</strong></div>"
+            f"<div class='mk'><span>Picks</span><strong>{_fmt_int(row.get('latest_picks'))}</strong></div>"
+            "</div>"
+            f"<div class='mc-tickers'>{_esc(', '.join((row.get('latest_tickers') or [])[:10]) or 'Sin picks recientes')}</div>"
+            "<details class='mc-detail'><summary>Mas datos</summary><div class='mc-detail-body'>"
+            f"<div class='kl'><span>30 ruedas</span><strong>{_fmt_pct(recent.get('accuracy_pct'))} / {_fmt_pct(recent.get('avg_return_pct'), 3, True)}</strong></div>"
+            f"<div class='kl'><span>Mejor rueda</span><strong>{_fmt_pct(recent.get('best_day_return_pct'), 2, True)}</strong></div>"
+            f"<div class='kl'><span>Peor rueda</span><strong>{_fmt_pct(recent.get('worst_day_return_pct'), 2, True)}</strong></div>"
+            f"<div class='kl'><span>Universo</span><strong>{_fmt_int(row.get('unique_tickers'))} tickers</strong></div>"
+            f"<div class='kl'><span>Ultima fecha</span><strong>{_esc(row.get('last_date') or '—')}</strong></div>"
+            "</div></details></article>"
+        )
+    return "".join(cards)
+
+
+def _replace_once(html: str, pattern: str, repl: str) -> str:
+    return re.sub(pattern, repl, html, count=1, flags=re.S)
+
+
+def _apply_snapshot_sections(html: str, snap: dict) -> str:
+    cr = snap.get("competition_recent") or {}
+    league = cr.get("league_equalized") or []
+    active = snap.get("active") or {}
+    leader = league[0] if league else {}
+    leader_eq = _row_window(leader, "equalized_recent")
+    live_tickers = _hero_live_tickers(snap)
+    competition_period_suffix = _competition_period_suffix(snap)
+
+    html = _replace_once(html, r'(<div class="tb-meta">).*?(</div>)', r"\1" + _render_topbar_meta(snap) + r"\2")
+    html = _replace_once(html, r'<div class="regime-pill [^"]*">.*?</div>', _render_regime_pill(snap))
+    html = _replace_once(
+        html,
+        r'(<a class="sn-link" href="#overview" title="Dashboard">.*?<span class="sn-tag">).*?(</span>)',
+        r"\1V" + _fmt_int(active.get("active_version")) + r"\2",
+    )
+    html = _replace_once(
+        html,
+        r'(<a class="sn-link" href="#picks" title="Picks hoy">.*?<span class="sn-tag">).*?(</span>)',
+        r"\g<1>" + _fmt_int(len(live_tickers)) + r"\g<2>",
+    )
+    html = _replace_once(
+        html,
+        r'(<a class="sn-link" href="#league" title="Liga">.*?<span class="sn-tag">).*?(</span>)',
+        r"\g<1>" + _fmt_int(cr.get("equalized_days")) + "d" + r"\g<2>",
+    )
+    html = _replace_once(
+        html,
+        r'(<a class="sn-link" href="#models" title="Modelos">.*?<span class="sn-tag">).*?(</span>)',
+        r"\g<1>" + _fmt_int(len(league)) + r"\g<2>",
+    )
+    html = _replace_once(
+        html,
+        r'(<details class="side-drawer">\s*<summary>Datos DB</summary>\s*)<div class="sd-body">.*?</div>(\s*</details>)',
+        r"\1" + _render_sidebar_datos_db(snap) + r"\2",
+    )
+    html = _replace_once(
+        html,
+        r'(<details class="side-drawer">\s*<summary>Config</summary>\s*)<div class="sd-body">.*?</div>(\s*</details>)',
+        r"\1" + _render_sidebar_config(snap) + r"\2",
+    )
+    html = _replace_once(html, r'(<section class="kpi-strip[^>]*>).*?(</section>)', r"\1" + _render_kpi_strip(snap) + r"\2")
+    html = _replace_once(html, r'(<section class="panel editable-block" data-bid="hero-panel"[^>]*>).*?(</section>)', r"\1" + _render_hero_panel(snap) + r"\2")
+    html = _replace_once(
+        html,
+        r'(<h2 class="panel-title">)Ranking igualado .*?(</h2>)',
+        r"\1Ranking · período competencia · " + _fmt_int(cr.get("equalized_days")) + " ruedas" + competition_period_suffix + r"\2",
+    )
+    html = _replace_once(
+        html,
+        r'(<div class="leader-strip">).*?(</div>\s*<table class="data-table">)',
+        r"\1"
+        + '<div class="ls-info">'
+        + f'<div class="ls-version">{_esc(leader.get("version") or "—")}</div>'
+        + f'<div class="ls-sub">lider actual · WR {_fmt_pct(leader_eq.get("accuracy_pct"))} · ret {_fmt_pct(leader_eq.get("avg_return_pct"), 3, True)}</div>'
+        + '</div>'
+        + f'<div class="ls-spark">{_sparkline_svg(_cumulative(_row_window(leader, "recent_30").get("spark_avg_return_pct") or []), "#f5b833", width=200, height=50)}</div>'
+        + r"\2",
+    )
+    html = _replace_once(
+        html,
+        r'(<div class="liga-tab-pane" id="ligaTabPane2">.*?<table class="data-table">.*?<tbody>).*?(</tbody>)',
+        r"\1" + _render_liga_tab2_tbody(snap) + r"\2",
+    )
+    _hm_cal = ((league[0].get("recent_30") or {}).get("calendar") or []) if league else []
+    _hm_n   = len(_hm_cal)
+    _hm_last = _hm_cal[-1]["date"] if _hm_cal else None
+    _hm_pend = len(_next_trading_days(_hm_last, 5)) if _hm_last else 5
+    _hm_title_repl = rf"\g<1>Rendimiento por rueda · {_hm_n} ruedas + {_hm_pend} próximas\2"
+    html = _replace_once(html, r'(<h2 class="panel-title">)Rendimiento por rueda .*?(</h2>)', _hm_title_repl)
+    # SCANNERS PANEL: anchor the replacement to the explicit panel, not to the first
+    # `.models-grid` found in the document. This keeps future layout changes safer.
+    html = _replace_once(
+        html,
+        r'(data-bid="scanners-panel".*?<div class="models-grid">).*?(</div>\s*</section>)',
+        r"\1" + _render_models_grid(snap) + r"\2",
+    )
+    # ── SCANNERS PANEL H2: "Muestra igualada N ruedas" ───────────────────────
+    eq_days_n = cr.get("equalized_days") or 0
+    html = _replace_once(
+        html,
+        r'(<h2 class="panel-title">Familia INVERTIR · (?:Muestra igualada|Período competencia) )\d+( ruedas</h2>)',
+        rf"\g<1>{eq_days_n}\g<2>",
+    )
+    # ── LEGACY PANEL: ML-only models-grid ────────────────────────────────────
+    html = _replace_once(
+        html,
+        r'(data-bid="legacy-panel".*?<div class="models-grid">).*?(</div>\s*</section>)',
+        r"\1" + _render_legacy_grid(snap) + r"\2",
+    )
+    # ── OVERLAP TABLE ─────────────────────────────────────────────────────────
+    html = _replace_once(
+        html,
+        r"(<table class='om-table'>).*?(</table>)",
+        r"\1" + _render_overlap_table_content(snap) + r"\2",
+    )
+    # ── OVERLAP PANEL H2: "últimas N ruedas" ─────────────────────────────────
+    ovl = snap.get("overlap") or {}
+    ovl_cd = ovl.get("common_days") or []
+    ovl_n = max((max(row) for row in ovl_cd if row), default=0)
+    html = _replace_once(
+        html,
+        r'(<h2 class="panel-title">Diversificaci[oó]n entre modelos · [uú]ltimas )\d+( ruedas</h2>)',
+        rf"\g<1>{ovl_n}\g<2>",
+    )
+    # ── PAGE FOOTER TIMESTAMP ─────────────────────────────────────────────────
+    gen_ts = snap.get("generated_at") or ""
+    html = _replace_once(
+        html,
+        r"(Titan Machine Dashboard · generado )[\dT:\-]+( · datos desde SQLite local)",
+        rf"\g<1>{gen_ts}\g<2>",
+    )
+    return html
+
+
+# ── helpers for heatmap ───────────────────────────────────────────────────────
+def _next_trading_days(date_str: str, n: int) -> list[str]:
+    """Return next N NYSE trading sessions after date_str."""
+    d = datetime.date.fromisoformat(date_str)
+    result = []
+    while len(result) < n:
+        d += datetime.timedelta(days=1)
+        if _is_nyse_trading_day(d):
+            result.append(d.isoformat())
+    return result
+
+
+def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str]) -> str:
+    """Variant A — 30d full table + 5 future pending cols. All 12 models."""
+    all_dates = dates + pending
+    compact_cls = " hm-compact" if len(all_dates) > 20 else ""
+
+    # header
+    hdr = ""
+    for d in dates:
+        hdr += (
+            f"<th><span class='hm-date'>{d[8:]}/{d[5:7]}</span>"
+            f"<span class='hm-dow'>{DOW_ES[datetime.date.fromisoformat(d).weekday()]}</span></th>"
+        )
+    today_iso   = datetime.date.today().isoformat()
+    next_session = pending[0] if pending else None
+    for d in pending:
+        if d == next_session:
+            # Next trading day: highlight as "próxima rueda activa"
+            hdr_cls = "hm-today-hdr"
+            date_label = f"\u25b8 {d[8:]}/{d[5:7]}"
+        elif d == today_iso:
+            hdr_cls = "hm-today-hdr"
+            date_label = d[8:] + "/" + d[5:7]
+        else:
+            hdr_cls = "hm-pending-hdr"
+            date_label = d[8:] + "/" + d[5:7]
+        hdr += (
+            f"<th class='{hdr_cls}'><span class='hm-date'>{date_label}</span>"
+            f"<span class='hm-dow'>{DOW_ES[datetime.date.fromisoformat(d).weekday()]}</span></th>"
+        )
+
+    body_rows = ""
+    for r in focus:
+        ver  = r.get("version", "")
+        role = r.get("role", "")
+        icon = "🏆" if role == "activo" else ROLE_ICON.get(role, role[:3].upper())
+        cmap = {c["date"]: c for c in ((r.get("recent_30") or {}).get("calendar") or [])}
+        cells = f"<th class='hm-label'><span class='hm-v'>{_esc(ver)}</span><span class='hm-rl'>{icon}</span></th>"
+        for d in dates:
+            it    = cmap.get(d, {})
+            ret   = it.get("avg_return_pct")
+            acc   = it.get("accuracy_pct")
+            picks = it.get("picks", 0)
+            tks   = ", ".join(it.get("tickers") or [])
+            is_prov = bool(it.get("is_provisional", False))
+            if ret is None and picks:
+                tip_cur = _esc(f"{ver} {d} | {picks} picks activos | {tks} | retorno pendiente")
+                cells += (
+                    f"<td class='hm-active-pending' data-tip='{tip_cur}'>"
+                    f"<div class='hm-ret'>⏳</div>"
+                    f"<div class='hm-meta'>{picks}p</div>"
+                    "</td>"
+                )
+                continue
+            bg    = _ret_bg(None if ret is None else float(ret))
+            if ret is None:
+                cls, ret_txt = "hm-empty", "—"
+            elif float(ret) >= 0:
+                cls = "hm-pos hm-provisional" if is_prov else "hm-pos"
+                ret_txt = f"~+{float(ret):.1f}" if is_prov else f"+{float(ret):.1f}"
+            else:
+                cls = "hm-neg hm-provisional" if is_prov else "hm-neg"
+                ret_txt = f"~{float(ret):.1f}" if is_prov else f"{float(ret):.1f}"
+            wr_txt = f"{float(acc):.0f}%" if acc is not None else ""
+            pk_txt = f"{picks}p" if picks else ""
+            prov_badge = "MTM" if is_prov else ""
+            meta   = " · ".join(filter(None, [wr_txt, pk_txt, prov_badge]))
+            # Build enriched tooltip with per-ticker entry/exit context
+            eval_assets = it.get("evaluated_assets") or []
+            lt_tgt_date = it.get("latest_target_date") or ""
+            # entry = OPEN of the day AFTER the signal date (d)
+            # We show: "SEÑAL dd/mm → OPEN día siguiente → CIERRE target"
+            d_fmt = f"{d[8:]}/{d[5:7]}"  # dd/mm format
+            if eval_assets and not is_prov:
+                lines = [f"📌 Señal: {d_fmt}  (entrada = OPEN día siguiente → CIERRE al vencimiento)"]
+                for a in eval_assets[:6]:
+                    a_ret   = float(a.get("actual_return", 0)) * 100
+                    a_hit   = "✓" if int(a.get("hit", 0)) == 1 else "✗"
+                    a_sign  = "+" if a_ret >= 0 else ""
+                    a_tgt   = str(a.get("target_date") or "")
+                    a_tgt_f = f"→ cierre {a_tgt[8:]}/{a_tgt[5:7]}" if a_tgt else ""
+                    lines.append(f"  {a_hit} {a.get('ticker','')}: {a_sign}{a_ret:.1f}% {a_tgt_f}")
+                if len(eval_assets) > 6:
+                    lines.append(f"  … y {len(eval_assets)-6} más")
+                lines.append(f"  Promedio: {ret_txt}%  |  WR: {wr_txt}")
+                tip = _esc("\n".join(lines))
+            elif is_prov:
+                tip_suffix = " | en curso (MTM provisional)"
+                tip = _esc(f"{ver} · {d_fmt} | ret estimado {ret_txt}% | {picks} picks abiertos | {tks}{tip_suffix}")
+            else:
+                tip = _esc(f"{ver} · {d_fmt} | ret {ret_txt}% | WR {wr_txt} | {picks} picks | {tks}")
+            cells += (
+                f"<td class='{cls}' style='background:{bg}' data-tip='{tip}'>"
+                f"<div class='hm-ret'>{ret_txt}</div>"
+                + (f"<div class='hm-meta'>{meta}</div>" if meta else "")
+                + "</td>"
+            )
+        # pending cells — the FIRST pending day (next trading day after last_date) always shows
+        # active picks so the user can see which signals are open going into the next session,
+        # regardless of whether today's data is already in the DB or not.
+        next_session = pending[0] if pending else None
+        for pd in pending:
+            if pd == next_session:
+                lt_tks = r.get("latest_tickers") or []
+                lt_n   = r.get("latest_picks") or 0
+                lt_tgt = r.get("latest_target_date") or ""
+                if lt_n and lt_tks:
+                    tks_str   = _esc(", ".join(lt_tks[:6]))
+                    tip_next  = _esc(
+                        f"{ver} {pd} | {lt_n} picks activos en cartera"
+                        f" | {', '.join(lt_tks[:6])}"
+                        + (f" | target {lt_tgt}" if lt_tgt else "")
+                        + " | retorno se calcula al cierre"
+                    )
+                    cells += (
+                        f"<td class='hm-today' data-tip='{tip_next}'>"
+                        f"<div class='hm-ret'>{lt_n}\u25b8</div>"
+                        f"<div class='hm-meta'>{tks_str}</div>"
+                        "</td>"
+                    )
+                else:
+                    tip_next = _esc(f"{ver} {pd} | sin picks activos | sin posiciones abiertas")
+                    cells += f"<td class='hm-today hm-today-empty' data-tip='{tip_next}'><div class='hm-ret'>\u2014</div></td>"
+            else:
+                cells += "<td class='hm-pending'><div class='hm-ret'>\u2014</div></td>"
+        body_rows += f"<tr>{cells}</tr>"
+
+    # summary row (tfoot) — per DATE cross-model average (35 cells = 30 dates + 5 pending)
+    # NOTE: was previously per-MODEL (12 cells), which misaligned with the 35-column header.
+    tfoot_cells = "<th class='hm-label'><span class='hm-v'>avg/día</span><span class='hm-rl'>Σ</span></th>"
+    # pre-build cmaps for all models once
+    all_cmaps = [{c["date"]: c for c in ((r.get("recent_30") or {}).get("calendar") or [])} for r in focus]
+    for d in dates:
+        day_rets: list[float] = []
+        day_wrs:  list[float] = []
+        pending_models = 0
+        has_picks = False
+        for cmap_r in all_cmaps:
+            it = cmap_r.get(d, {})
+            picks = it.get("picks", 0) or 0
+            if picks > 0:
+                has_picks = True
+                ret = it.get("avg_return_pct")
+                acc = it.get("accuracy_pct")
+                if ret is None:
+                    pending_models += 1
+                else:
+                    day_rets.append(float(ret))
+                    if acc is not None:
+                        day_wrs.append(float(acc))
+        if not has_picks:
+            tfoot_cells += "<td class='hm-empty'><div class='hm-ret'>—</div></td>"
+        elif day_rets:
+            avg_ret = sum(day_rets) / len(day_rets)
+            avg_wr  = sum(day_wrs)  / len(day_wrs) if day_wrs else None
+            ret_str = f"+{avg_ret:.1f}" if avg_ret >= 0 else f"{avg_ret:.1f}"
+            wr_str  = f"{avg_wr:.0f}%" if avg_wr is not None else ""
+            sum_cls = "hm-sum-pos" if avg_ret >= 0 else "hm-sum-neg"
+            tfoot_cells += (
+                f"<td>"
+                f"<span class='{sum_cls}'>{ret_str}</span>"
+                + (f"<span class='hm-sum-wr'>{wr_str} WR</span>" if wr_str else "")
+                + "</td>"
+            )
+        else:
+            # all picks for this date are still pending resolution
+            tfoot_cells += (
+                "<td class='hm-active-pending'>"
+                "<div class='hm-ret'>⏳</div>"
+                "</td>"
+            )
+    for pd in pending:
+        tfoot_cells += "<td class='hm-pending'><div class='hm-ret'>—</div></td>"
+
+    return (
+        "<div class='hm-scroll'>"
+        f"<table class='hm-table{compact_cls}'>"
+        f"<thead><tr><th class='hm-label'><span class='hm-corner-lbl'>↓ Fecha señal</span></th>{hdr}</tr></thead>"
+        f"<tbody>{body_rows}</tbody>"
+        f"<tfoot><tr class='hm-summary'>{tfoot_cells}</tr></tfoot>"
+        "</table></div>"
+    )
+
+
+def _build_variant_b(focus: list[dict], dates: list[str]) -> str:
+    """Variant B — Group 30d by ISO week. One column per week."""
+    import collections
+
+    # Group dates by ISO week key (year, week)
+    week_map: dict[tuple, list[str]] = collections.OrderedDict()
+    for d in dates:
+        dt = datetime.date.fromisoformat(d)
+        key = dt.isocalendar()[:2]  # (year, week)
+        week_map.setdefault(key, []).append(d)
+
+    # Week header labels: "W15 Abr 7-11"
+    MES_ABR = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+               "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+    def week_label(key: tuple, day_list: list[str]) -> str:
+        _, wk = key
+        first = datetime.date.fromisoformat(day_list[0])
+        last  = datetime.date.fromisoformat(day_list[-1])
+        mes   = MES_ABR[first.month]
+        return f"W{wk} {mes} {first.day}-{last.day}"
+
+    hdr = "".join(
+        f"<th><span class='hm-date'>{week_label(k, v)}</span></th>"
+        for k, v in week_map.items()
+    )
+
+    ROLE_ICON = {"activo": "🏆", "referencia": "REF", "base": "BASE",
+                 "legacy_ml": "ML", "observado": "OBS"}
+    body_rows = ""
+    for r in focus:
+        ver  = r.get("version", "")
+        role = r.get("role", "")
+        icon = ROLE_ICON.get(role, role[:3].upper())
+        cmap = {c["date"]: c for c in ((r.get("recent_30") or {}).get("calendar") or [])}
+        cells = f"<th class='hm-label'><span class='hm-v'>{_esc(ver)}</span><span class='hm-rl'>{icon}</span></th>"
+        for key, day_list in week_map.items():
+            week_days_with_picks = [d for d in day_list if d in cmap and (cmap[d].get("picks") or 0) > 0]
+            rets  = [float(cmap[d]["avg_return_pct"]) for d in week_days_with_picks if cmap[d].get("avg_return_pct") is not None]
+            wrs   = [float(cmap[d]["accuracy_pct"])   for d in week_days_with_picks if cmap[d].get("accuracy_pct") is not None]
+            total_picks = sum((cmap[d].get("picks") or 0) for d in day_list if d in cmap)
+            avg_ret = sum(rets) / len(rets) if rets else None
+            avg_wr  = sum(wrs)  / len(wrs)  if wrs  else None
+            bg = _ret_bg(avg_ret)
+            if avg_ret is None:
+                cls, ret_txt = "hm-empty", "—"
+            elif avg_ret >= 0:
+                cls, ret_txt = "hm-pos", f"+{avg_ret:.1f}"
+            else:
+                cls, ret_txt = "hm-neg", f"{avg_ret:.1f}"
+            wr_txt = f"{avg_wr:.0f}%" if avg_wr is not None else ""
+            pk_txt = f"{total_picks}p" if total_picks else ""
+            meta   = " · ".join(filter(None, [wr_txt, pk_txt]))
+            tip    = _esc(f"{ver} {week_label(key, day_list)} | ret {ret_txt}% | WR {wr_txt} | {total_picks} picks")
+            cells += (
+                f"<td class='{cls}' style='background:{bg}' data-tip='{tip}'>"
+                f"<div class='hm-ret'>{ret_txt}</div>"
+                + (f"<div class='hm-meta'>{meta}</div>" if meta else "")
+                + "</td>"
+            )
+        body_rows += f"<tr>{cells}</tr>"
+
+    return (
+        "<div class='hm-scroll'>"
+        "<table class='hm-table'>"
+        f"<thead><tr><th class='hm-label'></th>{hdr}</tr></thead>"
+        f"<tbody>{body_rows}</tbody>"
+        "</table></div>"
+    )
+
+
+def _build_variant_c(focus: list[dict]) -> str:
+    """Variant C — Comparison table: 15d vs 30d WR/Ret + Trend arrow. Sorted by 30d WR desc."""
+
+    def _summary(r: dict, key: str) -> dict:
+        cal = (r.get(key) or {}).get("calendar") or []
+        active = [c for c in cal if (c.get("picks") or 0) > 0]
+        rets = [float(c["avg_return_pct"]) for c in active if c.get("avg_return_pct") is not None]
+        wrs  = [float(c["accuracy_pct"])   for c in active if c.get("accuracy_pct") is not None]
+        picks = sum((c.get("picks") or 0) for c in cal)
+        return {
+            "wr":  sum(wrs)  / len(wrs)  if wrs  else None,
+            "ret": sum(rets) / len(rets) if rets else None,
+            "picks": picks,
+        }
+
+    ROLE_ICON = {"activo": "🏆", "referencia": "REF", "base": "BASE",
+                 "legacy_ml": "ML", "observado": "OBS"}
+
+    rows_data = []
+    for r in focus:
+        ver  = r.get("version", "")
+        role = r.get("role", "")
+        icon = ROLE_ICON.get(role, role[:3].upper())
+        s15 = _summary(r, "recent_15")
+        s30 = _summary(r, "recent_30")
+        rows_data.append((ver, icon, s15, s30))
+
+    # Sort by 30d WR desc (None last)
+    rows_data.sort(key=lambda x: (x[3]["wr"] is None, -(x[3]["wr"] or 0)))
+
+    def trend_arrow(wr15: float | None, wr30: float | None) -> str:
+        if wr15 is None or wr30 is None:
+            return "<span class='hm-trend-eq'>→</span>"
+        diff = wr15 - wr30  # positive = 15d better than 30d baseline = improving recently
+        if diff >= 10:
+            return "<span class='hm-trend-up'>↑</span>"
+        elif diff >= 4:
+            return "<span class='hm-trend-up'>↗</span>"
+        elif diff <= -10:
+            return "<span class='hm-trend-dn'>↓</span>"
+        elif diff <= -4:
+            return "<span class='hm-trend-dn'>↘</span>"
+        else:
+            return "<span class='hm-trend-eq'>→</span>"
+
+    def fmt_ret(v: float | None) -> str:
+        if v is None:
+            return "—"
+        return f"+{v:.1f}%" if v >= 0 else f"{v:.1f}%"
+
+    def fmt_wr(v: float | None) -> str:
+        return f"{v:.0f}%" if v is not None else "—"
+
+    tbody = ""
+    for ver, icon, s15, s30 in rows_data:
+        wr15_cls  = "hm-pos" if (s15["wr"]  or 0) >= 60 else ("hm-neg" if (s15["wr"]  or 0) > 0 and s15["wr"] < 50 else "")
+        wr30_cls  = "hm-pos" if (s30["wr"]  or 0) >= 60 else ("hm-neg" if (s30["wr"]  or 0) > 0 and s30["wr"] < 50 else "")
+        tbody += (
+            f"<tr>"
+            f"<td><span class='hm-v'>{_esc(ver)}</span></td>"
+            f"<td><span class='hm-rl'>{icon}</span></td>"
+            f"<td class='{wr15_cls}' style='text-align:right;font-weight:700'>{fmt_wr(s15['wr'])}</td>"
+            f"<td style='text-align:right'>{fmt_ret(s15['ret'])}</td>"
+            f"<td class='{wr30_cls}' style='text-align:right;font-weight:700'>{fmt_wr(s30['wr'])}</td>"
+            f"<td style='text-align:right'>{fmt_ret(s30['ret'])}</td>"
+            f"<td style='text-align:right'>{s15['picks']}p</td>"
+            f"<td style='text-align:center'>{trend_arrow(s15['wr'], s30['wr'])}</td>"
+            f"</tr>"
+        )
+
+    return (
+        "<div class='hm-scroll'>"
+        "<table class='hm-trend-table'>"
+        "<thead><tr>"
+        "<th>Modelo</th><th>Rol</th>"
+        "<th class='hm-r'>15d WR%</th><th class='hm-r'>15d Ret</th>"
+        "<th class='hm-r'>30d WR%</th><th class='hm-r'>30d Ret</th>"
+        "<th class='hm-r'>15d Picks</th><th style='text-align:center'>Trend</th>"
+        "</tr></thead>"
+        f"<tbody>{tbody}</tbody>"
+        "</table></div>"
+    )
+
+
+# ── build liga principal table ───────────────────────────────────────────────
+def _freshness_badge(stale_days: int | None) -> str:
+    if stale_days is None:
+        return "<span class='badge ba-muted'>N/D</span>"
+    if stale_days == 0:
+        return "<span class='badge ba-fresh'>AL DÍA</span>"
+    if stale_days <= 7:
+        label = "1d sin señal" if stale_days == 1 else f"{stale_days}d sin señal"
+        return f"<span class='badge ba-warn'>{label}</span>"
+    return f"<span class='badge ba-stale'>{stale_days}d sin señal</span>"
+
+
+def _role_badge_liga(role: str) -> str:
+    role = (role or "").lower()
+    if role == "active":    return "<span class='badge ba-active'>activo</span>"
+    if role == "reference": return "<span class='badge ba-ref'>referencia</span>"
+    if role == "base":      return "<span class='badge ba-base'>base</span>"
+    if role in ("observado", "observed"): return "<span class='badge ba-obs'>observado</span>"
+    if role == "legacy_ml": return "<span class='badge ba-legacy'>legacy_ml</span>"
+    return f"<span class='badge'>{_esc(role)}</span>"
+
+
+def _last_round_cell(window: dict | None) -> str:
+    if not window:
+        return "<span class='muted-td'>—</span>"
+    cal = window.get("calendar") or []
+    for entry in reversed(cal):
+        ret = entry.get("avg_return_pct")
+        if ret is not None:
+            d = entry.get("date", "")
+            date_fmt = ""
+            if d:
+                p = d.split("-")
+                date_fmt = f"<br><small class='muted-td'>{p[2]}/{p[1]}</small>"
+            sign = "+" if ret >= 0 else ""
+            css = "pos" if ret >= 0 else "neg"
+            return f"<strong class='{css}'>{sign}{ret:.2f}%</strong>{date_fmt}"
+    return "<span class='muted-td'>—</span>"
+
+
+def _last_round_cell_fresh(r30: dict | None, win: dict | None) -> str:
+    """Show most recent round from recent_30 (incl. provisional) with prov marker.
+    Falls back to equalized window if recent_30 has no data."""
+    for source, allow_prov in [(r30, True), (win, False)]:
+        if not source:
+            continue
+        cal = source.get("calendar") or []
+        for entry in reversed(cal):
+            ret = entry.get("avg_return_pct")
+            if ret is None:
+                continue
+            d = entry.get("date", "")
+            date_fmt = ""
+            if d:
+                p = d.split("-")
+                date_fmt = f"<br><small class='muted-td'>{p[2]}/{p[1]}</small>"
+            sign = "+" if ret >= 0 else ""
+            css = "pos" if ret >= 0 else "neg"
+            prov_badge = " <span class='badge ba-prov'>prov</span>" if entry.get("is_provisional") else ""
+            return f"<strong class='{css}'>{sign}{ret:.2f}%</strong>{prov_badge}{date_fmt}"
+    return "<span class='muted-td'>—</span>"
+
+
+def _window_cell(w: dict | None) -> str:
+    """Build a compact 30d/60d/90d cell: WR% on top, avg return below."""
+    if not w:
+        return "<td class='wnd-td'><span class='wnd-na'>\u2014</span></td>"
+    wr  = w.get("accuracy_pct")
+    ret = w.get("avg_return_pct")
+    ev  = w.get("evaluated") or 0
+    if wr is None and ret is None:
+        return "<td class='wnd-td'><span class='wnd-na'>s/d</span></td>"
+    wr_css  = "wnd-pos" if (wr or 0) >= 60 else ("wnd-neg" if (wr or 0) < 50 else "wnd-neu")
+    ret_css = "wnd-pos" if (ret or 0) >= 0 else "wnd-neg"
+    wr_s  = f"{wr:.0f}% WR" if wr is not None else "\u2014"
+    sgn   = "+" if (ret or 0) >= 0 else ""
+    ret_s = f"{sgn}{ret:.2f}%" if ret is not None else "\u2014"
+    tip   = f"WR {wr_s} | ret {ret_s} | {ev} picks evaluados"
+    return (
+        f"<td class='wnd-td' title='{_esc(tip)}'>"
+        f"<span class='{wr_css} wnd-wr'>{wr_s}</span>"
+        f"<span class='{ret_css} wnd-ret'>{ret_s}</span>"
+        f"</td>"
+    )
+
+
+def build_liga_table(snap: dict) -> str:
+    cr = snap.get("competition_recent", {})
+    league = cr.get("league_equalized", [])
+    if not league:
+        return ""
+
+    thead = (
+        "<thead><tr>"
+        "<th>#</th><th>Modelo</th><th>Estado</th>"
+        "<th>WR / Ret</th><th title='D\u00edas activos / per\u00edodo competencia \u00b7 picks evaluados'>Comp. \u00b7 Picks</th>"
+        "<th>Picks actuales</th><th>\u00dat. Rueda</th>"
+        "<th title='\u00daltimos 30 d\u00edas de mercado'>30d</th>"
+        "<th title='\u00daltimos 60 d\u00edas de mercado'>60d</th>"
+        "<th title='\u00daltimos 90 d\u00edas de mercado'>90d</th>"
+        "</tr></thead>"
+    )
+
+    rows = []
+    for i, m in enumerate(league, start=1):
+        ver   = _esc(m.get("version", "?"))
+        role  = m.get("role", "")
+        stale = m.get("stale_market_days")
+        win   = m.get("window") or {}
+        r30   = m.get("recent_30") or {}
+        wr    = win.get("accuracy_pct")
+        ret   = win.get("avg_return_pct")
+        eq_d  = win.get("equalized_days") or win.get("active_days") or 0
+        ev    = win.get("evaluated") or 0
+        tickers = m.get("latest_tickers") or []
+
+        wr_str  = f"{wr:.2f}%" if wr is not None else "\u2014"
+        sgn     = "+" if (ret or 0) >= 0 else ""
+        ret_str = f"{sgn}{ret:.3f}%" if ret is not None else "\u2014"
+        wr_css  = "pos" if (wr or 0) >= 60 else ("neg" if (wr or 0) < 50 else "")
+        tickers_str = ", ".join(tickers[:5]) if tickers else "Sin picks"
+
+        # Rich data-* attributes for the expand detail panel
+        st = liga_static_meta(ver)
+        best_raw  = win.get("best_day_return_pct")
+        worst_raw = win.get("worst_day_return_pct")
+        best_s  = (("+" if best_raw >= 0 else "") + f"{best_raw:.2f}%") if best_raw is not None else "\u2014"
+        worst_s = (("+" if worst_raw >= 0 else "") + f"{worst_raw:.2f}%") if worst_raw is not None else "\u2014"
+        w30_s   = (f"{wr:.0f}%/{sgn}{ret:.1f}%") if wr is not None and ret is not None else "\u2014"
+        # Dynamic prev-picks from recent_30 calendar (replaces hardcoded fallback when available)
+        r30_cal_with = sorted(
+            (e for e in (r30.get("calendar") or []) if e.get("avg_return_pct") is not None),
+            key=lambda e: e["date"],
+        )
+        prev_tks: list[str] = []
+        for _e in reversed(r30_cal_with[:-1]):
+            for _t in (_e.get("tickers") or []):
+                if _t not in prev_tks:
+                    prev_tks.append(_t)
+            if len(prev_tks) >= 5:
+                break
+        prev_picks_s = " ".join(prev_tks[:5]) or st.get("prev", "")
+        # Sparkline data for liga expand row
+        sp_raw    = r30.get("spark_avg_return_pct") or []
+        last_sp   = next((idx for idx in range(len(sp_raw)-1, -1, -1) if abs(sp_raw[idx] or 0) > 1e-9), len(sp_raw)-1)
+        sp_vals   = _cumulative([sp_raw[idx] for idx in range(last_sp+1)])
+        sp_json   = json.dumps(sp_vals)
+        sp_color  = ROLE_SPARK.get(role, "#6ea8cc")
+
+        rows.append(
+            f"<tr data-bid='leag-{ver}' data-blabel='{ver}' "
+            f"class='leag-row-clickable editable-block' "
+            f"data-sharpe='{st.get('sharpe', '\u2014')}' "
+            f"data-mdd='{st.get('mdd', '\u2014')}' "
+            f"data-best='{best_s}' data-worst='{worst_s}' "
+            f"data-signal='{st.get('signal', '\u2014')}' "
+            f"data-universe='{st.get('universe', '\u2014')}' "
+            f"data-w30='{w30_s}' "
+            f"data-prev-picks='{_esc(prev_picks_s)}' "
+            f"data-spark-vals='{sp_json}' "
+            f"data-spark-color='{sp_color}'>"
+            f"<td><span class='rank-num'>{i}</span></td>"
+            f"<td><strong>{ver}</strong> {_role_badge_liga(role)}</td>"
+            f"<td>{_freshness_badge(stale)}</td>"
+            f"<td><strong class='{wr_css}'>{wr_str}</strong>"
+            f"<br><small>{ret_str}</small></td>"
+            f"<td><small>{eq_d}/{eq_d} \u00b7 {ev} picks</small></td>"
+            f"<td class='muted-td ticker-list'>{_esc(tickers_str)}</td>"
+            f"<td class='ult-rueda-td'>{_last_round_cell_fresh(r30, win)}</td>"
+            f"{_window_cell(m.get('recent_30'))}"
+            f"{_window_cell(m.get('recent_60'))}"
+            f"{_window_cell(m.get('recent_90'))}"
+            f"</tr>"
+        )
+
+    return thead + "<tbody>" + "".join(rows) + "</tbody>"
+
+
+# ── build heatmap HTML ────────────────────────────────────────────────────────
+def build_heatmap(snap: dict) -> str:
+    cr     = snap.get("competition_recent", {})
+    league = cr.get("league_equalized", [])
+    act    = snap.get("active", {})
+    # Try both top-level active and operational_context
+    av = act.get("active_version", "") or snap.get("operational_context", {}).get("active_version", "")
+    champ_ver = f"V{av}" if av else None
+
+    # Focus: champion first, then ALL remaining models (no cap)
+    focus: list[dict] = []
+    if champ_ver:
+        champ_row = next((r for r in league if r.get("version") == champ_ver), None)
+        if champ_row:
+            focus.append(champ_row)
+    for r in league:
+        if r.get("version") != champ_ver:
+            focus.append(r)
+
+    if not focus:
+        return "<p style='color:var(--muted);padding:20px;text-align:center'>Sin datos de heatmap.</p>"
+
+    # Dates from champion's recent_30 (fallback: first model)
+    champ_cal30 = (focus[0].get("recent_30") or {}).get("calendar") or []
+    dates = [c["date"] for c in champ_cal30]
+
+    if not dates:
+        return "<p style='color:var(--muted);padding:16px'>Sin fechas en recent_30.</p>"
+
+    last_date = dates[-1]
+    pending   = _next_trading_days(last_date, 5)
+
+    # Build the 3 variants
+    var_a = _build_variant_a(focus, dates, pending)
+    var_b = _build_variant_b(focus, dates)
+    var_c = _build_variant_c(focus)
+
+    # Methodology legend — always visible, explains entry/exit logic to non-technical users
+    metodologia = (
+        "<div class='hm-legend'>"
+        "<span class='hm-legend-icon'>📌</span>"
+        "<div class='hm-legend-text'>"
+        "<strong>Cómo leer el heatmap</strong>"
+        "<div class='hm-legend-steps'>"
+        "<div class='hm-legend-step'>"
+        "<span class='hm-ls-num'>1</span>"
+        "<span class='hm-ls-txt'>Columna = <b>fecha de señal</b> (día en que el modelo detectó la oportunidad)</span>"
+        "</div>"
+        "<span class='hm-legend-arrow'>→</span>"
+        "<div class='hm-legend-step'>"
+        "<span class='hm-ls-num'>2</span>"
+        "<span class='hm-ls-txt'>Entrada = <b>OPEN del día siguiente</b> (precio real de entrada)</span>"
+        "</div>"
+        "<span class='hm-legend-arrow'>→</span>"
+        "<div class='hm-legend-step'>"
+        "<span class='hm-ls-num'>3</span>"
+        "<span class='hm-ls-txt'>Salida = <b>CLOSE al vencimiento</b> del hold period (D1/D4/D7/D10/D15)</span>"
+        "</div>"
+        "<span class='hm-legend-arrow'>→</span>"
+        "<div class='hm-legend-step'>"
+        "<span class='hm-ls-num'>%</span>"
+        "<span class='hm-ls-txt'><b>% = (CLOSE salida − OPEN entrada) / OPEN entrada</b> &nbsp;·&nbsp; hover sobre celda para ver detalle por ticker</span>"
+        "</div>"
+        "</div>"
+        "</div>"
+        "</div>"
+    )
+
+    tab_js = """<script>
+(function(){
+  function showTab(id){
+    document.querySelectorAll('.hm-vpane').forEach(function(p){p.classList.remove('active')});
+    document.querySelectorAll('.hm-vtab').forEach(function(b){b.classList.remove('active')});
+    var pane = document.getElementById(id);
+    var btn  = document.querySelector('[data-hm-tab="'+id+'"]');
+    if(pane) pane.classList.add('active');
+    if(btn)  btn.classList.add('active');
+  }
+  window._hmShowTab = showTab;
+  showTab('hm-pane-a');
+})();
+</script>"""
+
+    html = (
+        "<div class='hm-tabbar'>"
+        "<button class='hm-vtab' data-hm-tab='hm-pane-a' onclick='_hmShowTab(\"hm-pane-a\")'>30d Completo</button>"
+        "<button class='hm-vtab' data-hm-tab='hm-pane-b' onclick='_hmShowTab(\"hm-pane-b\")'>Por Semana</button>"
+        "<button class='hm-vtab' data-hm-tab='hm-pane-c' onclick='_hmShowTab(\"hm-pane-c\")'>Tendencia 15/30d</button>"
+        "</div>"
+        f"{metodologia}"
+        f"<div class='hm-vpane' id='hm-pane-a'>{var_a}</div>"
+        f"<div class='hm-vpane' id='hm-pane-b'>{var_b}</div>"
+        f"<div class='hm-vpane' id='hm-pane-c'>{var_c}</div>"
+        + tab_js
+    )
+    return html
+
+
+# ── update dates ──────────────────────────────────────────────────────────────
+def latest_market_date(snap: dict) -> str | None:
+    integrity = snap.get("integrity") or {}
+    if integrity.get("latest_market_date"):
+        return str(integrity["latest_market_date"])
+    cr     = snap.get("competition_recent", {})
+    league = cr.get("league_equalized", [])
+    best   = None
+    for r in league:
+        for key in ("recent_30", "recent_15"):
+            cal = (r.get(key) or {}).get("calendar") or []
+            if cal:
+                last = cal[-1].get("date")
+                if last and (best is None or last > best):
+                    best = last
+                break
+    if best:
+        return best
+    return None
+
+
+def update_dates(html: str, snap: dict) -> str:
+    return html
+
+
+# ── inject into HTML via sentinels ────────────────────────────────────────────
+# ── C1 PRO: hero row + predicción viva builders ──────────────────────────────
+
+def _sfmt_c1(v, digits: int = 2, signed: bool = False) -> str:
+    """Format a number as percentage string."""
+    if v is None:
+        return "—"
+    s = "+" if signed and float(v) >= 0 else ""
+    return f"{s}{float(v):.{digits}f}%"
+
+
+def _cumul_c1(vals: list) -> list:
+    total, out = 0.0, []
+    for v in vals:
+        total += float(v or 0)
+        out.append(round(total, 2))
+    return out
+
+
+def _make_sparkline_c1pro(row: dict, color: str) -> str:
+    """Build an SVG sparkline with data-dates/data-values attrs for hover tooltip."""
+    r30 = row.get("recent_30") or {}
+    sp  = r30.get("spark_avg_return_pct") or []
+    cal = r30.get("calendar") or []
+    # trim trailing zeros
+    last = next((i for i in range(len(sp) - 1, -1, -1) if abs(sp[i] or 0) > 1e-9), -1)
+    if last < 0:
+        last = len(sp) - 1
+    sp_t = [sp[i] for i in range(last + 1)]
+    dt_t = [c["date"] for c in cal[: last + 1] if c.get("date")]
+    dates = [(d.split("-")[2] + "/" + d.split("-")[1]) for d in dt_t if len(d.split("-")) == 3]
+    vals  = _cumul_c1(sp_t)
+    d_json = json.dumps(dates).replace('"', "'")
+    v_json = json.dumps(vals)
+    n = len(vals)
+    if n < 1:
+        return (
+            f"<svg viewBox='0 0 260 60' class='spark'>"
+            f"<line x1='4' y1='30' x2='256' y2='30' stroke='{color}' "
+            f"stroke-width='1.5' stroke-dasharray='4,3'/></svg>"
+        )
+    lo, hi = min(vals), max(vals)
+    rng = hi - lo if hi != lo else 1
+    pts = []
+    for i, v in enumerate(vals):
+        x = 4 + (i / max(n - 1, 1)) * 252
+        y = 54 - (v - lo) / rng * 48
+        pts.append(f"{x:.1f},{y:.1f}")
+    poly = " ".join(pts)
+    lx, ly = pts[-1].split(",")
+    return (
+        f"<svg viewBox='0 0 260 60' class='spark' "
+        f"data-dates='{d_json}' data-values='{v_json}'>"
+        f"<polygon points='4,57 {poly} {lx},57' fill='{color}' opacity='0.13'/>"
+        f"<polyline points='{poly}' fill='none' stroke='{color}' stroke-width='2.4' "
+        f"stroke-linecap='round' stroke-linejoin='round'/>"
+        f"<circle cx='{lx}' cy='{ly}' r='3.5' fill='{color}'/>"
+        f"</svg>"
+    )
+
+
+def _c1pro_card_data(row: dict, color: str) -> dict:
+    eq   = row.get("equalized_recent") or row.get("window") or {}
+    r30  = row.get("recent_30") or {}
+    cal  = r30.get("calendar") or []
+    cal_with = sorted(
+        (e for e in cal if e.get("avg_return_pct") is not None),
+        key=lambda e: e["date"],
+    )
+    last = cal_with[-1] if cal_with else None
+    lr_s, ld, lr_css = "—", "", "neu"
+    if last:
+        lr = last["avg_return_pct"]
+        p  = last["date"].split("-")
+        ld = f"{p[2]}/{p[1]}" if len(p) == 3 else last["date"]
+        lr_s = ("+" if lr >= 0 else "") + f"{lr:.2f}%"
+        lr_css = "pos" if lr >= 0 else "neg"
+    prev_tickers: list[str] = []
+    for e in reversed(cal_with[:-1]):
+        for t in (e.get("tickers") or []):
+            if t not in prev_tickers:
+                prev_tickers.append(t)
+        if len(prev_tickers) >= 5:
+            break
+    return {
+        "spark":  _make_sparkline_c1pro(row, color),
+        "wr_s":   _sfmt_c1(eq.get("accuracy_pct"), 2),
+        "ret_s":  _sfmt_c1(eq.get("avg_return_pct"), 3, signed=True),
+        "best":   _sfmt_c1(eq.get("best_day_return_pct"), 2, signed=True),
+        "worst":  _sfmt_c1(eq.get("worst_day_return_pct"), 2, signed=True),
+        "hits":   eq.get("hits", 0),
+        "ev":     eq.get("evaluated", 0),
+        "eq_d":   eq.get("equalized_days") or eq.get("active_days") or 0,
+        "lr_s":   lr_s,
+        "ld":     ld,
+        "lr_css": lr_css,
+        "prev":   ", ".join(prev_tickers[:4]) or "—",
+        "picks":  ", ".join((row.get("latest_tickers") or [])[:5]) or "Sin picks",
+    }
+
+
+def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str) -> str:
+    ver = row.get("version", "?") if row else "?"
+    return (
+        f"<div class='hero-card {card_class} editable-block' data-bid='hero-{ver.lower()}'>"
+        f"<div class='hc-label'>{label}</div>"
+        f"<div class='hc-model'>{ver}</div>"
+        f"<div class='hc-spark'>{d.get('spark', '')}</div>"
+        f"<div class='hc-wr'>{d.get('wr_s', '—')}</div>"
+        f"<div class='hc-wr-label'>Win Rate &middot; {d.get('eq_d', 0)} ruedas &middot; {d.get('ev', 0)} picks</div>"
+        f"<div class='hc-round'>"
+        f"<span class='hc-round-label'>\u00dalt. rueda {d.get('ld', '')}</span>"
+        f"<span class='hc-round-val {d.get('lr_css', 'neu')}'>{d.get('lr_s', '—')}</span>"
+        f"</div>"
+        f"<div class='hc-stats'>"
+        f"<div class='kl'><span>Ret medio</span><strong>{d.get('ret_s', '—')}</strong></div>"
+        f"<div class='kl'><span>Hits</span><strong>{d.get('hits', 0)} / {d.get('ev', 0)}</strong></div>"
+        f"<div class='kl'><span>Mejor rueda</span><strong class='pos'>{d.get('best', '—')}</strong></div>"
+        f"<div class='kl'><span>Peor rueda</span><strong class='neg'>{d.get('worst', '—')}</strong></div>"
+        f"</div>"
+        f"<div class='hc-picks'>"
+        f"<div class='hc-picks-lbl'>Picks anteriores</div>"
+        f"<div class='hc-picks-prev'>{d.get('prev', '—')}</div>"
+        f"<div class='hc-picks-lbl' style='margin-top:6px'>Pr\u00f3ximos picks</div>"
+        f"<div class='hc-picks-next'>{d.get('picks', 'Sin picks')}</div>"
+        f"</div>"
+        f"</div>"
+    )
+
+
+def _build_c1pro_senales_vivas_card(snap: dict) -> str:
+    """Build Señales Vivas: signal board with active picks per model (no charts)."""
+    active = snap.get("active") or {}
+    run    = (active.get("active_run")) or {}
+    regime_label = str(run.get("regime_label") or "—")
+    pred_for     = run.get("prediction_for") or "—"
+    regime_cls   = "regime-peligro" if regime_label.upper() == "PELIGRO" else "regime-seguro"
+    champion_ver = f"V{active.get('active_version', 13)}"
+    league = (snap.get("competition_recent") or {}).get("league_equalized") or []
+
+    def _prev_tk(row: dict) -> list[str]:
+        cal = (row.get("recent_30") or {}).get("calendar") or []
+        cal_s = sorted((e for e in cal if e.get("tickers") and e.get("date")), key=lambda e: e["date"])
+        seen: list[str] = []
+        for e in reversed(cal_s[:-1]):
+            for t in (e.get("tickers") or []):
+                if t not in seen:
+                    seen.append(t)
+            if len(seen) >= 5:
+                break
+        return seen[:5]
+
+    # ── Champion block: breakdown by signal type ──────────────────────────────
+    SIG_DEFS = [
+        ("D",    "#18e8c8", run.get("results_d") or []),
+        ("C5",   "#44e890", run.get("results_c5") or []),
+        ("A",    "#a882ff", run.get("results_a") or []),
+        ("E_HW", "#f5b833", run.get("results_e") or run.get("results_e_hw") or []),
+    ]
+    champ_row = next((r for r in league if r.get("version") == champion_ver), {})
+    champ_eq  = champ_row.get("equalized_recent") or champ_row.get("window") or {}
+    wr_v  = champ_eq.get("accuracy_pct")
+    ret_v = champ_eq.get("avg_return_pct")
+    wr_s  = f"{float(wr_v):.0f}%" if wr_v is not None else "—"
+    ret_s = (("+" if float(ret_v) >= 0 else "") + f"{float(ret_v):.1f}%") if ret_v is not None else "—"
+    champ_color = ROLE_SPARK.get(champ_row.get("role", ""), "#18e8c8")
+
+    sig_html: list[str] = []
+    for sn, color, results in SIG_DEFS:
+        if results:
+            tickers = " · ".join(_esc(p.get("ticker", "?")) for p in results[:6])
+            sig_html.append(
+                f"<div class='svb-sig-line'>"
+                f"<span class='svb-sig-tag' style='border-color:{color}55;color:{color}'>{sn}</span>"
+                f"<span class='svb-sig-tickers'>{tickers}</span>"
+                f"<span class='svb-sig-n'>{len(results)}p</span>"
+                f"</div>"
+            )
+        else:
+            sig_html.append(
+                f"<div class='svb-sig-line svb-sig-off'>"
+                f"<span class='svb-sig-tag' style='border-color:{color}25;color:{color}70'>{sn}</span>"
+                f"<span class='svb-sig-empty-lbl'>—</span>"
+                f"</div>"
+            )
+
+    champ_block = (
+        f"<div class='svb-champion'>"
+        f"<div class='svb-champ-head'>"
+        f"<span class='svb-champ-ver' style='color:{champ_color}'>{_esc(champion_ver)}</span>"
+        f"<span class='svb-champ-badge'>ACTIVO</span>"
+        f"<span class='svb-champ-kpi'>{_esc(wr_s)} WR &middot; {_esc(ret_s)}</span>"
+        f"</div>"
+        + "".join(sig_html)
+        + "</div>"
+    )
+
+    # ── Other models: compact signal rows ───────────────────────────────────
+    rows_html: list[str] = []
+    for row in league:
+        ver = row.get("version", "?")
+        if ver == champion_ver:
+            continue
+        role  = row.get("role", "")
+        color = ROLE_SPARK.get(role, "#6ea8cc")
+        eq    = row.get("equalized_recent") or row.get("window") or {}
+        wr    = eq.get("accuracy_pct")
+        ret   = eq.get("avg_return_pct")
+        wr_s2  = f"{float(wr):.0f}%" if wr is not None else "—"
+        ret_s2 = (("+" if float(ret) >= 0 else "") + f"{float(ret):.1f}%") if ret is not None else "—"
+        ret_css = "pos" if (ret is not None and float(ret) >= 0) else ("neg" if ret is not None else "neu")
+        curr   = (row.get("latest_tickers") or [])[:5]
+        curr_s = " · ".join(_esc(t) for t in curr) if curr else "—"
+        prev   = _prev_tk(row)
+        prev_s = " · ".join(_esc(t) for t in prev) if prev else "—"
+        rows_html.append(
+            f"<div class='svb-row'>"
+            f"<div class='svb-row-head'>"
+            f"<span class='svb-rver' style='color:{color}'>{_esc(ver)}</span>"
+            f"<span class='svb-rkpi'>{_esc(wr_s2)} · <span class='{ret_css}'>{_esc(ret_s2)}</span></span>"
+            f"</div>"
+            f"<div class='svb-picks-now'><span class='svb-lbl'>Hoy</span><strong>{curr_s}</strong></div>"
+            f"<div class='svb-picks-prev'><span class='svb-lbl'>Ant</span>{prev_s}</div>"
+            f"</div>"
+        )
+
+    other_html = "<div class='svb-list'>" + "".join(rows_html) + "</div>" if rows_html else ""
+
+    return (
+        "<div class='hero-card hc-gold editable-block' data-bid='hero-signals'>"
+        "<div class='hc-label'>\u26a1 Se\u00f1ales Vivas \u00b7 Todos los modelos</div>"
+        f"<div class='sv-regime-row'>"
+        f"<span class='pv-regime {regime_cls}'>{_esc(regime_label)}</span>"
+        f"<span class='sv-pred-for'>Para {_esc(pred_for)}</span>"
+        f"</div>"
+        + champ_block
+        + other_html
+        + "</div>"
+    )
+
+
+def _build_c1pro_hero_row(snap: dict) -> str:
+    """Build the 4 hero cards: champion, WR leader, return leader, Señales Vivas."""
+    league = (snap.get("competition_recent") or {}).get("league_equalized") or []
+    active = snap.get("active") or {}
+    run    = (active.get("active_run")) or {}
+    champion_ver = f"V{active.get('active_version', '13')}"
+
+    def _find(ver: str) -> dict:
+        return next((m for m in league if m.get("version") == ver), league[0] if league else {})
+
+    def _leader_ret() -> dict:
+        valid = [m for m in league if (m.get("equalized_recent") or m.get("window") or {}).get("avg_return_pct") is not None]
+        if not valid:
+            return league[0] if league else {}
+        return max(valid, key=lambda m: float((m.get("equalized_recent") or m.get("window") or {}).get("avg_return_pct") or -1e18))
+
+    champ_row  = _find(champion_ver)
+    leader_wr  = league[0] if league else {}
+    leader_ret = _leader_ret()
+
+    # Live tickers from current run → override champion picks
+    live: list[str] = []
+    for k in ["results_d", "results_e", "results_e_hw", "results_c5", "results_a"]:
+        for p in (run.get(k) or []):
+            t = p.get("ticker")
+            if t and t not in live:
+                live.append(t)
+
+    champ_d = _c1pro_card_data(champ_row, "#18e8c8") if champ_row else {}
+    if live:
+        champ_d["picks"] = ", ".join(live[:5])
+    wr_d  = _c1pro_card_data(leader_wr, "#44e890") if leader_wr else {}
+    ret_d = _c1pro_card_data(leader_ret, "#a882ff") if leader_ret else {}
+
+    return "\n".join([
+        _c1pro_hero_card(champ_row, champ_d, "hc-cyan",   "#18e8c8", "\U0001f3c6 Champion activo"),
+        _c1pro_hero_card(leader_wr, wr_d,   "hc-green",  "#44e890", "\U0001f3af Mayor Win Rate"),
+        _c1pro_hero_card(leader_ret, ret_d, "hc-purple", "#a882ff", "\U0001f4c8 Mayor Retorno"),
+        _build_c1pro_senales_vivas_card(snap),
+    ])
+
+
+def _build_pred_viva(snap: dict) -> str:
+    """Build the Predicción Viva section content."""
+    active = snap.get("active") or {}
+    run    = (active.get("active_run")) or {}
+    regime_label = str(run.get("regime_label") or "—")
+    pred_for     = run.get("prediction_for") or "—"
+
+    def _pick_html(pick: dict) -> str:
+        ticker = pick.get("ticker", "?")
+        price  = pick.get("price")
+        target = pick.get("target")
+        stop   = pick.get("stop")
+        rsi    = pick.get("rsi")
+        risk   = pick.get("risk_pct")
+        score  = pick.get("score")
+        note   = str(pick.get("note") or "").split("|")[0].strip()
+        p_s  = f"${price:.2f}" if price is not None else "—"
+        t_s  = f"${target:.2f}" if target is not None else "—"
+        s_s  = f"${stop:.2f}" if stop is not None else "—"
+        r_s  = f"{rsi:.1f}" if rsi is not None else "—"
+        rk_s = f"{risk:.1f}%" if risk is not None else "—"
+        sc_s = f"{score:.0f}" if score is not None else "—"
+        return (
+            f"<div class='pv-pick'>"
+            f"<div class='pv-ticker'>{_esc(ticker)}</div>"
+            f"<div class='pv-price'>{p_s}</div>"
+            f"<div class='pv-row'><span>Target</span><strong class='pos'>{t_s}</strong></div>"
+            f"<div class='pv-row'><span>Stop</span><strong class='neg'>{s_s}</strong></div>"
+            f"<div class='pv-row'><span>RSI</span><strong>{r_s}</strong></div>"
+            f"<div class='pv-row'><span>Riesgo</span><strong>{rk_s}</strong></div>"
+            f"<div class='pv-row'><span>Score</span><strong>{sc_s}</strong></div>"
+            f"<div class='pv-hold'>{_esc(note)}</div>"
+            f"</div>"
+        )
+
+    parts = [
+        f"<div class='pv-header'>"
+        f"<span class='pv-for'>Para {_esc(pred_for)}</span>"
+        f"<span class='pv-regime regime-{regime_label.lower()}'>{_esc(regime_label)}</span>"
+        f"</div>"
+    ]
+    sigs = [
+        ("Signal D &mdash; Liderazgo",          run.get("results_d") or []),
+        ("Signal C5 &mdash; Crash + Rebound",   run.get("results_c5") or []),
+        ("Signal A &mdash; Mean Reversion",     run.get("results_a") or []),
+        ("Signal E_HW &mdash; RS New High HW",  run.get("results_e") or run.get("results_e_hw") or []),
+    ]
+    has_any = any(rs for _, rs in sigs)
+    if not has_any:
+        parts.append("<div class='pv-empty'>Sin se\u00f1ales activas para este per\u00edodo.</div>")
+    else:
+        for sname, results in sigs:
+            if not results:
+                continue
+            parts.append(f"<div class='pv-sig-label'>{sname}</div><div class='pv-picks-grid'>")
+            for p in results[:8]:
+                parts.append(_pick_html(p))
+            parts.append("</div>")
+    mem = run.get("memory_context") or []
+    if mem:
+        parts.append("<div class='pv-memory'><div class='pv-memory-label'>Contexto hist\u00f3rico</div>")
+        for m in mem:
+            parts.append(f"<div class='pv-memory-item'>{_esc(str(m))}</div>")
+        parts.append("</div>")
+    return "\n".join(parts)
+
+
+def inject(html: str, marker_s: str, marker_e: str, content: str) -> str:
+    s = html.find(marker_s)
+    e = html.find(marker_e)
+    if s < 0 or e < 0:
+        return html  # markers not present, skip
+    return html[: s + len(marker_s)] + "\n" + content + "\n" + html[e:]
+
+
+def _missing_required_markers(html: str) -> list[str]:
+    missing: list[str] = []
+    for label, marker_s, marker_e in REQUIRED_MARKER_PAIRS:
+        has_start = marker_s in html
+        has_end = marker_e in html
+        if has_start and has_end:
+            continue
+        if has_start != has_end:
+            missing.append(f"{label} (par incompleto)")
+        else:
+            missing.append(label)
+    return missing
+
+
+def _strip_marker_pair(html: str, marker_s: str, marker_e: str) -> str:
+    return html.replace(marker_s, "").replace(marker_e, "")
+
+
+def _wrap_marker_block(
+    html: str,
+    pattern: str,
+    marker_s: str,
+    marker_e: str,
+    label: str,
+) -> tuple[str, bool]:
+    html = _strip_marker_pair(html, marker_s, marker_e)
+    match = re.search(pattern, html, flags=re.S)
+    if not match:
+        print(f"  [markers] WARNING: {label} anchor not found, markers NOT added")
+        return html, False
+    inner = match.group(2).strip("\n")
+    replacement = match.group(1) + "\n" + marker_s + "\n" + inner + "\n" + marker_e + "\n" + match.group(3)
+    html = html[:match.start()] + replacement + html[match.end():]
+    print(f"  [markers] {label} markers added")
+    return html, True
+
+
+# ── add markers (first-time setup) ───────────────────────────────────────────
+def add_markers(html: str) -> str:
+    # Heatmap sentinel
+    if MARK_HM_S not in html or MARK_HM_E not in html:
+        html = _strip_marker_pair(html, MARK_HM_S, MARK_HM_E)
+        hm_s = html.find("<table class='hm-table'>")
+        if hm_s >= 0:
+            hm_e = html.find("</table>", hm_s) + len("</table>")
+            # also include the legend div right after, if present
+            after_table = html[hm_e: hm_e + 300]
+            legend_end = after_table.find("</div>")
+            if "hm-legend" in after_table and legend_end >= 0:
+                hm_e = hm_e + legend_end + len("</div>")
+            html = (html[:hm_s] + MARK_HM_S + "\n"
+                    + html[hm_s:hm_e] + "\n" + MARK_HM_E + html[hm_e:])
+            print("  [markers] heatmap markers added")
+        else:
+            print("  [markers] WARNING: hm-table not found, heatmap markers NOT added")
+
+    # CSS sentinel — place just before the FIRST </style> (main CSS block, not JS strings)
+    if MARK_CSS_S not in html or MARK_CSS_E not in html:
+        html = _strip_marker_pair(html, MARK_CSS_S, MARK_CSS_E)
+        first_script = html.find("<script")
+        search_in = html if first_script < 0 else html[:first_script]
+        style_end = search_in.rfind("</style>")
+        if style_end >= 0:
+            html = (html[:style_end]
+                    + MARK_CSS_S + "\n" + MARK_CSS_E + "\n"
+                    + html[style_end:])
+            print("  [markers] CSS markers added")
+        else:
+            print("  [markers] WARNING: </style> not found, CSS markers NOT added")
+
+    if MARK_HERO_S not in html or MARK_HERO_E not in html:
+        html, _ = _wrap_marker_block(
+            html,
+            r'(<section\b[^>]*\bid="hero"[^>]*>)(.*?)(</section>)',
+            MARK_HERO_S,
+            MARK_HERO_E,
+            "hero-row",
+        )
+
+    if MARK_LIGA_S not in html or MARK_LIGA_E not in html:
+        html, _ = _wrap_marker_block(
+            html,
+            r'(<section\b[^>]*\bid="league"[^>]*>.*?<table class="data-table">)(.*?)(</table>)',
+            MARK_LIGA_S,
+            MARK_LIGA_E,
+            "liga-table",
+        )
+
+    return html
+
+
+# ── main ─────────────────────────────────────────────────────────────────────
+def main() -> int:
+    ensure_dashboard_dir()
+    if not SNAPSHOT.exists():
+        print(f"ERROR: snapshot not found: {SNAPSHOT}")
+        return 1
+    if not DASHBOARD.exists():
+        print(f"ERROR: dashboard not found: {DASHBOARD}")
+        return 1
+
+    with open(SNAPSHOT, "r", encoding="utf-8") as f:
+        snap = json.load(f)
+    with open(DASHBOARD, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    # Repair required markers if missing
+    missing_markers = _missing_required_markers(html)
+    if missing_markers:
+        print("Markers not found — adding them now...")
+        html = add_markers(html)
+        missing_markers = _missing_required_markers(html)
+        if missing_markers:
+            print("ERROR: critical dashboard markers still missing:", ", ".join(missing_markers))
+            return 1
+
+    # Inject CSS
+    html = inject(html, MARK_CSS_S, MARK_CSS_E, HEATMAP_CSS)
+
+    # Inject heatmap
+    new_hm = build_heatmap(snap)
+    html = inject(html, MARK_HM_S, MARK_HM_E, new_hm)
+
+    # Inject liga principal table (thead + tbody with fresh data + Últ. Rueda column)
+    new_liga = build_liga_table(snap)
+    if new_liga:
+        html = inject(html, MARK_LIGA_S, MARK_LIGA_E, new_liga)
+
+    # ── C1 Pro: inject hero row + predicción viva ──────────────────────────────
+    html = inject(html, MARK_HERO_S, MARK_HERO_E, _build_c1pro_hero_row(snap))
+    print("  [c1pro] Hero row injected")
+
+    if MARK_PRED_S in html and MARK_PRED_E in html:
+        html = inject(html, MARK_PRED_S, MARK_PRED_E, _build_pred_viva(snap))
+        print("  [c1pro] Predicción Viva injected")
+
+    html = _apply_snapshot_sections(html, snap)
+
+    # Update dates
+    html = update_dates(html, snap)
+
+    with open(DASHBOARD, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    lm = latest_market_date(snap)
+    gen = snap.get("generated_at", "?")
+    print(f"Dashboard refreshed OK | snapshot={gen} | latest_market={lm}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
