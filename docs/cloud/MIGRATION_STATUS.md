@@ -1,7 +1,7 @@
 # Migration Status
 
 - Fecha de inicio: 2026-04-22
-- Estado actual: `FASE 1 COMPLETADA / FASE 2 INICIADA`
+- Estado actual: `FASE 1 COMPLETADA / FASE 2 INICIADA / REMOTO SINCRONIZADO`
 - Nombre publico del proyecto: `PythiaxEngine`
 - Ruta local historica: `Claude/`
 - Arquitectura objetivo: `GitHub + GitHub Actions + Neon Postgres + Cloudflare Pages + R2`
@@ -16,6 +16,7 @@
 - creado el baseline local versionado del proyecto
 - configurado `origin` hacia `waltermosqueda/PythiaxEngine`
 - configurada autoria local de `git` para `Walter Mosqueda`
+- completado el primer push de `main` hacia GitHub
 - agregado scaffolding base del repo:
   - `.gitignore`
   - `.dockerignore`
@@ -36,11 +37,11 @@
 
 ## Lo que falta inmediatamente
 
-1. Hacer push de `main` al repo remoto.
-2. Instalar dependencias `dev/cloud` para correr CI local completa.
+1. Instalar dependencias `dev/cloud` para correr CI local completa.
+2. Activar GitHub Actions sobre el repo remoto.
 3. Introducir una capa de acceso dual `SQLite/Postgres`.
 4. Preparar la migracion inicial de datos hacia Neon.
-5. Activar GitHub Actions sobre el repo remoto.
+5. Definir secrets cloud minimos para el primer pipeline remoto.
 
 ## Bloqueadores conocidos
 
@@ -57,12 +58,12 @@
 
 ## Proximo corte recomendado
 
-`FASE 2: push + capa dual de DB`
+`FASE 2: CI remota + capa dual de DB`
 
 Pasos exactos:
 
-1. push de `main`
-2. activar GitHub Actions
+1. activar GitHub Actions
+2. instalar dependencias `dev/cloud` para validar localmente
 3. agregar wrapper de configuracion DB en runtime
 4. empezar a reemplazar los `sqlite3.connect(...)` directos
 5. preparar migracion inicial hacia Neon
