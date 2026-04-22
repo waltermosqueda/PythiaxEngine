@@ -27,7 +27,7 @@ HORIZON_RE = re.compile(r"_D(\d+)$")
 
 STANDARD_TOP_N = 2
 STANDARD_SCOPE = "asset_per_prediction_day"
-STANDARD_SELECTION = "snapshot_rank_then_max_native_horizon"
+STANDARD_SELECTION = "snapshot_rank_then_max_native_horizon_with_db_fallback"
 
 
 def _to_float(value: Any) -> float | None:
@@ -205,6 +205,81 @@ def extract_ranked_snapshot_picks(snapshot: dict[str, Any]) -> list[dict[str, An
     return list(deduped.values())
 
 
+def _build_db_fallback_ranked_picks(
+    row_map: dict[tuple[str, str], dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+
+    for (prediction_date, ticker), row in row_map.items():
+        grouped.setdefault(str(prediction_date), []).append(
+            {
+                "ticker": str(ticker),
+                "confidence": row.get("confidence"),
+                "score": row.get("score"),
+                "priority_score": row.get("confidence") if row.get("confidence") is not None else row.get("score"),
+                "target_date": row.get("target_date"),
+                "model_name": row.get("model_name"),
+                "horizon": row.get("horizon", 0),
+                "_source": "db_fallback",
+            }
+        )
+
+    ranked_by_date: dict[str, list[dict[str, Any]]] = {}
+    for date_text, raw_items in grouped.items():
+        ranked_items = sorted(
+            raw_items,
+            key=lambda item: (
+                -float(item["priority_score"] if item["priority_score"] is not None else -1e18),
+                -float(item["confidence"] if item["confidence"] is not None else -1e18),
+                -float(item["score"] if item["score"] is not None else -1e18),
+                -int(item.get("horizon") or 0),
+                str(item.get("ticker")),
+            ),
+        )
+        enriched: list[dict[str, Any]] = []
+        for rank, item in enumerate(ranked_items, start=1):
+            copy_item = dict(item)
+            copy_item["rank"] = rank
+            enriched.append(copy_item)
+        ranked_by_date[date_text] = enriched
+
+    return ranked_by_date
+
+
+def _build_ranked_picks_by_date(
+    snapshots: dict[str, dict[str, Any]],
+    row_map: dict[tuple[str, str], dict[str, Any]],
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, str], str]:
+    ranked_by_date: dict[str, list[dict[str, Any]]] = {}
+    source_by_date: dict[str, str] = {}
+
+    for date_text, snapshot in snapshots.items():
+        ranked_snapshot = extract_ranked_snapshot_picks(snapshot)
+        if not ranked_snapshot:
+            continue
+        ranked_by_date[date_text] = ranked_snapshot
+        source_by_date[date_text] = "snapshot"
+
+    fallback_by_date = _build_db_fallback_ranked_picks(row_map)
+    for date_text, ranked_fallback in fallback_by_date.items():
+        if date_text in ranked_by_date:
+            continue
+        ranked_by_date[date_text] = ranked_fallback
+        source_by_date[date_text] = "db_fallback"
+
+    source_modes = set(source_by_date.values())
+    if not source_modes:
+        selection_source = "none"
+    elif source_modes == {"snapshot"}:
+        selection_source = "snapshot"
+    elif source_modes == {"db_fallback"}:
+        selection_source = "db_fallback"
+    else:
+        selection_source = "mixed"
+
+    return ranked_by_date, source_by_date, selection_source
+
+
 def _load_operational_row_map(
     con: sqlite3.Connection,
     entry: dict[str, Any],
@@ -293,18 +368,19 @@ def _load_operational_row_map(
 
 
 def _build_day_records(
-    snapshots: dict[str, dict[str, Any]],
+    ranked_picks_by_date: dict[str, list[dict[str, Any]]],
+    source_by_date: dict[str, str],
     row_map: dict[tuple[str, str], dict[str, Any]],
     top_n: int,
 ) -> tuple[dict[str, dict[str, Any]], list[str], list[str], list[str]]:
     day_records: dict[str, dict[str, Any]] = {}
     active_evaluated_dates: list[str] = []
-    all_dates = sorted(snapshots)
+    all_dates = sorted(ranked_picks_by_date)
     all_tickers: set[str] = set()
     all_confidences: list[float] = []
 
     for date_text in all_dates:
-        ranked_picks = extract_ranked_snapshot_picks(snapshots[date_text])[:top_n]
+        ranked_picks = ranked_picks_by_date[date_text][:top_n]
         tickers = [str(item["ticker"]) for item in ranked_picks]
         for ticker in tickers:
             all_tickers.add(ticker)
@@ -376,6 +452,7 @@ def _build_day_records(
             "accuracy_pct": accuracy_pct,
             "avg_return_pct": avg_return_pct,
             "is_provisional": is_provisional,  # True = MTM estimate, no final outcome yet
+            "selection_source": source_by_date.get(date_text, "unknown"),
             "avg_confidence_pct": avg_confidence_pct,
             "evaluated_assets": evaluated_assets,
             "latest_target_date": max(target_dates) if target_dates else None,
@@ -482,7 +559,16 @@ def _build_entry_state(
 ) -> dict[str, Any]:
     snapshots = load_entry_snapshots(entry)
     row_map = _load_operational_row_map(con, entry)
-    day_records, all_dates, active_evaluated_dates, unique_tickers = _build_day_records(snapshots, row_map, top_n)
+    ranked_picks_by_date, source_by_date, selection_source = _build_ranked_picks_by_date(
+        snapshots,
+        row_map,
+    )
+    day_records, all_dates, active_evaluated_dates, unique_tickers = _build_day_records(
+        ranked_picks_by_date,
+        source_by_date,
+        row_map,
+        top_n,
+    )
 
     total_evaluated_assets: list[dict[str, Any]] = []
     for date_text in active_evaluated_dates:
@@ -517,6 +603,9 @@ def _build_entry_state(
             "role": str(entry["role"]),
             "pattern": str(entry["prefix"]),
             "exact_model_name": bool(entry.get("exact_model_name", False)),
+            "selection_source": selection_source,
+            "snapshot_days": sum(1 for source in source_by_date.values() if source == "snapshot"),
+            "db_fallback_days": sum(1 for source in source_by_date.values() if source == "db_fallback"),
             "pred_days": len(all_dates),
             "total_preds": sum(_to_int(day_records[date_text]["picks"]) for date_text in all_dates),
             "evaluated": len(total_evaluated_assets),
@@ -607,7 +696,8 @@ def build_standardized_competition_snapshot(
             "selection": STANDARD_SELECTION,
             "notes": (
                 "Se comparan activos por prediction_date usando el ranking del snapshot; "
-                "si un scanner guarda varios horizontes para el mismo activo, se usa el de mayor horizonte."
+                "si faltan snapshots locales, se usa fallback desde la DB ordenado por confidence/score. "
+                "Si un scanner guarda varios horizontes para el mismo activo, se usa el de mayor horizonte."
             ),
         },
         "rows": rows_sorted,

@@ -59,6 +59,10 @@
   - `herramientas/competencia_modelos.py`
   - `herramientas/auditoria_integral_claude.py`
   - `herramientas/competencia_topn_estandar.py`
+- agregada liga con fallback desde DB cuando faltan snapshots locales:
+  - `herramientas/competencia_topn_estandar.py`
+- agregado test de fallback DB para la liga:
+  - `tests/test_competition_db_fallback.py`
 - agregado workflow manual de validacion cloud:
   - `.github/workflows/neon-schema-smoke.yml`
 - documentado setup de secrets:
@@ -80,6 +84,8 @@
   todavia no llega a queries y escrituras profundas
 - parte de los snapshots operativos del dashboard todavia vive fuera del repo:
   - `aprendizaje_operativo/*_runs`
+- aunque falten esos snapshots, la liga competitiva ya puede reconstruirse desde
+  la DB como fallback; todavia quedan bloques visuales que usan snapshots directos
 - `git` dentro de esta carpeta requiere comandos fuera del sandbox para escribir metadata
 
 ## Estrategia de rollback

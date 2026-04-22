@@ -132,6 +132,10 @@ Esta capa ya fue conectada a piezas visibles del sistema:
 Eso permite que la lectura del sistema empiece a desacoplarse del backend antes
 de tocar la parte escritora del pipeline.
 
+Ademas, la liga competitiva ya tiene fallback DB-driven si faltan snapshots
+locales de `aprendizaje_operativo/*_runs`. Eso reduce el acople a artefactos de
+filesystem y mejora la portabilidad hacia cloud.
+
 ## Schema objetivo inicial en Postgres
 
 El scaffolding agregado en este corte replica estas tablas:
