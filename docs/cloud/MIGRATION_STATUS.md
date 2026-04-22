@@ -63,6 +63,10 @@
   - `herramientas/competencia_topn_estandar.py`
 - agregado test de fallback DB para la liga:
   - `tests/test_competition_db_fallback.py`
+- agregado fallback DB para `active_run` del dashboard cuando faltan snapshots:
+  - `analisis/generar_tablero_maquina_pensante.py`
+- agregado test de fallback DB para snapshot activo del dashboard:
+  - `tests/test_dashboard_active_snapshot_fallback.py`
 - agregado workflow manual de validacion cloud:
   - `.github/workflows/neon-schema-smoke.yml`
 - documentado setup de secrets:
@@ -74,7 +78,7 @@
 2. Verificar la primera corrida de GitHub Actions en remoto.
 3. Ejecutar el bootstrap local inicial hacia Neon con reporte.
 4. Extender la capa dual a escrituras y piezas operativas restantes.
-5. Desacoplar snapshots operativos para poder publicar dashboard 100% cloud.
+5. Desacoplar snapshots operativos restantes para poder publicar dashboard 100% cloud.
 
 ## Bloqueadores conocidos
 
@@ -86,6 +90,8 @@
   - `aprendizaje_operativo/*_runs`
 - aunque falten esos snapshots, la liga competitiva ya puede reconstruirse desde
   la DB como fallback; todavia quedan bloques visuales que usan snapshots directos
+- el `active_run` del dashboard ya tiene fallback DB-driven; todavia quedan
+  otros artefactos de snapshot local fuera de esa ruta principal
 - `git` dentro de esta carpeta requiere comandos fuera del sandbox para escribir metadata
 
 ## Estrategia de rollback

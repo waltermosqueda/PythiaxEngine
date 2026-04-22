@@ -136,6 +136,11 @@ Ademas, la liga competitiva ya tiene fallback DB-driven si faltan snapshots
 locales de `aprendizaje_operativo/*_runs`. Eso reduce el acople a artefactos de
 filesystem y mejora la portabilidad hacia cloud.
 
+Tambien el `active_run` principal del dashboard ya puede reconstruirse desde
+`predictions/outcomes/regimes` cuando no existe el JSON local del scanner
+activo. Eso mantiene visible el bloque mas importante del dashboard aun en un
+entorno cloud sin esos snapshots historicos.
+
 ## Schema objetivo inicial en Postgres
 
 El scaffolding agregado en este corte replica estas tablas:

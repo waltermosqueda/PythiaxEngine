@@ -140,6 +140,15 @@ def model_filter(entry: dict[str, Any], alias: str = "p") -> tuple[str, tuple[An
     return f"{alias}.model_name LIKE ?", (f"{prefix}_%",)
 
 
+def collapse_target_dates(values: list[Any]) -> str | None:
+    target_dates = sorted({str(value) for value in values if value})
+    if not target_dates:
+        return None
+    if len(target_dates) == 1:
+        return target_dates[0]
+    return f"{target_dates[0]} -> {target_dates[-1]}"
+
+
 def query_df(con: RuntimeDB, sql: str, params: tuple[Any, ...] = ()) -> pd.DataFrame:
     return con.read_df(sql, params=params)
 
@@ -569,12 +578,146 @@ def exact_sector_accuracy(db: RuntimeDB, model_name: str, limit: int = 6) -> lis
     return df.head(limit).to_dict(orient="records")
 
 
+def build_latest_results_for_model(con: RuntimeDB, model_name: str) -> dict[str, Any]:
+    latest_prediction_date = query_df(
+        con,
+        """
+        SELECT MAX(prediction_date) AS prediction_date
+        FROM predictions
+        WHERE model_name = ?
+        """,
+        (model_name,),
+    )["prediction_date"].iloc[0]
+    if not latest_prediction_date:
+        return {
+            "model_name": model_name,
+            "prediction_date": None,
+            "target_dates": [],
+            "results": [],
+        }
+
+    df = query_df(
+        con,
+        """
+        SELECT ticker, direction, sector, confidence, score, target_date
+        FROM predictions
+        WHERE model_name = ? AND prediction_date = ?
+        ORDER BY
+            CASE WHEN confidence IS NULL THEN 1 ELSE 0 END,
+            confidence DESC,
+            CASE WHEN score IS NULL THEN 1 ELSE 0 END,
+            score DESC,
+            ticker
+        """,
+        (model_name, latest_prediction_date),
+    )
+
+    target_dates = sorted({str(value) for value in df["target_date"].tolist() if value}) if not df.empty else []
+    results: list[dict[str, Any]] = []
+    for row in df.itertuples(index=False):
+        confidence = to_float(row.confidence)
+        score = to_float(row.score)
+        results.append(
+            {
+                "ticker": str(row.ticker),
+                "signal": str(row.direction or "-"),
+                "sector": str(row.sector or "-"),
+                "confidence": confidence,
+                "score": score,
+                "priority_score": round(confidence * 100.0, 2) if confidence is not None else score,
+                "priority_expected_return": None,
+                "risk_pct": None,
+                "rsi": None,
+                "note": "db fallback",
+                "target_date": str(row.target_date) if row.target_date else None,
+            }
+        )
+
+    return {
+        "model_name": model_name,
+        "prediction_date": str(latest_prediction_date),
+        "target_dates": target_dates,
+        "results": results,
+    }
+
+
+def resolve_regime_label_from_db(con: RuntimeDB, analyzed_date: str | None, version: int) -> str:
+    if analyzed_date:
+        df = query_df(
+            con,
+            """
+            SELECT composite, trend_regime, vol_regime, credit_regime
+            FROM regimes
+            WHERE date <= ?
+            ORDER BY date DESC
+            LIMIT 1
+            """,
+            (analyzed_date,),
+        )
+        if not df.empty:
+            row = df.iloc[0]
+            for field in ["composite", "trend_regime", "vol_regime", "credit_regime"]:
+                value = row.get(field)
+                if value:
+                    return str(value).upper()
+
+    fallback = query_df(
+        con,
+        """
+        SELECT regime
+        FROM predictions
+        WHERE model_name LIKE ? AND regime IS NOT NULL
+        ORDER BY prediction_date DESC
+        LIMIT 1
+        """,
+        (f"INVERTIR_V{version}_%",),
+    )
+    if not fallback.empty and fallback.iloc[0]["regime"]:
+        return str(fallback.iloc[0]["regime"]).upper()
+    return "GLOBAL"
+
+
+def build_run_snapshot_from_db(con: RuntimeDB, version: int) -> dict[str, Any] | None:
+    model_d = f"INVERTIR_V{version}_D_D10"
+    model_e = f"INVERTIR_V{version}_E_D15"
+    latest_d = build_latest_results_for_model(con, model_d)
+    latest_e = build_latest_results_for_model(con, model_e)
+    if not latest_d["results"] and not latest_e["results"]:
+        return None
+
+    analyzed_candidates = [value for value in [latest_d["prediction_date"], latest_e["prediction_date"]] if value]
+    analyzed_date = max(analyzed_candidates) if analyzed_candidates else None
+
+    return {
+        "version": version,
+        "source": "db_fallback",
+        "fallback_reason": "missing_local_run_snapshot",
+        "analyzed_date": analyzed_date,
+        "prediction_for": collapse_target_dates(latest_d["target_dates"] + latest_e["target_dates"]),
+        "regime_label": resolve_regime_label_from_db(con, analyzed_date, version),
+        "breadth_pct": None,
+        "memory_context": [],
+        "freshness": "db_fallback",
+        "results_d": latest_d["results"],
+        "results_e": latest_e["results"],
+    }
+
+
+def load_run_snapshot(con: RuntimeDB, version: int | None) -> dict[str, Any] | None:
+    if version is None:
+        return None
+    snapshot = latest_json_snapshot(ROOT / "aprendizaje_operativo" / f"v{version}_runs")
+    if snapshot is not None:
+        return snapshot
+    return build_run_snapshot_from_db(con, version)
+
+
 def build_active_snapshot(db: RuntimeDB, con: RuntimeDB) -> dict[str, Any]:
     operational = resolve_operational_scanner_context()
     active_version = operational.active_version
     reference_version = operational.reference_version
-    active_run = latest_json_snapshot(ROOT / "aprendizaje_operativo" / f"v{active_version}_runs")
-    reference_run = latest_json_snapshot(ROOT / "aprendizaje_operativo" / f"v{reference_version}_runs") if reference_version else None
+    active_run = load_run_snapshot(con, active_version)
+    reference_run = load_run_snapshot(con, reference_version)
 
     active_d = exact_model_accuracy(db, f"INVERTIR_V{active_version}_D_D10")
     active_e = exact_model_accuracy(db, f"INVERTIR_V{active_version}_E_D15")
