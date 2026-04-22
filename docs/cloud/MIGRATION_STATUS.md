@@ -1,7 +1,7 @@
 # Migration Status
 
 - Fecha de inicio: 2026-04-22
-- Estado actual: `FASE 1 COMPLETADA / FASE 2 INICIADA / REMOTO SINCRONIZADO`
+- Estado actual: `FASE 1 COMPLETADA / FASE 2 INICIADA / REMOTO SINCRONIZADO / MIGRATOR READY`
 - Nombre publico del proyecto: `PythiaxEngine`
 - Ruta local historica: `Claude/`
 - Arquitectura objetivo: `GitHub + GitHub Actions + Neon Postgres + Cloudflare Pages + R2`
@@ -42,20 +42,27 @@
   - `herramientas/competencia_modelos.py`
 - reforzada `CI` con `workflow_dispatch` y compilacion de `infra/alembic/tests`
 - agregados tests de runtime DB en `tests/test_db_runtime.py`
+- agregada utilidad reproducible de migracion `SQLite -> target` en:
+  - `infra/db/migrate_sqlite_to_postgres.py`
+- agregado smoke test de migracion controlada:
+  - `tests/test_sqlite_to_postgres_migration.py`
+- documentado el procedimiento de carga inicial hacia Neon:
+  - `docs/cloud/SQLITE_TO_POSTGRES_RUNBOOK.md`
 
 ## Lo que falta inmediatamente
 
 1. Instalar dependencias `dev/cloud` para correr CI local completa.
 2. Verificar la primera corrida de GitHub Actions en remoto.
-3. Introducir una capa de acceso dual `SQLite/Postgres` en queries mas profundas.
-4. Preparar la migracion inicial de datos hacia Neon.
-5. Definir secrets cloud minimos para el primer pipeline remoto.
+3. Verificar la primera corrida de GitHub Actions en remoto.
+4. Introducir una capa de acceso dual `SQLite/Postgres` en queries mas profundas.
+5. Ejecutar la primera migracion controlada hacia Neon con reporte.
 
 ## Bloqueadores conocidos
 
 - hay dependencias legacy fuera del repo:
   - `Machine Winners`
-- el acceso a datos todavia usa `sqlite3` directo en varios puntos
+- la operacion sigue siendo `SQLite-first`; la capa dual real con `Postgres`
+  todavia no llega a queries y escrituras profundas
 - `git` dentro de esta carpeta requiere comandos fuera del sandbox para escribir metadata
 
 ## Estrategia de rollback
@@ -66,12 +73,12 @@
 
 ## Proximo corte recomendado
 
-`FASE 2: CI remota + capa dual de DB`
+`FASE 2: CI remota + primer load a Neon`
 
 Pasos exactos:
 
 1. activar GitHub Actions
 2. instalar dependencias `dev/cloud` para validar localmente
-3. extender la capa dual a queries y escrituras no abstraidas
-4. empezar a reemplazar los `sqlite3.connect(...)` directos restantes
-5. preparar migracion inicial hacia Neon
+3. correr `alembic upgrade head` contra Neon
+4. ejecutar `infra.db.migrate_sqlite_to_postgres`
+5. extender la capa dual a queries y escrituras no abstraidas

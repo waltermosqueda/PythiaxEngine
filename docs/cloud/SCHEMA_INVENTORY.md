@@ -102,6 +102,18 @@ En esta fase ya se centralizo la resolucion del path SQLite en `infra/db/` para:
 Eso todavia no elimina el uso de SQLite, pero si reduce hardcodes y prepara el
 camino a una capa dual mas limpia.
 
+Tambien ya existe una utilidad reproducible de carga inicial hacia un target
+SQLAlchemy pensado para `Neon Postgres`:
+
+- `infra/db/migrate_sqlite_to_postgres.py`
+
+Esa utilidad:
+
+- migra por tablas y en chunks
+- permite `reset_target`
+- puede bootstrapear schema solo para smoke tests locales
+- emite reportes JSON auditables por corrida
+
 ## Schema objetivo inicial en Postgres
 
 El scaffolding agregado en este corte replica estas tablas:

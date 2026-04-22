@@ -14,3 +14,4 @@ Archivos clave:
 - `ROADMAP_FREE_TIER.md`: roadmap por fases y criterios de corte.
 - `MIGRATION_STATUS.md`: estado vivo de la migracion, proximos pasos y rollback.
 - `SCHEMA_INVENTORY.md`: inventario del schema actual y objetivo Postgres.
+- `SQLITE_TO_POSTGRES_RUNBOOK.md`: procedimiento controlado para cargar Neon desde SQLite.
