@@ -13,6 +13,8 @@ cloud en `Neon` y dejar listo el camino hacia `R2` y `Cloudflare Pages`.
     - `alembic upgrade head`
     - `RuntimeDB` contra cloud
     - workflow manual `Neon Schema Smoke`
+    - workflow `Dashboard Build`
+    - workflow `GitHub Pages Publish`
 
 ## Secretos recomendados para la siguiente fase
 
@@ -40,14 +42,17 @@ python -m infra.db.bootstrap_target `
 ```
 
 5. Volver a correr `Neon Schema Smoke` para validar conteos.
-6. Recién después cargar secretos de `R2` y `Cloudflare`.
+6. Habilitar `Settings > Pages > Source: GitHub Actions`.
+7. Ejecutar `Dashboard Build`.
+8. Ejecutar `GitHub Pages Publish`.
+9. Recien despues cargar secretos de `R2` y `Cloudflare`.
 
 ## Por que el bootstrap inicial es local
 
-La fuente historica `titan.db` vive en tu PC y hoy no está versionada en el
+La fuente historica `titan.db` vive en tu PC y hoy no esta versionada en el
 repo. Por eso la carga inicial a `Neon` debe hacerse localmente una sola vez.
 
-Después del bootstrap:
+Despues del bootstrap:
 
 - la PC deja de ser necesaria para servir el dashboard
 - la DB cloud pasa a ser el target estable
@@ -62,5 +67,6 @@ versionadas como `aprendizaje_operativo/*_runs`.
 Eso significa que:
 
 - el schema y la DB cloud ya se pueden validar desde GitHub Actions
-- la publicacion 100% cloud del dashboard necesita mover o persistir tambien
-  esos snapshots fuera de la PC
+- ya existe una ruta gratis de publicacion con `GitHub Pages` para el dashboard
+  estatico principal
+- la publicacion cloud mas completa y flexible a futuro sigue siendo `Cloudflare Pages`

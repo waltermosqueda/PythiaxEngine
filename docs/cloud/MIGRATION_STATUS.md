@@ -1,10 +1,11 @@
 # Migration Status
 
 - Fecha de inicio: 2026-04-22
-- Estado actual: `FASE 1 COMPLETADA / FASE 2 INICIADA / REMOTO SINCRONIZADO / CLOUD BOOTSTRAP READY`
+- Estado actual: `FASE 1 COMPLETADA / FASE 2 INICIADA / REMOTO SINCRONIZADO / CLOUD BOOTSTRAP READY / PAGES BRIDGE READY`
 - Nombre publico del proyecto: `PythiaxEngine`
 - Ruta local historica: `Claude/`
 - Arquitectura objetivo: `GitHub + GitHub Actions + Neon Postgres + Cloudflare Pages + R2`
+- Hosting puente gratis actual: `GitHub Pages`
 - Repo remoto objetivo: `https://github.com/waltermosqueda/PythiaxEngine`
 - Baseline local: commit `071c246`
 
@@ -74,6 +75,13 @@
   - `.github/workflows/dashboard-build.yml`
 - documentada la automatizacion del dashboard:
   - `docs/cloud/DASHBOARD_BUILD_AUTOMATION.md`
+- agregado empaquetado estatico para publicacion web del dashboard:
+  - `infra/publish/dashboard_site.py`
+  - `tests/test_dashboard_site_publish.py`
+- agregado workflow gratis de publicacion 24/7 via GitHub Pages:
+  - `.github/workflows/github-pages-publish.yml`
+- documentada la fase puente de hosting gratuito:
+  - `docs/cloud/GITHUB_PAGES_PUBLISH.md`
 - agregado workflow manual de validacion cloud:
   - `.github/workflows/neon-schema-smoke.yml`
 - documentado setup de secrets:
@@ -85,8 +93,9 @@
 2. Verificar la primera corrida de GitHub Actions en remoto.
 3. Ejecutar el bootstrap local inicial hacia Neon con reporte.
 4. Verificar el primer `Dashboard Build` contra `DATABASE_URL` real.
-5. Extender la capa dual a escrituras y piezas operativas restantes.
-6. Desacoplar snapshots operativos restantes para poder publicar dashboard 100% cloud.
+5. Habilitar `GitHub Pages` y validar la primera publicacion remota.
+6. Extender la capa dual a escrituras y piezas operativas restantes.
+7. Desacoplar snapshots operativos restantes para poder publicar dashboard 100% cloud.
 
 ## Bloqueadores conocidos
 
@@ -102,6 +111,8 @@
   otros artefactos de snapshot local fuera de esa ruta principal
 - el workflow remoto de dashboard depende de `DATABASE_URL`; hasta bootstrapear
   Neon no puede generar el bundle real desde cloud
+- la publicacion por `GitHub Pages` tambien depende de `DATABASE_URL` y de
+  habilitar `Settings > Pages > Source: GitHub Actions`
 - `git` dentro de esta carpeta requiere comandos fuera del sandbox para escribir metadata
 
 ## Estrategia de rollback
@@ -109,10 +120,11 @@
 - mientras no exista cutover, `SQLite` local sigue siendo la verdad operativa
 - la tarea diaria local no debe apagarse hasta terminar shadow mode
 - no se debe eliminar ningun artefacto local durante la fase 1/2
+- si `GitHub Pages` falla, el bundle auditable del dashboard sigue quedando disponible como artifact del workflow
 
 ## Proximo corte recomendado
 
-`FASE 2: bootstrap local a Neon + smoke remoto + dashboard build remoto`
+`FASE 2: bootstrap local a Neon + smoke remoto + dashboard build remoto + GitHub Pages`
 
 Pasos exactos:
 
@@ -122,3 +134,5 @@ Pasos exactos:
 4. correr `python -m infra.db.bootstrap_target`
 5. validar con workflow `Neon Schema Smoke`
 6. correr workflow `Dashboard Build`
+7. habilitar `GitHub Pages`
+8. correr workflow `GitHub Pages Publish`

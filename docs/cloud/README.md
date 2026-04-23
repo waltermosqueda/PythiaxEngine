@@ -16,3 +16,5 @@ Archivos clave:
 - `SCHEMA_INVENTORY.md`: inventario del schema actual y objetivo Postgres.
 - `SQLITE_TO_POSTGRES_RUNBOOK.md`: procedimiento controlado para cargar Neon desde SQLite.
 - `GITHUB_SECRETS_SETUP.md`: secretos y orden recomendado para activar workflows cloud.
+- `DASHBOARD_BUILD_AUTOMATION.md`: build remoto auditable del dashboard.
+- `GITHUB_PAGES_PUBLISH.md`: publicacion gratis del dashboard via GitHub Pages.

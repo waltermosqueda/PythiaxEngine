@@ -1,0 +1,75 @@
+name: GitHub Pages Publish
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 3 * * 2-6"
+
+concurrency:
+  group: github-pages-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PYTHIAX_COMMIT_SHA: ${{ github.sha }}
+      PYTHIAX_RUN_ID: ${{ github.run_id }}
+      PYTHIAX_RUN_ATTEMPT: ${{ github.run_attempt }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret is missing."
+            exit 1
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Build dashboard bundle
+        run: python analisis/generar_tablero_maquina_pensante.py --variant all
+
+      - name: Stage GitHub Pages site
+        run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
+
+      - name: Validate staged site
+        run: |
+          test -f dist/github-pages/index.html
+          test -f dist/github-pages/tablero_maquina_pensante_executive.html
+          test -f dist/github-pages/tablero_maquina_pensante_lab.html
+          test -f dist/github-pages/tablero_maquina_pensante_snapshot.json
+          test -f dist/github-pages/tablero_maquina_pensante_artifact_manifest.json
+          test -f dist/github-pages/site_bundle_manifest.json
+          test -f dist/github-pages/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/github-pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
