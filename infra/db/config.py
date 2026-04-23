@@ -46,6 +46,13 @@ def resolve_setting(name: str, *, env_file_values: dict[str, str], default: str)
     return default
 
 
+def normalize_database_url(database_url: str) -> str:
+    url = database_url.strip()
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://") :]
+    return url
+
+
 def build_database_settings() -> DatabaseSettings:
     env_file_values = read_env_file()
     sqlite_fallback = Path(
@@ -55,11 +62,11 @@ def build_database_settings() -> DatabaseSettings:
             default=str(DEFAULT_SQLITE_PATH),
         )
     ).expanduser()
-    database_url = resolve_setting(
+    database_url = normalize_database_url(resolve_setting(
         "DATABASE_URL",
         env_file_values=env_file_values,
         default=f"sqlite:///{sqlite_fallback.as_posix()}",
-    )
+    ))
     return DatabaseSettings(
         database_url=database_url,
         sqlite_fallback_path=sqlite_fallback,

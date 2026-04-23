@@ -6,7 +6,7 @@ Genera tableros visuales del estado operativo del proyecto.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
+from datetime import date, datetime
 import hashlib
 import html
 import json
@@ -70,6 +70,12 @@ def to_int(value: Any) -> int:
 
 def safe(text: Any) -> str:
     return html.escape("" if text is None else str(text))
+
+
+def json_default(value: Any) -> Any:
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    return str(value)
 
 
 def dom_id(value: Any) -> str:
@@ -371,7 +377,7 @@ def load_market_dates(con: RuntimeDB) -> list[str]:
         ORDER BY date
         """,
     )
-    return df["date"].tolist()
+    return [str(value) for value in df["date"].tolist()]
 
 
 def market_staleness(latest_model_date: str | None, market_dates: list[str]) -> int | None:
@@ -382,8 +388,8 @@ def market_staleness(latest_model_date: str | None, market_dates: list[str]) -> 
 
 def build_integrity_snapshot(db: RuntimeDB, con: RuntimeDB, market_dates: list[str]) -> dict[str, Any]:
     db_stats = db.db_stats()
-    latest_prediction_date = query_df(con, "SELECT MAX(prediction_date) AS d FROM predictions")["d"].iloc[0]
-    latest_outcome_date = query_df(
+    latest_prediction_date_raw = query_df(con, "SELECT MAX(prediction_date) AS d FROM predictions")["d"].iloc[0]
+    latest_outcome_date_raw = query_df(
         con,
         """
         SELECT MAX(p.target_date) AS d
@@ -391,7 +397,10 @@ def build_integrity_snapshot(db: RuntimeDB, con: RuntimeDB, market_dates: list[s
         JOIN predictions p ON p.id = o.prediction_id
         """,
     )["d"].iloc[0]
-    latest_regime_date = query_df(con, "SELECT MAX(date) AS d FROM regimes")["d"].iloc[0]
+    latest_regime_date_raw = query_df(con, "SELECT MAX(date) AS d FROM regimes")["d"].iloc[0]
+    latest_prediction_date = str(latest_prediction_date_raw) if pd.notna(latest_prediction_date_raw) else None
+    latest_outcome_date = str(latest_outcome_date_raw) if pd.notna(latest_outcome_date_raw) else None
+    latest_regime_date = str(latest_regime_date_raw) if pd.notna(latest_regime_date_raw) else None
     prediction_models = to_int(
         query_df(con, "SELECT COUNT(DISTINCT model_name) AS n FROM predictions")["n"].iloc[0]
     )
@@ -411,7 +420,7 @@ def build_integrity_snapshot(db: RuntimeDB, con: RuntimeDB, market_dates: list[s
 
     def coverage(sql: str) -> dict[str, Any]:
         df = query_df(con, sql)
-        dates = set(df["date"].tolist())
+        dates = {str(value) for value in df["date"].tolist() if pd.notna(value)}
         missing = sorted(recent_market_set - dates)
         return {
             "covered_days": len(dates & recent_market_set),
@@ -3058,7 +3067,10 @@ def render_lab(payload: dict[str, Any]) -> str:
 
 def write_outputs(payload: dict[str, Any], variant: str) -> list[Path]:
     ensure_dashboard_dir()
-    SNAPSHOT_PATH.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    SNAPSHOT_PATH.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True, default=json_default) + "\n",
+        encoding="utf-8",
+    )
 
     written = [SNAPSHOT_PATH]
     INDEX_HTML.write_text(render_index(payload), encoding="utf-8")
@@ -3071,7 +3083,10 @@ def write_outputs(payload: dict[str, Any], variant: str) -> list[Path]:
         LAB_HTML.write_text(render_lab(payload), encoding="utf-8")
         written.append(LAB_HTML)
     manifest = build_artifact_manifest(payload, written)
-    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    MANIFEST_PATH.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=True, default=json_default) + "\n",
+        encoding="utf-8",
+    )
     written.append(MANIFEST_PATH)
     return written
 

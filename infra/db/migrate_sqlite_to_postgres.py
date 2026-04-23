@@ -4,16 +4,19 @@ import argparse
 from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
+from time import sleep
 from time import perf_counter
 from typing import Any
 
 import pandas as pd
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import DBAPIError, OperationalError
 
 from infra.db import models  # noqa: F401
 from infra.db.base import Base
 from infra.db.config import get_database_url, get_sqlite_fallback_path
+from infra.db.session import create_db_engine
 
 
 TABLE_ORDER = [
@@ -29,6 +32,46 @@ DELETE_ORDER = list(reversed(TABLE_ORDER))
 
 JSON_COLUMNS: dict[str, tuple[str, ...]] = {
     "pipeline_runs": ("artifact_manifest", "metadata_json"),
+}
+
+DATE_COLUMNS: dict[str, tuple[str, ...]] = {
+    "prices": ("date",),
+    "predictions": ("prediction_date", "target_date"),
+    "model_metrics": ("period_start", "period_end"),
+    "regimes": ("date",),
+    "pipeline_runs": ("run_date", "expected_market_date", "latest_prices_date"),
+}
+
+DATETIME_COLUMNS: dict[str, tuple[str, ...]] = {
+    "predictions": ("created_at",),
+    "outcomes": ("evaluated_at",),
+    "model_metrics": ("calculated_at",),
+    "data_status": ("updated_at",),
+    "pipeline_runs": ("started_at", "finished_at", "created_at"),
+}
+
+FLOAT_COLUMNS: dict[str, tuple[str, ...]] = {
+    "prices": ("open", "high", "low", "close", "adj_close"),
+    "predictions": ("confidence", "score"),
+    "outcomes": ("actual_return",),
+    "model_metrics": (
+        "accuracy",
+        "avg_confidence",
+        "avg_return_when_right",
+        "avg_return_when_wrong",
+        "profit_factor",
+        "sharpe_ratio",
+        "max_drawdown",
+    ),
+    "regimes": ("vix_level", "spy_return_20d"),
+}
+
+INTEGER_COLUMNS: dict[str, tuple[str, ...]] = {
+    "prices": ("volume",),
+    "predictions": ("id",),
+    "outcomes": ("id", "prediction_id", "hit"),
+    "model_metrics": ("id", "total_predictions", "correct_predictions"),
+    "pipeline_runs": ("id", "rows_inserted", "warnings_count"),
 }
 
 
@@ -63,7 +106,50 @@ def default_source_url() -> str:
 
 
 def build_engine(url: str) -> Engine:
-    return create_engine(url, future=True)
+    return create_db_engine(database_url=url)
+
+
+def is_retryable_db_error(exc: Exception) -> bool:
+    if isinstance(exc, DBAPIError) and getattr(exc, "connection_invalidated", False):
+        return True
+    if not isinstance(exc, (OperationalError, DBAPIError)):
+        return False
+
+    message = str(exc).lower()
+    retryable_markers = [
+        "adminshutdown",
+        "terminating connection due to administrator command",
+        "server closed the connection unexpectedly",
+        "connection not open",
+        "connection timed out",
+        "timeout expired",
+        "could not connect",
+        "connection refused",
+        "ssl connection has been closed unexpectedly",
+    ]
+    return any(marker in message for marker in retryable_markers)
+
+
+def run_db_operation_with_retry(
+    *,
+    operation_name: str,
+    engine: Engine,
+    func: Any,
+    attempts: int = 3,
+) -> Any:
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return func()
+        except Exception as exc:
+            last_error = exc
+            if not is_retryable_db_error(exc) or attempt >= attempts:
+                raise
+            engine.dispose()
+            sleep(attempt * 2)
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"Operacion retryable sin resultado: {operation_name}")
 
 
 def normalize_table_names(table_names: list[str] | None) -> list[str]:
@@ -94,8 +180,17 @@ def redact_url(url: str) -> str:
 
 
 def count_rows(engine: Engine, table_name: str) -> int:
-    with engine.connect() as connection:
-        return int(connection.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar_one())
+    def operation() -> int:
+        with engine.connect() as connection:
+            return int(connection.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar_one())
+
+    return int(
+        run_db_operation_with_retry(
+            operation_name=f"count_rows:{table_name}",
+            engine=engine,
+            func=operation,
+        )
+    )
 
 
 def source_table_exists(engine: Engine, table_name: str) -> bool:
@@ -108,13 +203,21 @@ def ensure_target_tables(engine: Engine) -> None:
 
 def reset_target_tables(engine: Engine, table_names: list[str]) -> None:
     selected = {table_name for table_name in table_names}
-    with engine.begin() as connection:
-        for table_name in DELETE_ORDER:
-            if table_name not in selected:
-                continue
-            if not inspect(engine).has_table(table_name):
-                continue
-            connection.execute(text(f"DELETE FROM {table_name}"))
+    for table_name in DELETE_ORDER:
+        if table_name not in selected:
+            continue
+        if not inspect(engine).has_table(table_name):
+            continue
+
+        def operation(table_name: str = table_name) -> None:
+            with engine.begin() as connection:
+                connection.execute(text(f"DELETE FROM {table_name}"))
+
+        run_db_operation_with_retry(
+            operation_name=f"reset_target:{table_name}",
+            engine=engine,
+            func=operation,
+        )
 
 
 def normalize_chunk(table_name: str, chunk: pd.DataFrame) -> pd.DataFrame:
@@ -134,6 +237,30 @@ def normalize_chunk(table_name: str, chunk: pd.DataFrame) -> pd.DataFrame:
             return value
 
         normalized[column_name] = normalized[column_name].apply(parse_json)
+
+    for column_name in DATE_COLUMNS.get(table_name, ()):
+        if column_name not in normalized.columns:
+            continue
+        series = pd.to_datetime(normalized[column_name], errors="coerce")
+        normalized[column_name] = series.dt.date.where(series.notna(), None)
+
+    for column_name in DATETIME_COLUMNS.get(table_name, ()):
+        if column_name not in normalized.columns:
+            continue
+        series = pd.to_datetime(normalized[column_name], errors="coerce", utc=True)
+        normalized[column_name] = series.apply(lambda value: value.to_pydatetime() if pd.notna(value) else None)
+
+    for column_name in FLOAT_COLUMNS.get(table_name, ()):
+        if column_name not in normalized.columns:
+            continue
+        series = pd.to_numeric(normalized[column_name], errors="coerce")
+        normalized[column_name] = series.where(series.notna(), None)
+
+    for column_name in INTEGER_COLUMNS.get(table_name, ()):
+        if column_name not in normalized.columns:
+            continue
+        series = pd.to_numeric(normalized[column_name], errors="coerce")
+        normalized[column_name] = series.apply(lambda value: int(value) if pd.notna(value) else None)
 
     return normalized
 
@@ -197,13 +324,18 @@ def migrate_table(
                 normalized_chunk=normalized_chunk,
                 requested_chunk_size=chunk_size,
             )
-            normalized_chunk.to_sql(
-                table_name,
-                target_engine,
-                if_exists="append",
-                index=False,
-                chunksize=insert_chunk_size,
-                method="multi",
+
+            run_db_operation_with_retry(
+                operation_name=f"insert_chunk:{table_name}",
+                engine=target_engine,
+                func=lambda normalized_chunk=normalized_chunk, insert_chunk_size=insert_chunk_size: normalized_chunk.to_sql(
+                    table_name,
+                    target_engine,
+                    if_exists="append",
+                    index=False,
+                    chunksize=insert_chunk_size,
+                    method="multi",
+                ),
             )
             inserted_rows += len(normalized_chunk.index)
 

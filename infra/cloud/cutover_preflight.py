@@ -11,6 +11,7 @@ from herramientas.dashboard_paths import DASHBOARD_DIR
 from infra.db import get_database_url, start_pipeline_run
 from infra.db.bootstrap_target import bootstrap_target_from_sqlite
 from infra.db.config import get_sqlite_fallback_path
+from infra.db.migrate_sqlite_to_postgres import redact_url
 from infra.db.runtime import RuntimeDB
 from infra.db.session import create_db_engine
 from infra.publish.dashboard_site import SITE_MANIFEST_NAME, stage_dashboard_site
@@ -212,7 +213,7 @@ def run_cutover_preflight(
 
     result = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
-        "target_url": target_url,
+        "target_url": redact_url(target_url),
         "source_sqlite_path": str(source_sqlite_path.resolve()),
         "chunk_size": chunk_size,
         "variant": variant,

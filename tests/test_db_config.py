@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from infra.db.config import read_env_file, resolve_setting
+from infra.db.config import normalize_database_url, read_env_file, resolve_setting
 
 
 def test_read_env_file_parses_basic_and_quoted_values(tmp_path: Path) -> None:
@@ -35,3 +35,10 @@ def test_resolve_setting_prefers_real_env_over_env_file(monkeypatch) -> None:
     )
 
     assert value == "postgresql+psycopg://runtime/override"
+
+
+def test_normalize_database_url_rewrites_plain_postgresql_scheme() -> None:
+    assert (
+        normalize_database_url("postgresql://user:pass@host/db")
+        == "postgresql+psycopg://user:pass@host/db"
+    )

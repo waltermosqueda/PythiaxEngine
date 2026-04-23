@@ -49,6 +49,7 @@ titan_system/data/*.sqlite
 titan_system/data/*.sqlite3
 
 # Generated runtime artifacts
+docs/cloud/reports/
 aprendizaje_operativo/v*_runs/*.json
 aprendizaje_operativo/v*_reports/*.txt
 aprendizaje_operativo/*_runs/*.json

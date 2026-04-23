@@ -79,6 +79,12 @@ def aggregate_distinct_sql(column_expression: str, alias: str, backend_name: str
     return f"GROUP_CONCAT(DISTINCT {column_expression}) AS {alias}"
 
 
+def round_or_none(value: Any, digits: int) -> float | None:
+    if value is None:
+        return None
+    return round(float(value), digits)
+
+
 class RuntimeDB:
     def __init__(self, engine: Engine | None = None):
         self.engine = engine or create_db_engine()
@@ -142,11 +148,11 @@ class RuntimeDB:
             SELECT
                 COUNT(*) as total,
                 SUM(o.hit) as aciertos,
-                ROUND(AVG(o.hit) * 100, 2) as accuracy_pct,
-                ROUND(AVG(o.actual_return) * 100, 4) as avg_return_pct,
-                ROUND(AVG(CASE WHEN o.hit = 1 THEN o.actual_return END) * 100, 4) as avg_return_right,
-                ROUND(AVG(CASE WHEN o.hit = 0 THEN o.actual_return END) * 100, 4) as avg_return_wrong,
-                ROUND(AVG(p.confidence) * 100, 2) as avg_confidence
+                AVG(o.hit) * 100 as accuracy_pct,
+                AVG(o.actual_return) * 100 as avg_return_pct,
+                AVG(CASE WHEN o.hit = 1 THEN o.actual_return END) * 100 as avg_return_right,
+                AVG(CASE WHEN o.hit = 0 THEN o.actual_return END) * 100 as avg_return_wrong,
+                AVG(p.confidence) * 100 as avg_confidence
             FROM predictions p
             INNER JOIN outcomes o ON p.id = o.prediction_id
             WHERE p.model_name = ?
@@ -167,11 +173,11 @@ class RuntimeDB:
         return {
             "total": row[0],
             "aciertos": row[1],
-            "accuracy_pct": row[2],
-            "avg_return_pct": row[3],
-            "avg_return_when_right": row[4],
-            "avg_return_when_wrong": row[5],
-            "avg_confidence": row[6],
+            "accuracy_pct": round_or_none(row[2], 2),
+            "avg_return_pct": round_or_none(row[3], 4),
+            "avg_return_when_right": round_or_none(row[4], 4),
+            "avg_return_when_wrong": round_or_none(row[5], 4),
+            "avg_confidence": round_or_none(row[6], 2),
         }
 
     def get_accuracy_by_sector(self, model_name: str) -> pd.DataFrame:
@@ -180,15 +186,20 @@ class RuntimeDB:
                 p.sector,
                 COUNT(*) as total,
                 SUM(o.hit) as aciertos,
-                ROUND(AVG(o.hit) * 100, 2) as accuracy_pct,
-                ROUND(AVG(o.actual_return) * 100, 4) as avg_return_pct
+                AVG(o.hit) * 100 as accuracy_pct,
+                AVG(o.actual_return) * 100 as avg_return_pct
             FROM predictions p
             INNER JOIN outcomes o ON p.id = o.prediction_id
             WHERE p.model_name = ? AND p.sector IS NOT NULL
             GROUP BY p.sector
             ORDER BY accuracy_pct DESC
         """
-        return self.read_df(query, (model_name,))
+        frame = self.read_df(query, (model_name,))
+        if "accuracy_pct" in frame.columns:
+            frame["accuracy_pct"] = frame["accuracy_pct"].apply(lambda value: round_or_none(value, 2))
+        if "avg_return_pct" in frame.columns:
+            frame["avg_return_pct"] = frame["avg_return_pct"].apply(lambda value: round_or_none(value, 4))
+        return frame
 
     def get_streak(self, model_name: str) -> dict[str, int | str]:
         query = """

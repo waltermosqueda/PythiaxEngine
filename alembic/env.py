@@ -3,11 +3,11 @@ from __future__ import annotations
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
 
 from infra.db.base import Base
 from infra.db.config import get_database_url
 from infra.db import models  # noqa: F401
+from infra.db.session import create_db_engine
 
 
 config = context.config
@@ -37,11 +37,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    connectable = create_db_engine(database_url=config.get_main_option("sqlalchemy.url"))
 
     with connectable.connect() as connection:
         context.configure(

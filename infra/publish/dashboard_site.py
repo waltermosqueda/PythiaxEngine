@@ -3,8 +3,11 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import shutil
+import stat
+from time import sleep
 from typing import Any
 
 from herramientas.dashboard_paths import EXECUTIVE_HTML, INDEX_HTML, LAB_HTML, MANIFEST_PATH, SNAPSHOT_PATH
@@ -47,7 +50,22 @@ def safe_rmtree(path: Path) -> None:
     if resolved == ROOT or not resolved.is_relative_to(ROOT):
         raise ValueError(f"Refusing to remove output directory outside workspace: {resolved}")
     if resolved.exists():
-        shutil.rmtree(resolved)
+        def onerror(func: Any, target: str, exc_info: Any) -> None:
+            target_path = Path(target)
+            if target_path.exists():
+                os.chmod(target_path, stat.S_IWRITE)
+                func(target)
+
+        last_error: Exception | None = None
+        for attempt in range(1, 4):
+            try:
+                shutil.rmtree(resolved, onexc=onerror)
+                return
+            except PermissionError as exc:
+                last_error = exc
+                sleep(attempt)
+        if last_error is not None:
+            raise last_error
 
 
 def build_site_manifest(source_dir: Path, output_dir: Path) -> dict[str, Any]:

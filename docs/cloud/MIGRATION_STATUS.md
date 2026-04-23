@@ -1,7 +1,7 @@
 # Migration Status
 
 - Fecha de inicio: 2026-04-22
-- Estado actual: `FASE 1 COMPLETADA / FASE 2 INICIADA / REMOTO SINCRONIZADO / CLOUD BOOTSTRAP READY / PAGES BRIDGE READY / CUTOVER PREFLIGHT VALIDATED`
+- Estado actual: `FASE 1 COMPLETADA / FASE 2 AVANZADA / NEON BOOTSTRAP COMPLETADO / DASHBOARD POSTGRES VALIDADO / CUTOVER PREFLIGHT OK`
 - Nombre publico del proyecto: `PythiaxEngine`
 - Ruta local historica: `Claude/`
 - Arquitectura objetivo activa: `GitHub + GitHub Actions + Neon Postgres + GitHub Pages`
@@ -105,17 +105,27 @@
   - dashboard build persistido en `pipeline_runs`
   - site bundle listo para Pages
   - `cutover_preflight` persistido en `pipeline_runs`
+- completado bootstrap real a `Neon/Postgres` desde la SQLite local:
+  - `prices`: `425022`
+  - `predictions`: `28055`
+  - `outcomes`: `27837`
+  - `model_metrics`: `55`
+  - `regimes`: `1516`
+  - `data_status`: `2`
+- validado build real del dashboard contra `Postgres` con `pipeline_runs` persistido
+- validado `cutover_preflight --skip-bootstrap` contra `Postgres`:
+  - `runtime_smoke.backend = postgresql`
+  - site bundle listo en `dist/cutover-preflight-pages`
+  - reporte final en `docs/cloud/reports/cutover_preflight_report.json`
 
 ## Lo que falta inmediatamente
 
 1. Instalar dependencias `dev/cloud` para correr CI local completa.
 2. Cargar `DATABASE_URL` real en GitHub y dejarla disponible localmente via entorno o `.env`.
-3. Ejecutar el bootstrap local inicial hacia Neon con reporte.
-4. Ejecutar el `cutover_preflight` one-shot contra `DATABASE_URL` real.
-5. Correr `Production Release` o, alternativamente, `Neon Schema Smoke` + `Dashboard Build` + `GitHub Pages Publish`.
-6. Verificar la primera publicacion remota y dejar `shadow mode`.
-7. Extender la capa dual a escrituras y piezas operativas restantes.
-8. Desacoplar snapshots operativos restantes para poder publicar dashboard 100% cloud.
+3. Correr `Production Release` o, alternativamente, `Neon Schema Smoke` + `Dashboard Build` + `GitHub Pages Publish`.
+4. Verificar la primera publicacion remota y dejar `shadow mode`.
+5. Extender la capa dual a escrituras y piezas operativas restantes.
+6. Desacoplar snapshots operativos restantes para poder publicar dashboard 100% cloud.
 
 ## Bloqueadores conocidos
 
@@ -152,13 +162,12 @@
 
 ## Proximo corte recomendado
 
-`FASE 2: bootstrap local a Neon + cutover preflight + production release remoto + shadow mode`
+`FASE 2: production release remoto + shadow mode`
 
 Pasos exactos:
 
-1. cargar secret `DATABASE_URL` en GitHub y dejar la misma URL disponible localmente via entorno o `.env`
+1. verificar secret `DATABASE_URL` en GitHub
 2. habilitar `GitHub Pages`
-3. correr `python -m infra.cloud.cutover_preflight`
-4. correr workflow `Production Release`
-5. validar dashboard publico y artifacts
-6. mantener `shadow mode` antes de apagar la tarea local
+3. correr workflow `Production Release`
+4. validar dashboard publico y artifacts
+5. mantener `shadow mode` antes de apagar la tarea local
