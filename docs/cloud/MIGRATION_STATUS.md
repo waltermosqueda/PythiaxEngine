@@ -85,6 +85,9 @@
   - `.github/workflows/github-pages-publish.yml`
 - documentada la fase puente de hosting gratuito:
   - `docs/cloud/GITHUB_PAGES_PUBLISH.md`
+- agregado registro de deploy de Pages en `pipeline_runs`:
+  - `infra/publish/record_pages_publish.py`
+  - `tests/test_pages_publish_ledger.py`
 - agregado workflow manual de validacion cloud:
   - `.github/workflows/neon-schema-smoke.yml`
 - documentado setup de secrets:
@@ -116,6 +119,8 @@
   Neon no puede generar el bundle real desde cloud
 - el dashboard ya intenta persistir su corrida en `pipeline_runs`; en la SQLite
   historica actual hace `skip` limpio si esa tabla todavia no existe
+- los `run_id` del ledger ya quedan namespaced por pipeline e intento para no
+  chocar entre `dashboard_build` y `github_pages_publish`
 - la publicacion por `GitHub Pages` tambien depende de `DATABASE_URL` y de
   habilitar `Settings > Pages > Source: GitHub Actions`
 - `git` dentro de esta carpeta requiere comandos fuera del sandbox para escribir metadata

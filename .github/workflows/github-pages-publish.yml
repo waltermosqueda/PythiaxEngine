@@ -73,3 +73,6 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Record publish in pipeline ledger
+        run: python -m infra.publish.record_pages_publish --site-dir dist/github-pages --page-url "${{ steps.deployment.outputs.page_url }}"

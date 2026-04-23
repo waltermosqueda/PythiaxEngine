@@ -36,7 +36,7 @@ from herramientas.dashboard_paths import (
     ensure_dashboard_dir,
 )
 from herramientas.scanner_operativo_context import resolve_operational_scanner_context
-from infra.db import get_database_url, start_pipeline_run
+from infra.db import get_database_url, resolve_ci_run_id, resolve_run_attempt, start_pipeline_run
 from infra.db.runtime import RuntimeDB, aggregate_distinct_sql, connect_runtime_db
 
 
@@ -115,11 +115,11 @@ def resolve_default_run_id(build_source: str) -> str:
     return f"dashboard-build-{build_source}-{stamp}"
 
 
-def build_dashboard_metadata(db_backend: str, run_id: str | None = None) -> dict[str, Any]:
+def build_dashboard_metadata(db_backend: str, pipeline_run_id: str | None = None) -> dict[str, Any]:
     commit_sha = os.getenv("PYTHIAX_COMMIT_SHA") or os.getenv("GITHUB_SHA")
     build_source = "github_actions" if os.getenv("GITHUB_ACTIONS") == "true" else "local"
-    resolved_run_id = run_id or os.getenv("PYTHIAX_RUN_ID") or os.getenv("GITHUB_RUN_ID") or resolve_default_run_id(build_source)
-    run_attempt = os.getenv("PYTHIAX_RUN_ATTEMPT") or os.getenv("GITHUB_RUN_ATTEMPT")
+    resolved_run_id = resolve_ci_run_id() or pipeline_run_id or resolve_default_run_id(build_source)
+    run_attempt = resolve_run_attempt()
     workflow = os.getenv("GITHUB_WORKFLOW")
     actor = os.getenv("GITHUB_ACTOR")
     return {
@@ -129,6 +129,7 @@ def build_dashboard_metadata(db_backend: str, run_id: str | None = None) -> dict
         "commit_sha": commit_sha,
         "commit_short": commit_sha[:7] if commit_sha else None,
         "run_id": resolved_run_id,
+        "pipeline_run_id": pipeline_run_id or resolved_run_id,
         "run_attempt": run_attempt,
         "workflow": workflow,
         "actor": actor,
@@ -138,8 +139,9 @@ def build_dashboard_metadata(db_backend: str, run_id: str | None = None) -> dict
 def build_status_label(payload: dict[str, Any]) -> str:
     build = payload.get("build") or {}
     parts = [build.get("build_source"), build.get("db_backend"), build.get("commit_short")]
-    if build.get("run_id"):
-        parts.append(f"run {build['run_id']}")
+    run_label = build.get("pipeline_run_id") or build.get("run_id")
+    if run_label:
+        parts.append(f"run {run_label}")
     return " | ".join(str(part) for part in parts if part) or "sin metadata de build"
 
 
@@ -1071,7 +1073,7 @@ def build_recent_competition_snapshot(
     }
 
 
-def build_dashboard_payload(run_id: str | None = None) -> dict[str, Any]:
+def build_dashboard_payload(pipeline_run_id: str | None = None) -> dict[str, Any]:
     now = datetime.now().isoformat(timespec="seconds")
     operational = resolve_operational_scanner_context()
     with connect_runtime_db() as db:
@@ -1086,7 +1088,7 @@ def build_dashboard_payload(run_id: str | None = None) -> dict[str, Any]:
         competition_rows = standardized_competition["rows"]
         payload = {
             "generated_at": now,
-            "build": build_dashboard_metadata(db.backend.name, run_id=run_id),
+            "build": build_dashboard_metadata(db.backend.name, pipeline_run_id=pipeline_run_id),
             "operational_context": {
                 "active_version": operational.active_version,
                 "reference_version": operational.reference_version,
@@ -3090,7 +3092,7 @@ def main() -> int:
         database_url=get_database_url(),
     )
     try:
-        payload = build_dashboard_payload(run_id=recorder.run_id)
+        payload = build_dashboard_payload(pipeline_run_id=recorder.run_id)
         written = write_outputs(payload, args.variant)
         artifact_manifest = read_json(MANIFEST_PATH)
         recorder.finish(

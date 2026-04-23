@@ -20,10 +20,22 @@ def resolve_run_source() -> str:
     return "github_actions" if os.getenv("GITHUB_ACTIONS") == "true" else "local"
 
 
-def resolve_run_id(pipeline_name: str) -> str:
+def resolve_ci_run_id() -> str | None:
     value = os.getenv("PYTHIAX_RUN_ID") or os.getenv("GITHUB_RUN_ID")
-    if value:
-        return str(value)
+    return str(value) if value else None
+
+
+def resolve_run_attempt() -> str | None:
+    value = os.getenv("PYTHIAX_RUN_ATTEMPT") or os.getenv("GITHUB_RUN_ATTEMPT")
+    return str(value) if value else None
+
+
+def resolve_run_id(pipeline_name: str) -> str:
+    ci_run_id = resolve_ci_run_id()
+    if ci_run_id:
+        attempt = resolve_run_attempt()
+        suffix = f"-attempt-{attempt}" if attempt else ""
+        return f"{pipeline_name}-{ci_run_id}{suffix}"
     stamp = datetime.now().strftime("%Y%m%d%H%M%S")
     return f"{pipeline_name}-{resolve_run_source()}-{stamp}"
 

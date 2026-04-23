@@ -63,6 +63,10 @@ Eso deja un camino auditable desde:
 - bundle generado
 - sitio publicado
 
+Ademas, despues del deploy el workflow registra una corrida separada en
+`pipeline_runs` con pipeline `github_pages_publish`, incluyendo `page_url`,
+archivos publicados y referencia al `dashboard_build` que genero el bundle.
+
 ## Nota estrategica
 
 `GitHub Pages` en esta fase funciona como hosting puente gratis.

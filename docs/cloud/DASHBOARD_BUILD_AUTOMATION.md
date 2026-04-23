@@ -33,6 +33,7 @@ El snapshot ahora incluye un bloque `build` con:
 - `commit_sha`
 - `commit_short`
 - `run_id`
+- `pipeline_run_id`
 - `run_attempt`
 - `workflow`
 - `actor`
@@ -42,6 +43,10 @@ Eso permite saber exactamente que commit y que corrida produjeron cada bundle.
 Ademas, cuando la tabla `pipeline_runs` existe en el backend target, el build
 del dashboard registra su corrida ahi con estado, `run_id`, backend, scanner
 activo y manifest de artefactos.
+
+En GitHub Actions, el ledger usa un `pipeline_run_id` namespaced por pipeline e
+intento, por ejemplo `dashboard_build-123456-attempt-2`, para evitar colisiones
+entre distintos jobs o reruns sobre el mismo `GITHUB_RUN_ID`.
 
 ## Manifest auditable
 

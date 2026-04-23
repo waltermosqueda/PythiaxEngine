@@ -28,6 +28,7 @@ def test_build_dashboard_metadata_prefers_explicit_env(monkeypatch) -> None:
     assert payload["commit_sha"] == "abcdef1234567890"
     assert payload["commit_short"] == "abcdef1"
     assert payload["run_id"] == "9001"
+    assert payload["pipeline_run_id"] == "9001"
     assert payload["run_attempt"] == "2"
     assert payload["workflow"] == "Dashboard Build"
     assert payload["actor"] == "waltermosqueda"

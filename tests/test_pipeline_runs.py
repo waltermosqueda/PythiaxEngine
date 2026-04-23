@@ -66,6 +66,17 @@ def test_pipeline_run_recorder_persists_successful_dashboard_build() -> None:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+def test_resolve_run_id_namespaces_ci_run_with_attempt(monkeypatch) -> None:
+    from infra.db.pipeline_runs import resolve_run_id
+
+    monkeypatch.setenv("GITHUB_RUN_ID", "777")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "3")
+    monkeypatch.delenv("PYTHIAX_RUN_ID", raising=False)
+    monkeypatch.delenv("PYTHIAX_RUN_ATTEMPT", raising=False)
+
+    assert resolve_run_id("dashboard_build") == "dashboard_build-777-attempt-3"
+
+
 def test_pipeline_run_recorder_skips_when_table_is_missing() -> None:
     tmp_dir = make_workspace_tmp_dir()
     db_path = tmp_dir / "missing_table.db"
