@@ -1,0 +1,128 @@
+name: Production Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_pages:
+        description: "Deploy del site a GitHub Pages luego del build"
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  production-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PYTHIAX_COMMIT_SHA: ${{ github.sha }}
+      PYTHIAX_RUN_ID: ${{ github.run_id }}
+      PYTHIAX_RUN_ATTEMPT: ${{ github.run_attempt }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret is missing."
+            exit 1
+          fi
+
+      - name: Setup Pages
+        if: ${{ inputs.deploy_pages }}
+        uses: actions/configure-pages@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Apply schema with Alembic
+        run: alembic upgrade head
+
+      - name: Generate runtime smoke report
+        run: |
+          mkdir -p docs/cloud/reports
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from infra.db.runtime import RuntimeDB
+
+          report_path = Path("docs/cloud/reports/production_release_runtime_smoke.json")
+          with RuntimeDB() as db:
+              payload = {
+                  "backend": db.backend.name,
+                  "database_url": db.backend.database_url,
+                  "prices_count": int(db.scalar("SELECT COUNT(*) FROM prices") or 0),
+                  "predictions_count": int(db.scalar("SELECT COUNT(*) FROM predictions") or 0),
+                  "outcomes_count": int(db.scalar("SELECT COUNT(*) FROM outcomes") or 0),
+                  "model_metrics_count": int(db.scalar("SELECT COUNT(*) FROM model_metrics") or 0),
+                  "regimes_count": int(db.scalar("SELECT COUNT(*) FROM regimes") or 0),
+                  "data_status_count": int(db.scalar("SELECT COUNT(*) FROM data_status") or 0),
+                  "pipeline_runs_count": int(db.scalar("SELECT COUNT(*) FROM pipeline_runs") or 0),
+                  "latest_market_date": db.scalar("SELECT MAX(date) FROM prices"),
+              }
+
+          report_path.write_text(
+              json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(payload, indent=2, ensure_ascii=False))
+          PY
+
+      - name: Build dashboard bundle
+        run: python analisis/generar_tablero_maquina_pensante.py --variant all
+
+      - name: Stage Pages site
+        run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
+
+      - name: Validate staged site
+        run: |
+          test -f dist/github-pages/index.html
+          test -f dist/github-pages/tablero_maquina_pensante.html
+          test -f dist/github-pages/tablero_maquina_pensante_executive.html
+          test -f dist/github-pages/tablero_maquina_pensante_lab.html
+          test -f dist/github-pages/tablero_maquina_pensante_snapshot.json
+          test -f dist/github-pages/tablero_maquina_pensante_artifact_manifest.json
+          test -f dist/github-pages/site_bundle_manifest.json
+          test -f dist/github-pages/.nojekyll
+
+      - name: Upload dashboard artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pythiax-production-release-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            dashboards/maquina_pensante/
+            dist/github-pages/site_bundle_manifest.json
+            docs/cloud/reports/production_release_runtime_smoke.json
+
+      - name: Upload Pages artifact
+        if: ${{ inputs.deploy_pages }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/github-pages
+
+      - name: Deploy to GitHub Pages
+        if: ${{ inputs.deploy_pages }}
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Record publish in pipeline ledger
+        if: ${{ inputs.deploy_pages }}
+        run: python -m infra.publish.record_pages_publish --site-dir dist/github-pages --page-url "${{ steps.deployment.outputs.page_url }}"

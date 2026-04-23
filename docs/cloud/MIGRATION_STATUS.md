@@ -1,10 +1,10 @@
 # Migration Status
 
 - Fecha de inicio: 2026-04-22
-- Estado actual: `FASE 1 COMPLETADA / FASE 2 INICIADA / REMOTO SINCRONIZADO / CLOUD BOOTSTRAP READY / PAGES BRIDGE READY`
+- Estado actual: `FASE 1 COMPLETADA / FASE 2 INICIADA / REMOTO SINCRONIZADO / CLOUD BOOTSTRAP READY / PAGES BRIDGE READY / CUTOVER PREFLIGHT VALIDATED`
 - Nombre publico del proyecto: `PythiaxEngine`
 - Ruta local historica: `Claude/`
-- Arquitectura objetivo: `GitHub + GitHub Actions + Neon Postgres + Cloudflare Pages + R2`
+- Arquitectura objetivo activa: `GitHub + GitHub Actions + Neon Postgres + GitHub Pages`
 - Hosting puente gratis actual: `GitHub Pages`
 - Repo remoto objetivo: `https://github.com/waltermosqueda/PythiaxEngine`
 - Baseline local: commit `071c246`
@@ -88,20 +88,34 @@
 - agregado registro de deploy de Pages en `pipeline_runs`:
   - `infra/publish/record_pages_publish.py`
   - `tests/test_pages_publish_ledger.py`
+- agregado preflight local de un solo comando para bootstrap + smoke + dashboard + Pages bundle:
+  - `infra/cloud/cutover_preflight.py`
+  - `docs/cloud/CUTOVER_PREFLIGHT_ONE_SHOT.md`
 - agregado workflow manual de validacion cloud:
   - `.github/workflows/neon-schema-smoke.yml`
+- agregado workflow manual one-shot para release remoto y publish opcional:
+  - `.github/workflows/production-release.yml`
 - documentado setup de secrets:
   - `docs/cloud/GITHUB_SECRETS_SETUP.md`
+- documentada la secuencia final de cutover y rollback:
+  - `docs/cloud/CUTOVER_DAY_CHECKLIST.md`
+- validado el preflight integral contra target SQLite temporal:
+  - bootstrap completo de `425022 prices`
+  - runtime smoke correcto
+  - dashboard build persistido en `pipeline_runs`
+  - site bundle listo para Pages
+  - `cutover_preflight` persistido en `pipeline_runs`
 
 ## Lo que falta inmediatamente
 
 1. Instalar dependencias `dev/cloud` para correr CI local completa.
-2. Verificar la primera corrida de GitHub Actions en remoto.
+2. Cargar `DATABASE_URL` real en GitHub y entorno local.
 3. Ejecutar el bootstrap local inicial hacia Neon con reporte.
-4. Verificar el primer `Dashboard Build` contra `DATABASE_URL` real.
-5. Habilitar `GitHub Pages` y validar la primera publicacion remota.
-6. Extender la capa dual a escrituras y piezas operativas restantes.
-7. Desacoplar snapshots operativos restantes para poder publicar dashboard 100% cloud.
+4. Ejecutar el `cutover_preflight` one-shot contra `DATABASE_URL` real.
+5. Correr `Production Release` o, alternativamente, `Neon Schema Smoke` + `Dashboard Build` + `GitHub Pages Publish`.
+6. Verificar la primera publicacion remota y dejar `shadow mode`.
+7. Extender la capa dual a escrituras y piezas operativas restantes.
+8. Desacoplar snapshots operativos restantes para poder publicar dashboard 100% cloud.
 
 ## Bloqueadores conocidos
 
@@ -123,6 +137,10 @@
   chocar entre `dashboard_build` y `github_pages_publish`
 - la publicacion por `GitHub Pages` tambien depende de `DATABASE_URL` y de
   habilitar `Settings > Pages > Source: GitHub Actions`
+- el `cutover_preflight` sigue dependiendo de crear la base en Neon y cargar
+  `DATABASE_URL`, porque esos pasos viven fuera del repo
+- no hay `gh` CLI instalado en esta PC, asi que la activacion remota se apoya
+  en la web de GitHub y en workflows ya dejados listos dentro del repo
 - `git` dentro de esta carpeta requiere comandos fuera del sandbox para escribir metadata
 
 ## Estrategia de rollback
@@ -134,15 +152,13 @@
 
 ## Proximo corte recomendado
 
-`FASE 2: bootstrap local a Neon + smoke remoto + dashboard build remoto + GitHub Pages`
+`FASE 2: bootstrap local a Neon + cutover preflight + production release remoto + shadow mode`
 
 Pasos exactos:
 
-1. activar GitHub Actions
-2. instalar dependencias `dev/cloud` para validar localmente
-3. cargar secret `DATABASE_URL` en GitHub
-4. correr `python -m infra.db.bootstrap_target`
-5. validar con workflow `Neon Schema Smoke`
-6. correr workflow `Dashboard Build`
-7. habilitar `GitHub Pages`
-8. correr workflow `GitHub Pages Publish`
+1. cargar secret `DATABASE_URL` en GitHub y exportarlo localmente
+2. habilitar `GitHub Pages`
+3. correr `python -m infra.cloud.cutover_preflight`
+4. correr workflow `Production Release`
+5. validar dashboard publico y artifacts
+6. mantener `shadow mode` antes de apagar la tarea local

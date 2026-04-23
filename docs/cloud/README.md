@@ -18,3 +18,5 @@ Archivos clave:
 - `GITHUB_SECRETS_SETUP.md`: secretos y orden recomendado para activar workflows cloud.
 - `DASHBOARD_BUILD_AUTOMATION.md`: build remoto auditable del dashboard.
 - `GITHUB_PAGES_PUBLISH.md`: publicacion gratis del dashboard via GitHub Pages.
+- `CUTOVER_PREFLIGHT_ONE_SHOT.md`: preflight local de un solo comando antes del salto real.
+- `CUTOVER_DAY_CHECKLIST.md`: secuencia final de produccion, validacion y rollback.

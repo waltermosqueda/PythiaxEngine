@@ -37,6 +37,7 @@ from herramientas.dashboard_paths import (
 )
 from herramientas.scanner_operativo_context import resolve_operational_scanner_context
 from infra.db import get_database_url, resolve_ci_run_id, resolve_run_attempt, start_pipeline_run
+from infra.db.session import create_db_engine
 from infra.db.runtime import RuntimeDB, aggregate_distinct_sql, connect_runtime_db
 
 
@@ -1073,10 +1074,14 @@ def build_recent_competition_snapshot(
     }
 
 
-def build_dashboard_payload(pipeline_run_id: str | None = None) -> dict[str, Any]:
+def build_dashboard_payload(
+    pipeline_run_id: str | None = None,
+    database_url: str | None = None,
+) -> dict[str, Any]:
     now = datetime.now().isoformat(timespec="seconds")
     operational = resolve_operational_scanner_context()
-    with connect_runtime_db() as db:
+    engine = create_db_engine(database_url=database_url) if database_url else None
+    with (RuntimeDB(engine) if engine is not None else connect_runtime_db()) as db:
         con = db
         market_dates = load_market_dates(con)
         standardized_competition = build_standardized_competition_snapshot(
@@ -3085,15 +3090,17 @@ def build_pipeline_run_metadata(payload: dict[str, Any], written: list[Path], va
     }
 
 
-def main() -> int:
-    args = parse_args()
+def generate_dashboard_bundle(variant: str = "all", database_url: str | None = None) -> dict[str, Any]:
     recorder = start_pipeline_run(
         "dashboard_build",
-        database_url=get_database_url(),
+        database_url=database_url or get_database_url(),
     )
     try:
-        payload = build_dashboard_payload(pipeline_run_id=recorder.run_id)
-        written = write_outputs(payload, args.variant)
+        payload = build_dashboard_payload(
+            pipeline_run_id=recorder.run_id,
+            database_url=database_url,
+        )
+        written = write_outputs(payload, variant)
         artifact_manifest = read_json(MANIFEST_PATH)
         recorder.finish(
             status="SUCCESS",
@@ -3103,24 +3110,41 @@ def main() -> int:
             latest_prices_date=(payload.get("integrity") or {}).get("latest_market_date"),
             warnings_count=0,
             artifact_manifest=artifact_manifest,
-            metadata_json=build_pipeline_run_metadata(payload, written, args.variant),
+            metadata_json=build_pipeline_run_metadata(payload, written, variant),
         )
-        print("Tablero maquina pensante generado:")
-        for path in written:
-            print(f" - {path}")
-        if recorder.persisted:
-            print(f" - pipeline_runs ledger: {recorder.run_id} | SUCCESS")
-        elif recorder.skipped_reason:
-            print(f" - pipeline_runs ledger: skipped ({recorder.skipped_reason})")
-        return 0
+        return {
+            "payload": payload,
+            "written": written,
+            "artifact_manifest": artifact_manifest,
+            "ledger": {
+                "persisted": recorder.persisted,
+                "run_id": recorder.run_id,
+                "skipped_reason": recorder.skipped_reason,
+                "error_message": recorder.error_message,
+            },
+        }
     except Exception as exc:
         recorder.finish(
             status="FAIL",
             run_date=datetime.now().isoformat(timespec="seconds"),
             error_message=f"{type(exc).__name__}: {exc}",
-            metadata_json={"generator": "analisis.generar_tablero_maquina_pensante", "variant": args.variant},
+            metadata_json={"generator": "analisis.generar_tablero_maquina_pensante", "variant": variant},
         )
         raise
+
+
+def main() -> int:
+    args = parse_args()
+    result = generate_dashboard_bundle(variant=args.variant)
+    print("Tablero maquina pensante generado:")
+    for path in result["written"]:
+        print(f" - {path}")
+    ledger = result["ledger"]
+    if ledger["persisted"]:
+        print(f" - pipeline_runs ledger: {ledger['run_id']} | SUCCESS")
+    elif ledger["skipped_reason"]:
+        print(f" - pipeline_runs ledger: skipped ({ledger['skipped_reason']})")
+    return 0
 
 
 if __name__ == "__main__":

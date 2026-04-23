@@ -138,6 +138,23 @@ def normalize_chunk(table_name: str, chunk: pd.DataFrame) -> pd.DataFrame:
     return normalized
 
 
+def resolve_insert_chunk_size(
+    *,
+    target_engine: Engine,
+    normalized_chunk: pd.DataFrame,
+    requested_chunk_size: int,
+) -> int:
+    if target_engine.dialect.name != "sqlite":
+        return requested_chunk_size
+
+    # SQLite tiene un limite bajo de bind params por sentencia. Como usamos
+    # method="multi", ajustamos dinamicamente para no exceder el tope.
+    safe_bind_limit = 900
+    column_count = max(len(normalized_chunk.columns), 1)
+    max_rows_per_insert = max(safe_bind_limit // column_count, 1)
+    return max(1, min(requested_chunk_size, max_rows_per_insert))
+
+
 def migrate_table(
     *,
     source_engine: Engine,
@@ -175,12 +192,17 @@ def migrate_table(
         chunk_iter = pd.read_sql_query(query, source_connection, chunksize=chunk_size)
         for chunk in chunk_iter:
             normalized_chunk = normalize_chunk(table_name, chunk)
+            insert_chunk_size = resolve_insert_chunk_size(
+                target_engine=target_engine,
+                normalized_chunk=normalized_chunk,
+                requested_chunk_size=chunk_size,
+            )
             normalized_chunk.to_sql(
                 table_name,
                 target_engine,
                 if_exists="append",
                 index=False,
-                chunksize=chunk_size,
+                chunksize=insert_chunk_size,
                 method="multi",
             )
             inserted_rows += len(normalized_chunk.index)
