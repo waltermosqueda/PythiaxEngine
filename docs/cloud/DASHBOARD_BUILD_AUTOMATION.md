@@ -39,6 +39,10 @@ El snapshot ahora incluye un bloque `build` con:
 
 Eso permite saber exactamente que commit y que corrida produjeron cada bundle.
 
+Ademas, cuando la tabla `pipeline_runs` existe en el backend target, el build
+del dashboard registra su corrida ahi con estado, `run_id`, backend, scanner
+activo y manifest de artefactos.
+
 ## Manifest auditable
 
 El archivo `tablero_maquina_pensante_artifact_manifest.json` incluye:
@@ -53,3 +57,9 @@ El archivo `tablero_maquina_pensante_artifact_manifest.json` incluye:
 
 Con eso el bundle ya tiene una cadena minima de trazabilidad y verificacion de
 integridad antes de conectarlo a un hosting publico como Cloudflare Pages.
+
+## Comportamiento antes de Neon
+
+Mientras la base historica local siga siendo una `SQLite` sin tabla
+`pipeline_runs`, el build del dashboard no falla: deja un `skip` controlado y
+continua generando el bundle normalmente.

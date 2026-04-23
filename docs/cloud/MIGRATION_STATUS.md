@@ -71,6 +71,9 @@
 - agregada metadata de build y manifest auditable para el dashboard:
   - `analisis/generar_tablero_maquina_pensante.py`
   - `tests/test_dashboard_artifact_manifest.py`
+- activado el ledger profesional `pipeline_runs` para builds del dashboard:
+  - `infra/db/pipeline_runs.py`
+  - `tests/test_pipeline_runs.py`
 - agregado workflow remoto programado para generar el bundle del dashboard:
   - `.github/workflows/dashboard-build.yml`
 - documentada la automatizacion del dashboard:
@@ -111,6 +114,8 @@
   otros artefactos de snapshot local fuera de esa ruta principal
 - el workflow remoto de dashboard depende de `DATABASE_URL`; hasta bootstrapear
   Neon no puede generar el bundle real desde cloud
+- el dashboard ya intenta persistir su corrida en `pipeline_runs`; en la SQLite
+  historica actual hace `skip` limpio si esa tabla todavia no existe
 - la publicacion por `GitHub Pages` tambien depende de `DATABASE_URL` y de
   habilitar `Settings > Pages > Source: GitHub Actions`
 - `git` dentro de esta carpeta requiere comandos fuera del sandbox para escribir metadata

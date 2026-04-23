@@ -178,3 +178,6 @@ Eso mejora:
 - observabilidad
 - recuperacion ante fallos
 - explicacion del flujo en entrevistas tecnicas
+
+En esta fase, el dashboard build ya quedo preparado para escribir en
+`pipeline_runs` cuando la tabla exista en el backend activo.

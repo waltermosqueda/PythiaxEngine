@@ -36,6 +36,7 @@ from herramientas.dashboard_paths import (
     ensure_dashboard_dir,
 )
 from herramientas.scanner_operativo_context import resolve_operational_scanner_context
+from infra.db import get_database_url, start_pipeline_run
 from infra.db.runtime import RuntimeDB, aggregate_distinct_sql, connect_runtime_db
 
 
@@ -109,20 +110,25 @@ def fmt_date(value: Any) -> str:
     return str(value)
 
 
-def build_dashboard_metadata(db_backend: str) -> dict[str, Any]:
+def resolve_default_run_id(build_source: str) -> str:
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    return f"dashboard-build-{build_source}-{stamp}"
+
+
+def build_dashboard_metadata(db_backend: str, run_id: str | None = None) -> dict[str, Any]:
     commit_sha = os.getenv("PYTHIAX_COMMIT_SHA") or os.getenv("GITHUB_SHA")
-    run_id = os.getenv("PYTHIAX_RUN_ID") or os.getenv("GITHUB_RUN_ID")
+    build_source = "github_actions" if os.getenv("GITHUB_ACTIONS") == "true" else "local"
+    resolved_run_id = run_id or os.getenv("PYTHIAX_RUN_ID") or os.getenv("GITHUB_RUN_ID") or resolve_default_run_id(build_source)
     run_attempt = os.getenv("PYTHIAX_RUN_ATTEMPT") or os.getenv("GITHUB_RUN_ATTEMPT")
     workflow = os.getenv("GITHUB_WORKFLOW")
     actor = os.getenv("GITHUB_ACTOR")
-    build_source = "github_actions" if os.getenv("GITHUB_ACTIONS") == "true" else "local"
     return {
         "generator": "analisis.generar_tablero_maquina_pensante",
         "build_source": build_source,
         "db_backend": db_backend,
         "commit_sha": commit_sha,
         "commit_short": commit_sha[:7] if commit_sha else None,
-        "run_id": run_id,
+        "run_id": resolved_run_id,
         "run_attempt": run_attempt,
         "workflow": workflow,
         "actor": actor,
@@ -1065,7 +1071,7 @@ def build_recent_competition_snapshot(
     }
 
 
-def build_dashboard_payload() -> dict[str, Any]:
+def build_dashboard_payload(run_id: str | None = None) -> dict[str, Any]:
     now = datetime.now().isoformat(timespec="seconds")
     operational = resolve_operational_scanner_context()
     with connect_runtime_db() as db:
@@ -1080,7 +1086,7 @@ def build_dashboard_payload() -> dict[str, Any]:
         competition_rows = standardized_competition["rows"]
         payload = {
             "generated_at": now,
-            "build": build_dashboard_metadata(db.backend.name),
+            "build": build_dashboard_metadata(db.backend.name, run_id=run_id),
             "operational_context": {
                 "active_version": operational.active_version,
                 "reference_version": operational.reference_version,
@@ -3063,14 +3069,56 @@ def write_outputs(payload: dict[str, Any], variant: str) -> list[Path]:
     return written
 
 
+def build_pipeline_run_metadata(payload: dict[str, Any], written: list[Path], variant: str) -> dict[str, Any]:
+    active = payload.get("active") or {}
+    active_run = active.get("active_run") or {}
+    return {
+        "generator": "analisis.generar_tablero_maquina_pensante",
+        "variant": variant,
+        "written_files": [path.name for path in written],
+        "active_version": payload.get("operational_context", {}).get("active_version"),
+        "reference_version": payload.get("operational_context", {}).get("reference_version"),
+        "active_run_source": active_run.get("source", "snapshot"),
+        "active_run_freshness": active_run.get("freshness"),
+    }
+
+
 def main() -> int:
     args = parse_args()
-    payload = build_dashboard_payload()
-    written = write_outputs(payload, args.variant)
-    print("Tablero maquina pensante generado:")
-    for path in written:
-        print(f" - {path}")
-    return 0
+    recorder = start_pipeline_run(
+        "dashboard_build",
+        database_url=get_database_url(),
+    )
+    try:
+        payload = build_dashboard_payload(run_id=recorder.run_id)
+        written = write_outputs(payload, args.variant)
+        artifact_manifest = read_json(MANIFEST_PATH)
+        recorder.finish(
+            status="SUCCESS",
+            run_date=payload.get("generated_at"),
+            active_scanner_version=str(payload.get("operational_context", {}).get("active_version") or ""),
+            db_backend=(payload.get("build") or {}).get("db_backend"),
+            latest_prices_date=(payload.get("integrity") or {}).get("latest_market_date"),
+            warnings_count=0,
+            artifact_manifest=artifact_manifest,
+            metadata_json=build_pipeline_run_metadata(payload, written, args.variant),
+        )
+        print("Tablero maquina pensante generado:")
+        for path in written:
+            print(f" - {path}")
+        if recorder.persisted:
+            print(f" - pipeline_runs ledger: {recorder.run_id} | SUCCESS")
+        elif recorder.skipped_reason:
+            print(f" - pipeline_runs ledger: skipped ({recorder.skipped_reason})")
+        return 0
+    except Exception as exc:
+        recorder.finish(
+            status="FAIL",
+            run_date=datetime.now().isoformat(timespec="seconds"),
+            error_message=f"{type(exc).__name__}: {exc}",
+            metadata_json={"generator": "analisis.generar_tablero_maquina_pensante", "variant": args.variant},
+        )
+        raise
 
 
 if __name__ == "__main__":

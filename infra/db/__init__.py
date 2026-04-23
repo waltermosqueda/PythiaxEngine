@@ -2,6 +2,7 @@
 
 from infra.db.bootstrap_target import bootstrap_target_from_sqlite
 from infra.db.config import get_database_url, get_sqlite_fallback_path
+from infra.db.pipeline_runs import PipelineRunRecorder, start_pipeline_run
 from infra.db.runtime import (
     RuntimeDB,
     adapt_qmark_sql,
@@ -22,6 +23,8 @@ __all__ = [
     "get_runtime_database_url",
     "get_sqlite_db_path",
     "get_sqlite_fallback_path",
+    "PipelineRunRecorder",
     "resolve_runtime_backend",
     "RuntimeDB",
+    "start_pipeline_run",
 ]
