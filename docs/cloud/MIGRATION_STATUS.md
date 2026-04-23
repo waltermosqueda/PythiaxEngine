@@ -109,7 +109,7 @@
 ## Lo que falta inmediatamente
 
 1. Instalar dependencias `dev/cloud` para correr CI local completa.
-2. Cargar `DATABASE_URL` real en GitHub y entorno local.
+2. Cargar `DATABASE_URL` real en GitHub y dejarla disponible localmente via entorno o `.env`.
 3. Ejecutar el bootstrap local inicial hacia Neon con reporte.
 4. Ejecutar el `cutover_preflight` one-shot contra `DATABASE_URL` real.
 5. Correr `Production Release` o, alternativamente, `Neon Schema Smoke` + `Dashboard Build` + `GitHub Pages Publish`.
@@ -156,7 +156,7 @@
 
 Pasos exactos:
 
-1. cargar secret `DATABASE_URL` en GitHub y exportarlo localmente
+1. cargar secret `DATABASE_URL` en GitHub y dejar la misma URL disponible localmente via entorno o `.env`
 2. habilitar `GitHub Pages`
 3. correr `python -m infra.cloud.cutover_preflight`
 4. correr workflow `Production Release`

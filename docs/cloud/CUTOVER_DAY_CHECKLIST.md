@@ -15,7 +15,9 @@ manuales, manteniendo rollback claro y evidencia auditable.
 
 ## Orden recomendado
 
-1. Exportar `DATABASE_URL` en tu PC para la sesion de cutover.
+1. Dejar `DATABASE_URL` disponible en tu PC para la sesion de cutover.
+   Opcion A: exportarla en PowerShell.
+   Opcion B: crear `.env` en la raiz del repo con `DATABASE_URL=...`.
 2. Correr el preflight local one-shot:
 
 ```powershell

@@ -41,6 +41,12 @@ python -m infra.db.bootstrap_target `
   --report-path "docs/cloud/reports/sqlite_to_neon_bootstrap.json"
 ```
 
+Alternativa local mas simple:
+
+1. Crear un archivo `.env` en la raiz del repo.
+2. Copiar ahi tu `DATABASE_URL` real.
+3. Correr el mismo comando sin exportar nada en PowerShell.
+
 5. Volver a correr `Neon Schema Smoke` para validar conteos.
 6. Habilitar `Settings > Pages > Source: GitHub Actions`.
 7. Ejecutar `Dashboard Build`.
