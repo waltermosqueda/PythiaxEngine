@@ -7,9 +7,11 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime
+import hashlib
 import html
 import json
 import math
+import os
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +31,7 @@ from herramientas.dashboard_paths import (
     EXECUTIVE_HTML,
     INDEX_HTML,
     LAB_HTML,
+    MANIFEST_PATH,
     SNAPSHOT_PATH,
     ensure_dashboard_dir,
 )
@@ -106,6 +109,34 @@ def fmt_date(value: Any) -> str:
     return str(value)
 
 
+def build_dashboard_metadata(db_backend: str) -> dict[str, Any]:
+    commit_sha = os.getenv("PYTHIAX_COMMIT_SHA") or os.getenv("GITHUB_SHA")
+    run_id = os.getenv("PYTHIAX_RUN_ID") or os.getenv("GITHUB_RUN_ID")
+    run_attempt = os.getenv("PYTHIAX_RUN_ATTEMPT") or os.getenv("GITHUB_RUN_ATTEMPT")
+    workflow = os.getenv("GITHUB_WORKFLOW")
+    actor = os.getenv("GITHUB_ACTOR")
+    build_source = "github_actions" if os.getenv("GITHUB_ACTIONS") == "true" else "local"
+    return {
+        "generator": "analisis.generar_tablero_maquina_pensante",
+        "build_source": build_source,
+        "db_backend": db_backend,
+        "commit_sha": commit_sha,
+        "commit_short": commit_sha[:7] if commit_sha else None,
+        "run_id": run_id,
+        "run_attempt": run_attempt,
+        "workflow": workflow,
+        "actor": actor,
+    }
+
+
+def build_status_label(payload: dict[str, Any]) -> str:
+    build = payload.get("build") or {}
+    parts = [build.get("build_source"), build.get("db_backend"), build.get("commit_short")]
+    if build.get("run_id"):
+        parts.append(f"run {build['run_id']}")
+    return " | ".join(str(part) for part in parts if part) or "sin metadata de build"
+
+
 def parse_ticker_csv(value: Any) -> list[str]:
     if not value:
         return []
@@ -131,6 +162,38 @@ def latest_json_snapshot(run_dir: Path) -> dict[str, Any] | None:
     if not files:
         return None
     return read_json(files[-1])
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(65536)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_artifact_manifest(payload: dict[str, Any], artifacts: list[Path]) -> dict[str, Any]:
+    artifact_rows: list[dict[str, Any]] = []
+    for path in artifacts:
+        resolved = path.resolve()
+        relative_path = resolved.relative_to(ROOT).as_posix() if resolved.is_relative_to(ROOT) else path.name
+        artifact_rows.append(
+            {
+                "name": path.name,
+                "relative_path": relative_path,
+                "size_bytes": path.stat().st_size,
+                "sha256": file_sha256(path),
+            }
+        )
+    return {
+        "generated_at": payload.get("generated_at"),
+        "build": payload.get("build") or {},
+        "artifact_count": len(artifact_rows),
+        "artifacts": artifact_rows,
+    }
 
 
 def model_filter(entry: dict[str, Any], alias: str = "p") -> tuple[str, tuple[Any, ...]]:
@@ -1017,6 +1080,7 @@ def build_dashboard_payload() -> dict[str, Any]:
         competition_rows = standardized_competition["rows"]
         payload = {
             "generated_at": now,
+            "build": build_dashboard_metadata(db.backend.name),
             "operational_context": {
                 "active_version": operational.active_version,
                 "reference_version": operational.reference_version,
@@ -2519,6 +2583,7 @@ def render_index(payload: dict[str, Any]) -> str:
           <h1>Champion, liga y competencia diaria</h1>
           <div class="header-meta">
             <span class="pill">Generado {safe(payload["generated_at"])}</span>
+            <span class="pill">Build {safe(build_status_label(payload))}</span>
             <span class="pill">Mercado {fmt_date(integrity["latest_market_date"])}</span>
             <span class="pill">Muestra igualada {fmt_int(equalized_days)} ruedas</span>
             <span class="pill">Cobertura 30/30</span>
@@ -2767,6 +2832,7 @@ def render_executive(payload: dict[str, Any]) -> str:
           El tablero distingue continuidad del champion, ortogonalidad legacy y salud de la
           memoria operativa sin ocultar donde todavia hay similitud entre versiones.
         </div>
+        <div class="footer-note">Build {safe(build_status_label(payload))}</div>
         <div class="hero-grid">
           {metric_card("Mercado mas reciente", fmt_date(integrity["latest_market_date"]), "Cierre ya validado en la DB", tone="accent")}
           {metric_card("Predictions", fmt_int(integrity["predictions_count"]), "Registros operativos acumulados", hero_spark, tone="mint")}
@@ -2896,6 +2962,7 @@ def render_lab(payload: dict[str, Any]) -> str:
           DB esta viva, si el champion evoluciona con memoria y si los challengers legacy son de verdad
           modelos ortogonales o solo ruido con nombres nuevos.
         </div>
+        <div class="footer-note">Build {safe(build_status_label(payload))}</div>
         <div class="metric-grid" style="margin-top:24px">
           {metric_card("Latest prediction", fmt_date(integrity['latest_prediction_date']), "Ultima fecha escrita en predictions", tone="accent")}
           {metric_card("Latest outcome", fmt_date(integrity['latest_outcome_date']), "Ultima fecha ya evaluada", tone="gold")}
@@ -2990,6 +3057,9 @@ def write_outputs(payload: dict[str, Any], variant: str) -> list[Path]:
     if variant in {"all", "lab"}:
         LAB_HTML.write_text(render_lab(payload), encoding="utf-8")
         written.append(LAB_HTML)
+    manifest = build_artifact_manifest(payload, written)
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    written.append(MANIFEST_PATH)
     return written
 
 

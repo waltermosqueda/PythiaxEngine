@@ -67,6 +67,13 @@
   - `analisis/generar_tablero_maquina_pensante.py`
 - agregado test de fallback DB para snapshot activo del dashboard:
   - `tests/test_dashboard_active_snapshot_fallback.py`
+- agregada metadata de build y manifest auditable para el dashboard:
+  - `analisis/generar_tablero_maquina_pensante.py`
+  - `tests/test_dashboard_artifact_manifest.py`
+- agregado workflow remoto programado para generar el bundle del dashboard:
+  - `.github/workflows/dashboard-build.yml`
+- documentada la automatizacion del dashboard:
+  - `docs/cloud/DASHBOARD_BUILD_AUTOMATION.md`
 - agregado workflow manual de validacion cloud:
   - `.github/workflows/neon-schema-smoke.yml`
 - documentado setup de secrets:
@@ -77,8 +84,9 @@
 1. Instalar dependencias `dev/cloud` para correr CI local completa.
 2. Verificar la primera corrida de GitHub Actions en remoto.
 3. Ejecutar el bootstrap local inicial hacia Neon con reporte.
-4. Extender la capa dual a escrituras y piezas operativas restantes.
-5. Desacoplar snapshots operativos restantes para poder publicar dashboard 100% cloud.
+4. Verificar el primer `Dashboard Build` contra `DATABASE_URL` real.
+5. Extender la capa dual a escrituras y piezas operativas restantes.
+6. Desacoplar snapshots operativos restantes para poder publicar dashboard 100% cloud.
 
 ## Bloqueadores conocidos
 
@@ -92,6 +100,8 @@
   la DB como fallback; todavia quedan bloques visuales que usan snapshots directos
 - el `active_run` del dashboard ya tiene fallback DB-driven; todavia quedan
   otros artefactos de snapshot local fuera de esa ruta principal
+- el workflow remoto de dashboard depende de `DATABASE_URL`; hasta bootstrapear
+  Neon no puede generar el bundle real desde cloud
 - `git` dentro de esta carpeta requiere comandos fuera del sandbox para escribir metadata
 
 ## Estrategia de rollback
@@ -102,7 +112,7 @@
 
 ## Proximo corte recomendado
 
-`FASE 2: bootstrap local a Neon + smoke remoto`
+`FASE 2: bootstrap local a Neon + smoke remoto + dashboard build remoto`
 
 Pasos exactos:
 
@@ -111,3 +121,4 @@ Pasos exactos:
 3. cargar secret `DATABASE_URL` en GitHub
 4. correr `python -m infra.db.bootstrap_target`
 5. validar con workflow `Neon Schema Smoke`
+6. correr workflow `Dashboard Build`
