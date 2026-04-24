@@ -94,6 +94,8 @@ jobs:
       - name: Validate staged site
         run: |
           test -f dist/github-pages/index.html
+          test -f dashboards/maquina_pensante/preview_c1_pro.html
+          test -f dist/github-pages/preview_c1_pro.html
           test -f dist/github-pages/tablero_maquina_pensante.html
           test -f dist/github-pages/tablero_maquina_pensante_executive.html
           test -f dist/github-pages/tablero_maquina_pensante_lab.html
@@ -101,6 +103,7 @@ jobs:
           test -f dist/github-pages/tablero_maquina_pensante_artifact_manifest.json
           test -f dist/github-pages/site_bundle_manifest.json
           test -f dist/github-pages/.nojekyll
+          cmp -s dist/github-pages/index.html dist/github-pages/preview_c1_pro.html
 
       - name: Upload dashboard artifact
         uses: actions/upload-artifact@v4

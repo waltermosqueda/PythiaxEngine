@@ -50,6 +50,7 @@ jobs:
           test -f dashboards/maquina_pensante/tablero_maquina_pensante.html
           test -f dashboards/maquina_pensante/tablero_maquina_pensante_executive.html
           test -f dashboards/maquina_pensante/tablero_maquina_pensante_lab.html
+          test -f dashboards/maquina_pensante/preview_c1_pro.html
           test -f dashboards/maquina_pensante/tablero_maquina_pensante_artifact_manifest.json
 
       - name: Upload dashboard artifact

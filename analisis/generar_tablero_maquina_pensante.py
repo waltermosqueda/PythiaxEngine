@@ -13,6 +13,7 @@ import json
 import math
 import os
 from pathlib import Path
+import subprocess
 from typing import Any
 
 import pandas as pd
@@ -27,6 +28,8 @@ if str(ROOT) not in sys.path:
 from herramientas.competencia_modelos import monitored_entries
 from herramientas.competencia_topn_estandar import build_standardized_competition_snapshot
 from herramientas.dashboard_paths import (
+    AURORA_PRO_HTML,
+    C1_PRO_BUNDLE_HTML,
     DASHBOARD_DIR as OUTPUT_DIR,
     EXECUTIVE_HTML,
     INDEX_HTML,
@@ -209,6 +212,21 @@ def build_artifact_manifest(payload: dict[str, Any], artifacts: list[Path]) -> d
         "artifact_count": len(artifact_rows),
         "artifacts": artifact_rows,
     }
+
+
+def run_c1_pro_builder(*builder_args: str) -> None:
+    subprocess.run(
+        [sys.executable, str(ROOT / "herramientas" / "_build_c1pro.py"), *builder_args],
+        cwd=ROOT,
+        check=True,
+    )
+
+
+def build_c1_pro_outputs() -> list[Path]:
+    run_c1_pro_builder("--output", str(C1_PRO_BUNDLE_HTML))
+    if os.getenv("GITHUB_ACTIONS") != "true":
+        run_c1_pro_builder("--promote")
+    return [C1_PRO_BUNDLE_HTML]
 
 
 def model_filter(entry: dict[str, Any], alias: str = "p") -> tuple[str, tuple[Any, ...]]:
@@ -3082,6 +3100,7 @@ def write_outputs(payload: dict[str, Any], variant: str) -> list[Path]:
     if variant in {"all", "lab"}:
         LAB_HTML.write_text(render_lab(payload), encoding="utf-8")
         written.append(LAB_HTML)
+    written.extend(build_c1_pro_outputs())
     manifest = build_artifact_manifest(payload, written)
     MANIFEST_PATH.write_text(
         json.dumps(manifest, indent=2, ensure_ascii=True, default=json_default) + "\n",
@@ -3098,6 +3117,9 @@ def build_pipeline_run_metadata(payload: dict[str, Any], written: list[Path], va
         "generator": "analisis.generar_tablero_maquina_pensante",
         "variant": variant,
         "written_files": [path.name for path in written],
+        "published_entrypoint": C1_PRO_BUNDLE_HTML.name,
+        "local_c1_pro_path": str(AURORA_PRO_HTML.resolve()),
+        "local_c1_pro_synced": os.getenv("GITHUB_ACTIONS") != "true",
         "active_version": payload.get("operational_context", {}).get("active_version"),
         "reference_version": payload.get("operational_context", {}).get("reference_version"),
         "active_run_source": active_run.get("source", "snapshot"),

@@ -52,7 +52,7 @@ def test_build_artifact_manifest_hashes_written_files() -> None:
         assert manifest["build"]["commit_short"] == "abc1234"
         assert manifest["artifacts"][0]["name"] == "artifact.txt"
         assert manifest["artifacts"][0]["relative_path"].endswith("artifact.txt")
-        assert manifest["artifacts"][0]["size_bytes"] == len("pythiax-manifest\n".encode("utf-8"))
+        assert manifest["artifacts"][0]["size_bytes"] == artifact.stat().st_size
         assert manifest["artifacts"][0]["sha256"] == dashboard.file_sha256(artifact)
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)

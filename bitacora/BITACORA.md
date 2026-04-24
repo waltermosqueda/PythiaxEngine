@@ -4,6 +4,52 @@ Este archivo se sincroniza via Google Drive y puede usarse desde cualquier PC.
 
 ---
 
+## 2026-04-23 | Sesion 111 - Verificacion quirurgica Pages live vs bundle local + saneamiento de validacion
+
+### Objetivo
+- verificar sin asumir que el Pages publico refleje el ultimo bundle local
+- cerrar ruido local de validacion para dejar el repo listo para commit profesional
+- dejar trazabilidad honesta sobre el estado real del deploy cloud
+
+### Trabajo aplicado
+- validacion remota real contra:
+  - `https://waltermosqueda.github.io/PythiaxEngine/`
+  - `site_bundle_manifest.json`
+  - `tablero_maquina_pensante_artifact_manifest.json`
+- contraste `remote vs local` del bundle publicado
+- correccion de runtime/config para que `SQLITE_FALLBACK_PATH` quede resuelto a path canonico absoluto
+- alineacion de tests del frente cloud/runtime:
+  - `tests/test_db_runtime.py`
+  - `tests/test_dashboard_active_snapshot_fallback.py`
+  - `tests/test_dashboard_artifact_manifest.py`
+- agregado ignore explicito para temporales root de `pytest`:
+  - `pytest-temp/`
+  - `pytest-cache/`
+  - `pytest-cache-files-*`
+
+### Verificacion realizada
+- `python analisis/generar_tablero_maquina_pensante.py --variant all` -> OK
+- `python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages` -> OK
+- checks directos del frente cloud/runtime/migracion ejecutados localmente -> PASS
+- validacion remota:
+  - el Pages live respondio correctamente
+  - el remoto sigue en bundle previo:
+    - `artifact_count = 4`
+    - `site_bundle_manifest.entrypoint_source = null`
+    - `remote index.html != remote preview_c1_pro.html`
+  - el bundle local ya queda en estado nuevo:
+    - `artifact_count = 5`
+    - `entrypoint_source = preview_c1_pro.html`
+    - `dist/github-pages/index.html == dist/github-pages/preview_c1_pro.html`
+
+### Resultado
+- el repo queda listo y validado para publicar `C1 Pro` como portada real en cloud
+- la documentacion queda alineada con el estado honesto:
+  - local/bundle listo
+  - deploy publico aun pendiente del workflow remoto
+- proximo paso externo al repo:
+  - correr `GitHub Pages Publish` o `Production Release` para que el site live adopte el nuevo bundle
+
 ## 2026-04-22 | Sesion 110 - Dashboard C1 Pro: contrato de markers criticos + modulo compartido
 
 ### Objetivo
@@ -7928,6 +7974,66 @@ Dejar la carpeta `SCANNER` solo con archivos productivos y separar definitivamen
 - la separacion entre produccion y prototipo quedo mucho mas profesional
 - `SCANNER` queda reservado para herramientas de uso diario reales
 - `invertir_v11_visual.py` pasa a ser la salida visual productiva del V11
+
+---
+## 2026-04-23 | Sesion 43 - C1 PRO COMO DASHBOARD PRODUCTIVO CLOUD
+
+### Objetivo
+Convertir `C1 Pro` en la salida productiva canonica del dashboard, alineada con el snapshot cloud/Postgres y lista para ser la portada del site publicado.
+
+### Cambios aplicados
+- integracion de `C1 Pro` dentro del build oficial de `analisis/generar_tablero_maquina_pensante.py`
+  - genera `dashboards/maquina_pensante/preview_c1_pro.html`
+  - en ejecuciones locales tambien promueve `analisis/preview_c1_pro.html`
+- ajuste de links relativos de `C1 Pro` segun el destino:
+  - en `analisis/preview_c1_pro.html` navega a `../dashboards/maquina_pensante/...`
+  - en el bundle publicado navega a `tablero_maquina_pensante_*.html`
+- el bundle preparado para `GitHub Pages` ahora deja `C1 Pro` como entrypoint real:
+  - `dist/github-pages/index.html` es alias byte a byte de `preview_c1_pro.html`
+  - se mantienen accesibles `tablero_maquina_pensante.html`, `executive` y `lab`
+- endurecidos los workflows:
+  - `dashboard-build.yml`
+  - `github-pages-publish.yml`
+  - `production-release.yml`
+  - ahora fallan si no existe `preview_c1_pro.html` o si `index.html` no coincide con `C1 Pro`
+- actualizado el auditor para normalizar fechas `date -> isoformat()` en checks de metadata de mercado y frescura del dashboard
+
+### Validacion real
+- `python -m compileall analisis infra herramientas tests` -> OK
+- `python analisis/generar_tablero_maquina_pensante.py --variant all` -> OK
+  - genero bundle contra `PostgreSQL`
+  - persistio `pipeline_runs` con `dashboard_build-local-20260423175755`
+  - promovio `analisis/preview_c1_pro.html`
+- `python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages` -> OK
+- validaciones manuales:
+  - `analisis/preview_c1_pro.html` ahora apunta a `../dashboards/maquina_pensante/tablero_maquina_pensante_executive.html`
+  - `dashboards/maquina_pensante/preview_c1_pro.html` apunta a `tablero_maquina_pensante_executive.html`
+  - `dist/github-pages/index.html == dist/github-pages/preview_c1_pro.html` -> `True`
+  - `tablero_maquina_pensante_artifact_manifest.json` ahora reporta `artifact_count = 5`
+  - `site_bundle_manifest.json` reporta `entrypoint_source = preview_c1_pro.html`
+- `python -m pytest ...` no pudo correrse porque este Python local no tiene `pytest`
+
+### Auditoria
+- `python herramientas/auditoria_integral_claude.py --mode full`
+  - se detecto y corrigio un bug de tipos en el auditor (`date` vs `str`)
+  - checks puntuales revalidados:
+    - `check_market_metadata()` -> PASS
+    - `check_dashboard_freshness()` -> PASS
+  - la corrida full sigue marcando FAIL por deudas historicas ajenas al deploy cloud de `C1 Pro`:
+    - checks pegados a `titan.db` local sin `SPY`
+    - smokes legacy de scanners/aprendizaje/gestor
+    - backtests legacy que esperan `SPY` en la SQLite local
+    - top N legacy para `V11/V8/V9/V10`
+
+### Estado operativo
+- `C1 Pro` ya es la salida productiva local canonica:
+  - `analisis/preview_c1_pro.html`
+- `C1 Pro` ya es la portada preparada localmente para cloud:
+  - `dashboards/maquina_pensante/preview_c1_pro.html`
+  - `dist/github-pages/index.html`
+- siguiente paso externo al repo:
+  - correr en GitHub `Production Release` con `deploy_pages=true`
+  - verificar el deploy publico de Pages
 
 ---
 ## 2026-04-19 | Sesion 42 - TOP N ESTANDAR PARA LIGA Y DASHBOARD

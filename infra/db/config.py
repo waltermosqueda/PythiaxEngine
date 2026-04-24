@@ -53,15 +53,22 @@ def normalize_database_url(database_url: str) -> str:
     return url
 
 
+def resolve_sqlite_fallback_path(raw_path: str) -> Path:
+    path = Path(raw_path).expanduser()
+    if not path.is_absolute():
+        path = ROOT / path
+    return path.resolve()
+
+
 def build_database_settings() -> DatabaseSettings:
     env_file_values = read_env_file()
-    sqlite_fallback = Path(
+    sqlite_fallback = resolve_sqlite_fallback_path(
         resolve_setting(
             "SQLITE_FALLBACK_PATH",
             env_file_values=env_file_values,
             default=str(DEFAULT_SQLITE_PATH),
         )
-    ).expanduser()
+    )
     database_url = normalize_database_url(resolve_setting(
         "DATABASE_URL",
         env_file_values=env_file_values,

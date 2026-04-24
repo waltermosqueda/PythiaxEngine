@@ -29,6 +29,7 @@ from herramientas.dashboard_c1_contract import (
     MARK_LIGA_S,
     liga_static_meta,
 )
+from herramientas.dashboard_paths import EXECUTIVE_HTML, INDEX_HTML, LAB_HTML, dashboard_relative_href
 BASE = ROOT / "dashboards" / "maquina_pensante" / "dashboard_operativo_aurora_pro.html"
 PROD_OUT = ROOT / "analisis" / "preview_c1_pro.html"
 STAGING_DIR = ROOT / "analisis" / "staging"
@@ -68,6 +69,11 @@ def _parse_args() -> argparse.Namespace:
 
 ARGS = _parse_args()
 OUT = ARGS.target
+
+
+def _dashboard_href(target_path: Path) -> str:
+    return dashboard_relative_href(OUT, target_path)
+
 
 html = BASE.read_text(encoding='utf-8')
 
@@ -234,6 +240,21 @@ html = html.replace('href="#picks">', 'href="#picks" title="Picks hoy" data-tip=
 html = html.replace('href="#league">', 'href="#league" title="Liga" data-tip="Liga">', 1)
 html = html.replace('href="#models">', 'href="#models" title="Modelos" data-tip="Modelos">', 1)
 html = html.replace('href="#heatmap">', 'href="#heatmap" title="Heatmap" data-tip="Heatmap">', 1)
+html = re.sub(
+    r'href="(?:\.\./)?(?:dashboards/maquina_pensante/)?tablero_maquina_pensante\.html"',
+    f'href="{_dashboard_href(INDEX_HTML)}"',
+    html,
+)
+html = re.sub(
+    r'href="(?:\.\./)?(?:dashboards/maquina_pensante/)?tablero_maquina_pensante_executive\.html"',
+    f'href="{_dashboard_href(EXECUTIVE_HTML)}"',
+    html,
+)
+html = re.sub(
+    r'href="(?:\.\./)?(?:dashboards/maquina_pensante/)?tablero_maquina_pensante_lab\.html"',
+    f'href="{_dashboard_href(LAB_HTML)}"',
+    html,
+)
 # Add Export button + panel at bottom of sidebar-inner (before /sidebar-inner)
 EXPORT_NAV = (
     '\n    <div class="side-section-label">Exportar</div>\n'

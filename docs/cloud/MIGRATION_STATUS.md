@@ -78,6 +78,13 @@
   - `.github/workflows/dashboard-build.yml`
 - documentada la automatizacion del dashboard:
   - `docs/cloud/DASHBOARD_BUILD_AUTOMATION.md`
+- integrado `C1 Pro` al build oficial y al publish bridge:
+  - `herramientas/_build_c1pro.py`
+  - `analisis/generar_tablero_maquina_pensante.py`
+  - `infra/publish/dashboard_site.py`
+  - `.github/workflows/dashboard-build.yml`
+  - `.github/workflows/github-pages-publish.yml`
+  - `.github/workflows/production-release.yml`
 - agregado empaquetado estatico para publicacion web del dashboard:
   - `infra/publish/dashboard_site.py`
   - `tests/test_dashboard_site_publish.py`
@@ -117,6 +124,8 @@
   - `runtime_smoke.backend = postgresql`
   - site bundle listo en `dist/cutover-preflight-pages`
   - reporte final en `docs/cloud/reports/cutover_preflight_report.json`
+- alineado `analisis/preview_c1_pro.html` con el snapshot productivo local
+- definido `C1 Pro` como entrypoint productivo del bundle listo para publicar en el site
 
 ## Lo que falta inmediatamente
 

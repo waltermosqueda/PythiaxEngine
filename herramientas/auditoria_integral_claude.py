@@ -488,7 +488,7 @@ def check_pipeline_gestor_step() -> AuditResult:
 def check_market_metadata() -> AuditResult:
     latest_prices_date = sqlite_value("SELECT value FROM data_status WHERE key='latest_prices_date'")
     updated_at = sqlite_value("SELECT value FROM data_status WHERE key='market_data_updated_at'")
-    latest_spy = sqlite_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'")
+    latest_spy = _iso_date_text(sqlite_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'"))
     total_rows = sqlite_value("SELECT COUNT(*) FROM data_status")
 
     details = [
@@ -535,6 +535,14 @@ def _trading_days_between(start_str: str, end_str: str) -> int:
     return count
 
 
+def _iso_date_text(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
 def _expected_last_closed_trading_day() -> str:
     """
     Devuelve la ultima fecha bursatil (lun-vie) para la que NYSE deberia tener datos completos.
@@ -573,7 +581,7 @@ def check_db_temporal_freshness() -> AuditResult:
     segun el horario real del mercado. Si la DB esta vieja, todos los analisis
     subsiguientes son sobre datos obsoletos.
     """
-    db_latest = sqlite_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'")
+    db_latest = _iso_date_text(sqlite_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'"))
     expected = _expected_last_closed_trading_day()
 
     details = [
@@ -711,14 +719,14 @@ def check_dashboard_freshness() -> AuditResult:
     generated_at = payload.get("generated_at")
 
     db_market = sqlite_value("SELECT value FROM data_status WHERE key='latest_prices_date'")
-    db_prediction = sqlite_value("SELECT MAX(prediction_date) FROM predictions")
-    db_outcome = sqlite_value(
+    db_prediction = _iso_date_text(sqlite_value("SELECT MAX(prediction_date) FROM predictions"))
+    db_outcome = _iso_date_text(sqlite_value(
         """
         SELECT MAX(p.target_date)
         FROM outcomes o
         JOIN predictions p ON p.id = o.prediction_id
         """
-    )
+    ))
 
     details.extend(
         [

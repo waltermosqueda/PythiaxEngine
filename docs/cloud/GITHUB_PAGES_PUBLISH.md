@@ -41,12 +41,20 @@ El workflow:
 Archivos principales publicados:
 
 - `index.html`
+- `preview_c1_pro.html`
 - `tablero_maquina_pensante.html`
 - `tablero_maquina_pensante_executive.html`
 - `tablero_maquina_pensante_lab.html`
 - `tablero_maquina_pensante_snapshot.json`
 - `tablero_maquina_pensante_artifact_manifest.json`
 - `site_bundle_manifest.json`
+
+El bundle preparado por este flujo deja `index.html` como alias byte a byte de
+`preview_c1_pro.html`, para que `C1 Pro` sea la vista productiva principal
+en cloud sin perder la navegacion hacia las variantes clasica, executive y lab.
+
+Ese cambio queda visible en el site publico recien despues de una corrida
+exitosa de `GitHub Pages Publish` o `Production Release` con deploy habilitado.
 
 ## Trazabilidad
 

@@ -13,6 +13,9 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+/pytest-temp/
+/pytest-cache/
+/pytest-cache-files-*/
 
 # Virtual environments
 .venv/

@@ -35,8 +35,9 @@ def test_record_github_pages_publish_persists_success() -> None:
                 {
                     "generated_at": "2026-04-23T04:24:30+00:00",
                     "entrypoint": "index.html",
+                    "entrypoint_source": "preview_c1_pro.html",
                     "source_manifest_name": "tablero_maquina_pensante_artifact_manifest.json",
-                    "source_artifact_count": 4,
+                    "source_artifact_count": 5,
                     "build": {
                         "build_source": "github_actions",
                         "db_backend": "postgresql",

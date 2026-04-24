@@ -43,7 +43,7 @@ def test_pipeline_run_recorder_persists_successful_dashboard_build() -> None:
             db_backend="sqlite",
             latest_prices_date="2026-04-22",
             warnings_count=0,
-            artifact_manifest={"artifact_count": 4},
+            artifact_manifest={"artifact_count": 5},
             metadata_json={"variant": "all"},
         )
 
@@ -58,7 +58,7 @@ def test_pipeline_run_recorder_persists_successful_dashboard_build() -> None:
         assert row.commit_sha == "abc123def456"
         assert row.active_scanner_version == "13"
         assert row.latest_prices_date.isoformat() == "2026-04-22"
-        assert row.artifact_manifest["artifact_count"] == 4
+        assert row.artifact_manifest["artifact_count"] == 5
         assert row.metadata_json["variant"] == "all"
         assert row.finished_at is not None
     finally:

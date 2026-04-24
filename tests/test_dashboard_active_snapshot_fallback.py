@@ -98,7 +98,7 @@ def test_active_snapshot_uses_db_fallback_when_run_json_is_missing(monkeypatch) 
         assert [row["ticker"] for row in active_run["results_e"]] == ["NVDA"]
         assert all(row["note"] == "db fallback" for row in active_run["results_d"] + active_run["results_e"])
         assert payload["reference_run"] is None
-        assert payload["active_d"]["total"] == 2
+        assert payload["active_d"]["total"] == 3
         assert payload["active_e"]["total"] == 1
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)

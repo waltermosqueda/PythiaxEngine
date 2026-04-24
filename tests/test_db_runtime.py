@@ -29,8 +29,8 @@ def test_sqlite_fallback_path_respects_env(monkeypatch) -> None:
     try:
         monkeypatch.setenv("SQLITE_FALLBACK_PATH", str(custom_path))
 
-        assert get_sqlite_fallback_path() == custom_path
-        assert get_sqlite_db_path() == custom_path
+        assert get_sqlite_fallback_path() == custom_path.resolve()
+        assert get_sqlite_db_path() == custom_path.resolve()
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -67,7 +67,7 @@ def test_titandb_uses_configured_sqlite_fallback(monkeypatch) -> None:
                 ).fetchall()
             }
 
-        assert resolved_path == custom_path
+        assert resolved_path == custom_path.resolve()
         assert custom_path.exists()
         assert {"prices", "predictions", "outcomes"}.issubset(tables)
     finally:

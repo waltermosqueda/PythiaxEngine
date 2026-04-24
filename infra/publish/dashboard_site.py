@@ -10,7 +10,7 @@ import stat
 from time import sleep
 from typing import Any
 
-from herramientas.dashboard_paths import EXECUTIVE_HTML, INDEX_HTML, LAB_HTML, MANIFEST_PATH, SNAPSHOT_PATH
+from herramientas.dashboard_paths import C1_PRO_BUNDLE_HTML, EXECUTIVE_HTML, INDEX_HTML, LAB_HTML, MANIFEST_PATH, SNAPSHOT_PATH
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,6 +22,7 @@ REQUIRED_SOURCE_FILES = [
     INDEX_HTML.name,
     EXECUTIVE_HTML.name,
     LAB_HTML.name,
+    C1_PRO_BUNDLE_HTML.name,
     MANIFEST_PATH.name,
 ]
 
@@ -76,6 +77,7 @@ def build_site_manifest(source_dir: Path, output_dir: Path) -> dict[str, Any]:
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "entrypoint": ENTRYPOINT_NAME,
+        "entrypoint_source": C1_PRO_BUNDLE_HTML.name,
         "source_dir": str(source_dir.resolve()),
         "output_dir": str(output_dir.resolve()),
         "source_manifest_name": MANIFEST_PATH.name,
@@ -100,7 +102,7 @@ def stage_dashboard_site(source_dir: Path, output_dir: Path) -> list[Path]:
         written.append(dst)
 
     index_alias = output_dir / ENTRYPOINT_NAME
-    shutil.copy2(source_dir / INDEX_HTML.name, index_alias)
+    shutil.copy2(source_dir / C1_PRO_BUNDLE_HTML.name, index_alias)
     written.append(index_alias)
 
     nojekyll = output_dir / NOJEKYLL_NAME
