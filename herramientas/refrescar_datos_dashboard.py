@@ -817,10 +817,13 @@ def _apply_snapshot_sections(html: str, snap: dict) -> str:
     )
     # ── PAGE FOOTER TIMESTAMP ─────────────────────────────────────────────────
     gen_ts = snap.get("generated_at") or ""
+    build_meta = snap.get("build") or {}
+    db_backend = str(build_meta.get("db_backend") or "").lower()
+    source_label = "Postgres/Neon" if db_backend.startswith("postgres") else "SQLite local"
     html = _replace_once(
         html,
-        r"(Titan Machine Dashboard · generado )[\dT:\-]+( · datos desde SQLite local)",
-        rf"\g<1>{gen_ts}\g<2>",
+        r"(Titan Machine Dashboard · generado )[\dT:\-]+(?: · datos desde [^<]+)?",
+        rf"\g<1>{gen_ts} · datos desde {source_label}",
     )
     return html
 

@@ -13,6 +13,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import subprocess
 from typing import Any
 
@@ -36,6 +37,7 @@ from herramientas.dashboard_paths import (
     LAB_HTML,
     MANIFEST_PATH,
     SNAPSHOT_PATH,
+    dashboard_relative_href,
     ensure_dashboard_dir,
 )
 from herramientas.scanner_operativo_context import resolve_operational_scanner_context
@@ -222,10 +224,41 @@ def run_c1_pro_builder(*builder_args: str) -> None:
     )
 
 
+def run_c1_pro_refresher() -> None:
+    subprocess.run(
+        [sys.executable, str(ROOT / "herramientas" / "refrescar_datos_dashboard.py")],
+        cwd=ROOT,
+        check=True,
+    )
+
+
+def rewrite_dashboard_variant_hrefs(html_text: str, output_path: Path) -> str:
+    replacements = {
+        INDEX_HTML.name: dashboard_relative_href(output_path, INDEX_HTML),
+        EXECUTIVE_HTML.name: dashboard_relative_href(output_path, EXECUTIVE_HTML),
+        LAB_HTML.name: dashboard_relative_href(output_path, LAB_HTML),
+    }
+    for file_name, relative_href in replacements.items():
+        html_text = re.sub(
+            rf'href="(?:\.\./)?(?:dashboards/maquina_pensante/)?{re.escape(file_name)}"',
+            f'href="{relative_href}"',
+            html_text,
+        )
+    return html_text
+
+
 def build_c1_pro_outputs() -> list[Path]:
-    run_c1_pro_builder("--output", str(C1_PRO_BUNDLE_HTML))
-    if os.getenv("GITHUB_ACTIONS") != "true":
-        run_c1_pro_builder("--promote")
+    if not AURORA_PRO_HTML.exists():
+        raise FileNotFoundError(
+            f"No existe la plantilla canonica de C1 Pro en {AURORA_PRO_HTML}. "
+            "Restaurala antes de construir el bundle."
+        )
+
+    run_c1_pro_refresher()
+
+    local_html = AURORA_PRO_HTML.read_text(encoding="utf-8")
+    published_html = rewrite_dashboard_variant_hrefs(local_html, C1_PRO_BUNDLE_HTML)
+    C1_PRO_BUNDLE_HTML.write_text(published_html, encoding="utf-8")
     return [C1_PRO_BUNDLE_HTML]
 
 

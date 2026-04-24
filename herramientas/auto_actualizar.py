@@ -32,6 +32,8 @@ VALIDATE_SCRIPT = BASE_DIR / "herramientas" / "validate_market_data.py"
 GESTOR_SCRIPT = BASE_DIR / "herramientas" / "gestor_posiciones_v11.py"
 AUDIT_SCRIPT = BASE_DIR / "herramientas" / "auditoria_integral_claude.py"
 DASHBOARD_SCRIPT = BASE_DIR / "analisis" / "generar_tablero_maquina_pensante.py"
+CLOUD_SYNC_SCRIPT = BASE_DIR / "infra" / "db" / "sync_sqlite_delta_to_target.py"
+CLOUD_SYNC_REPORT = BASE_DIR / "docs" / "cloud" / "reports" / "sqlite_to_target_incremental_sync.json"
 MARKET_CLOSE_HOUR = 19
 POST_CLOSE_RETRY_ATTEMPTS = 4
 POST_CLOSE_RETRY_SLEEP_SECONDS = 20 * 60
@@ -45,6 +47,7 @@ from herramientas.scanner_operativo_context import (
     learning_version_from_path,
     resolve_operational_scanner_context,
 )
+from infra.db.config import get_database_url
 from infra.db.sqlite_compat import connect_sqlite, get_sqlite_db_path
 from herramientas.legacy_ml_registry import load_enabled_legacy_ml_entries
 from titan_system.core.database import TitanDB
@@ -364,6 +367,31 @@ def refrescar_dashboard(step_name: str, fecha_base: date, observed_failures: lis
         observed_failures.append(step_name)
 
 
+def sync_target_incremental(step_name: str, fecha_base: date, observed_failures: list[str]) -> None:
+    if not CLOUD_SYNC_SCRIPT.exists():
+        return
+    try:
+        target_url = get_database_url()
+    except Exception as exc:
+        log.warning(f"[PIPELINE][OPTIONAL] No se pudo resolver DATABASE_URL para sync incremental: {exc}")
+        return
+    if not target_url or target_url.startswith("sqlite:"):
+        return
+    ok = ejecutar_paso_opcional(
+        step_name,
+        [
+            sys.executable,
+            str(CLOUD_SYNC_SCRIPT),
+            "--report-path",
+            str(CLOUD_SYNC_REPORT),
+        ],
+        fecha_base,
+        timeout_seconds=30 * 60,
+    )
+    if not ok:
+        observed_failures.append(step_name)
+
+
 def ejecutar_pipeline_diario(fecha_base: date, ahora: datetime) -> bool:
     operational = resolve_operational_scanner_context()
     active_scanner_label = operational.active_scanner.stem
@@ -430,6 +458,10 @@ def ejecutar_pipeline_diario(fecha_base: date, ahora: datetime) -> bool:
 
     observed_failures: list[str] = []
 
+    # Antes del dashboard core, alineamos Neon/Postgres con la SQLite local para
+    # que el bundle visible y GitHub Pages salgan del mismo corte operativo.
+    sync_target_incremental("sync_target_incremental_core", fecha_base, observed_failures)
+
     # Refrescamos el dashboard core antes de los opcionales lentos para que el
     # tablero operativo y el heatmap queden alineados con la rueda cerrada.
     refrescar_dashboard("dashboard_maquina_core", fecha_base, observed_failures)
@@ -488,6 +520,10 @@ def ejecutar_pipeline_diario(fecha_base: date, ahora: datetime) -> bool:
         )
         if not ok:
             observed_failures.append(step_name)
+
+    # Repetimos el sync despues de observados/legacy para que el refresh final
+    # capture tambien ese material en Postgres antes de publicar el dashboard.
+    sync_target_incremental("sync_target_incremental_final", fecha_base, observed_failures)
 
     # Segundo refresh para incorporar tambien lo que hayan agregado los modelos
     # observados/legacy si llegaron a completarse en esta misma corrida.
