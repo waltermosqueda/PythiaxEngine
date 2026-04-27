@@ -332,10 +332,46 @@ def _model_bid(version: str) -> str:
     return "mc-" + version.lower().replace("_", "-")
 
 
-def _sparkline_svg(values: list[float], stroke: str, fill: str | None = None, width: int = 260, height: int = 60) -> str:
+def _sparkline_labels_from_window(window: dict | None) -> list[str]:
+    if not window:
+        return []
+    labels: list[str] = []
+    for entry in (window.get("calendar") or []):
+        date_text = entry.get("date")
+        if date_text:
+            labels.append(str(date_text))
+    return labels
+
+
+def _trim_series_and_labels(values: list[float | None], labels: list[str] | None = None) -> tuple[list[float], list[str]]:
+    series = [float(v or 0.0) for v in values]
+    if not series:
+        return [], []
+    last = next((idx for idx in range(len(series) - 1, -1, -1) if abs(series[idx]) > 1e-9), -1)
+    if last < 0:
+        return [], []
+    trimmed_series = series[: last + 1]
+    trimmed_labels = list(labels or [])[: last + 1]
+    return trimmed_series, trimmed_labels
+
+
+def _sparkline_svg(
+    values: list[float],
+    stroke: str,
+    fill: str | None = None,
+    width: int = 260,
+    height: int = 60,
+    labels: list[str] | None = None,
+    title: str | None = None,
+    value_format: str = "pct",
+    previewable: bool = False,
+) -> str:
     series = [float(v) for v in values if v is not None]
     if not series:
         return f"<svg viewBox='0 0 {width} {height}' class='spark'><rect width='{width}' height='{height}' rx='4' fill='rgba(255,255,255,0.03)'/></svg>"
+    normalized_labels = list(labels or [])
+    if len(normalized_labels) < len(series):
+        normalized_labels.extend(f"Punto {idx}" for idx in range(len(normalized_labels) + 1, len(series) + 1))
     lo = min(series)
     hi = max(series)
     span = hi - lo or 1.0
@@ -348,12 +384,45 @@ def _sparkline_svg(values: list[float], stroke: str, fill: str | None = None, wi
     area = f"4,{height-3} " + " ".join(f"{x:.1f},{y:.1f}" for x, y in pts) + f" {width-4},{height-3}"
     lx, ly = pts[-1]
     fill = fill or stroke
+    values_json = _esc(json.dumps([round(float(v), 6) for v in series], ensure_ascii=True))
+    labels_json = _esc(json.dumps(normalized_labels[: len(series)], ensure_ascii=True))
     return (
-        f"<svg viewBox='0 0 {width} {height}' class='spark'>"
+        f"<svg viewBox='0 0 {width} {height}' class='spark' "
+        f"data-values='{values_json}' "
+        f"data-labels='{labels_json}' "
+        f"data-title='{_esc(title or '')}' "
+        f"data-format='{_esc(value_format)}' "
+        f"data-previewable='{'1' if previewable else '0'}'>"
         f"<polygon points='{area}' fill='{fill}' opacity='0.14'/>"
         f"<polyline points='{line}' fill='none' stroke='{stroke}' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"
         f"<circle cx='{lx:.1f}' cy='{ly:.1f}' r='3' fill='{stroke}'/>"
         "</svg>"
+    )
+
+
+def _sparkline_markup_from_window(
+    window: dict | None,
+    stroke: str,
+    *,
+    fill: str | None = None,
+    width: int = 260,
+    height: int = 60,
+    title: str | None = None,
+    value_format: str = "pct",
+    previewable: bool = False,
+) -> str:
+    labels = _sparkline_labels_from_window(window)
+    series, labels = _trim_series_and_labels((window or {}).get("spark_avg_return_pct") or [], labels)
+    return _sparkline_svg(
+        _cumulative(series),
+        stroke,
+        fill=fill,
+        width=width,
+        height=height,
+        labels=labels,
+        title=title,
+        value_format=value_format,
+        previewable=previewable,
     )
 
 
@@ -511,7 +580,12 @@ def _hero_card_html(row: dict, *, label: str, card_class: str, subtitle: str, pi
     eq = _row_window(row, "equalized_recent")
     recent = _row_window(row, "recent_30")
     version = str(row.get("version") or "")
-    spark = _sparkline_svg(_cumulative(recent.get("spark_avg_return_pct") or []), ROLE_SPARK.get(role, "#6ea8cc"))
+    spark = _sparkline_markup_from_window(
+        recent,
+        ROLE_SPARK.get(role, "#6ea8cc"),
+        title=f"{version} | 30 ruedas",
+        value_format="pct",
+    )
     rank = row.get("rank") or row.get("rank_equalized") or "—"
     picks_count = picks_override if picks_override is not None else int(row.get("latest_picks") or 0)
     closed = _latest_closed_tickers(row)
@@ -636,7 +710,7 @@ def _render_legacy_grid(snap: dict) -> str:
             f"<div class='mc-badges'>{_role_badge_card(role)} {_freshness_badge_card(row.get('stale_market_days'))}</div>"
             f"<div class='rank-num mc-rank'>#{_fmt_int(row.get('rank'))}</div>"
             "</div>"
-            f"<div class='mc-spark'>{_sparkline_svg(_cumulative(recent.get('spark_avg_return_pct') or []), ROLE_SPARK.get(role, '#6ea8cc'))}</div>"
+            f"<div class='mc-spark'>{_sparkline_markup_from_window(recent, ROLE_SPARK.get(role, '#6ea8cc'), title=f'{version} | curva 30 ruedas', value_format='pct')}</div>"
             "<div class='mc-kpis'>"
             f"<div class='mk'><span>WR</span><strong class='{'pos' if (eq.get('accuracy_pct') or 0) >= 60 else ''}'>{_fmt_pct(eq.get('accuracy_pct'))}</strong></div>"
             f"<div class='mk'><span>Ret</span><strong>{_fmt_pct(eq.get('avg_return_pct'), 3, True)}</strong></div>"
@@ -692,7 +766,7 @@ def _render_models_grid(snap: dict) -> str:
             f"<div class='mc-badges'>{_role_badge_card(role)} {_freshness_badge_card(row.get('stale_market_days'))}</div>"
             f"<div class='rank-num mc-rank'>#{_fmt_int(row.get('rank'))}</div>"
             "</div>"
-            f"<div class='mc-spark'>{_sparkline_svg(_cumulative(recent.get('spark_avg_return_pct') or []), ROLE_SPARK.get(role, '#6ea8cc'))}</div>"
+            f"<div class='mc-spark'>{_sparkline_markup_from_window(recent, ROLE_SPARK.get(role, '#6ea8cc'), title=f'{version} | curva 30 ruedas', value_format='pct')}</div>"
             "<div class='mc-kpis'>"
             f"<div class='mk'><span>WR</span><strong class='{'pos' if (eq.get('accuracy_pct') or 0) >= 60 else ''}'>{_fmt_pct(eq.get('accuracy_pct'))}</strong></div>"
             f"<div class='mk'><span>Ret</span><strong>{_fmt_pct(eq.get('avg_return_pct'), 3, True)}</strong></div>"
@@ -721,6 +795,7 @@ def _apply_snapshot_sections(html: str, snap: dict) -> str:
     active = snap.get("active") or {}
     leader = league[0] if league else {}
     leader_eq = _row_window(leader, "equalized_recent")
+    leader_spark_title = f'{str(leader.get("version") or "Lider")} | liga reciente'
     live_tickers = _hero_live_tickers(snap)
     competition_period_suffix = _competition_period_suffix(snap)
 
@@ -771,7 +846,7 @@ def _apply_snapshot_sections(html: str, snap: dict) -> str:
         + f'<div class="ls-version">{_esc(leader.get("version") or "—")}</div>'
         + f'<div class="ls-sub">lider actual · WR {_fmt_pct(leader_eq.get("accuracy_pct"))} · ret {_fmt_pct(leader_eq.get("avg_return_pct"), 3, True)}</div>'
         + '</div>'
-        + f'<div class="ls-spark">{_sparkline_svg(_cumulative(_row_window(leader, "recent_30").get("spark_avg_return_pct") or []), "#f5b833", width=200, height=50)}</div>'
+        + f'<div class="ls-spark">{_sparkline_markup_from_window(_row_window(leader, "recent_30"), "#f5b833", width=200, height=50, title=leader_spark_title, value_format="pct")}</div>'
         + r"\2",
     )
     html = _replace_once(
@@ -1283,6 +1358,7 @@ def build_liga_table(snap: dict) -> str:
         "<th title='\u00daltimos 30 d\u00edas de mercado'>30d</th>"
         "<th title='\u00daltimos 60 d\u00edas de mercado'>60d</th>"
         "<th title='\u00daltimos 90 d\u00edas de mercado'>90d</th>"
+        "<th>Curva</th>"
         "</tr></thead>"
     )
 
@@ -1326,11 +1402,24 @@ def build_liga_table(snap: dict) -> str:
                 break
         prev_picks_s = " ".join(prev_tks[:5]) or st.get("prev", "")
         # Sparkline data for liga expand row
-        sp_raw    = r30.get("spark_avg_return_pct") or []
-        last_sp   = next((idx for idx in range(len(sp_raw)-1, -1, -1) if abs(sp_raw[idx] or 0) > 1e-9), len(sp_raw)-1)
-        sp_vals   = _cumulative([sp_raw[idx] for idx in range(last_sp+1)])
+        sp_series, sp_labels = _trim_series_and_labels(
+            r30.get("spark_avg_return_pct") or [],
+            _sparkline_labels_from_window(r30),
+        )
+        sp_vals   = _cumulative(sp_series)
         sp_json   = json.dumps(sp_vals)
+        sp_labels_json = json.dumps(sp_labels, ensure_ascii=True)
         sp_color  = ROLE_SPARK.get(role, "#6ea8cc")
+        curve_svg = _sparkline_svg(
+            sp_vals,
+            sp_color,
+            width=220,
+            height=68,
+            labels=sp_labels,
+            title=f"{ver} | curva reciente",
+            value_format="pct",
+            previewable=True,
+        )
 
         rows.append(
             f"<tr data-bid='leag-{ver}' data-blabel='{ver}' "
@@ -1343,6 +1432,7 @@ def build_liga_table(snap: dict) -> str:
             f"data-w30='{w30_s}' "
             f"data-prev-picks='{_esc(prev_picks_s)}' "
             f"data-spark-vals='{sp_json}' "
+            f"data-spark-labels='{_esc(sp_labels_json)}' "
             f"data-spark-color='{sp_color}'>"
             f"<td><span class='rank-num'>{i}</span></td>"
             f"<td><strong>{ver}</strong> {_role_badge_liga(role)}</td>"
@@ -1355,6 +1445,7 @@ def build_liga_table(snap: dict) -> str:
             f"{_window_cell(m.get('recent_30'))}"
             f"{_window_cell(m.get('recent_60'))}"
             f"{_window_cell(m.get('recent_90'))}"
+            f"<td class='league-spark-cell'>{curve_svg}</td>"
             f"</tr>"
         )
 
@@ -1508,16 +1599,15 @@ def _make_sparkline_c1pro(row: dict, color: str) -> str:
     r30 = row.get("recent_30") or {}
     sp  = r30.get("spark_avg_return_pct") or []
     cal = r30.get("calendar") or []
-    # trim trailing zeros
-    last = next((i for i in range(len(sp) - 1, -1, -1) if abs(sp[i] or 0) > 1e-9), -1)
-    if last < 0:
-        last = len(sp) - 1
-    sp_t = [sp[i] for i in range(last + 1)]
-    dt_t = [c["date"] for c in cal[: last + 1] if c.get("date")]
+    sp_t, dt_t = _trim_series_and_labels(
+        sp,
+        [str(c.get("date")) for c in cal if c.get("date")],
+    )
     dates = [(d.split("-")[2] + "/" + d.split("-")[1]) for d in dt_t if len(d.split("-")) == 3]
     vals  = _cumul_c1(sp_t)
     d_json = json.dumps(dates).replace('"', "'")
     v_json = json.dumps(vals)
+    l_json = _esc(json.dumps(dates, ensure_ascii=True))
     n = len(vals)
     if n < 1:
         return (
@@ -1536,7 +1626,9 @@ def _make_sparkline_c1pro(row: dict, color: str) -> str:
     lx, ly = pts[-1].split(",")
     return (
         f"<svg viewBox='0 0 260 60' class='spark' "
-        f"data-dates='{d_json}' data-values='{v_json}'>"
+        f"data-dates='{d_json}' data-values='{v_json}' "
+        f"data-labels='{l_json}' data-title='{_esc(str(row.get('version') or 'Modelo'))} | curva visible' "
+        f"data-format='pct' data-previewable='0'>"
         f"<polygon points='4,57 {poly} {lx},57' fill='{color}' opacity='0.13'/>"
         f"<polyline points='{poly}' fill='none' stroke='{color}' stroke-width='2.4' "
         f"stroke-linecap='round' stroke-linejoin='round'/>"

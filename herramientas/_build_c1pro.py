@@ -579,6 +579,32 @@ body.theme-white .hm-table td{
 #spark-tt.show{ opacity:1; }
 .stt-date{ color:var(--muted,#7a8099); font-size:10px; margin-bottom:2px; }
 .stt-val{ font-size:16px; font-weight:900; line-height:1.1; }
+svg.spark[data-values]{cursor:crosshair}
+svg.spark[data-previewable='1']{cursor:zoom-in}
+.league-spark-cell{min-width:220px;width:236px}
+.league-spark-cell .spark{display:block;width:100%;height:auto}
+.chart-hover-tooltip{
+  position:fixed;z-index:1200;max-width:280px;padding:10px 12px;border-radius:14px;
+  background:rgba(5,12,20,0.96);border:1px solid rgba(255,255,255,0.10);box-shadow:0 18px 40px rgba(0,0,0,0.35);
+  color:var(--ink);font-size:12px;line-height:1.45;pointer-events:none;opacity:0;transform:translateY(6px);
+  transition:opacity .08s ease, transform .08s ease
+}
+.chart-hover-tooltip.show{opacity:1;transform:translateY(0)}
+.chart-hover-tooltip strong{display:block;margin-bottom:4px}
+.chart-hover-label{color:var(--muted);font-size:11px}
+.chart-hover-value{margin-top:6px;font-size:14px;font-weight:800;color:#ffffff}
+.chart-preview-panel{
+  position:fixed;right:18px;bottom:18px;z-index:1190;width:min(520px,calc(100vw - 28px));
+  padding:14px 14px 12px 14px;border-radius:22px;background:linear-gradient(180deg, rgba(16,29,48,0.98) 0%, rgba(10,19,33,0.98) 100%);
+  border:1px solid rgba(255,255,255,0.10);box-shadow:0 26px 65px rgba(0,0,0,0.40);
+  opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .12s ease, transform .12s ease
+}
+.chart-preview-panel.show{opacity:1;transform:translateY(0)}
+.chart-preview-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:10px}
+.chart-preview-title{font-size:12px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);font-weight:800}
+.chart-preview-meta{font-size:18px;font-weight:800;color:var(--ink);text-align:right}
+.chart-preview-canvas{border-radius:16px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
+.chart-preview-canvas svg{display:block;width:100%;height:auto;max-height:240px}
 
 /* ── HEATMAP TOOLTIP HTML ─────────────────────────────────────────────────── */
 .heat-tt{
@@ -1016,7 +1042,7 @@ else:
 # ─── 10. ADD #spark-tt DIV ────────────────────────────────────────────────────
 html = html.replace(
     '<div class="heat-tt" id="heatTT"></div>',
-    '<div class="heat-tt" id="heatTT"></div>\n<div id="spark-tt"><div class="stt-date"></div><div class="stt-val"></div></div>'
+    '<div class="heat-tt" id="heatTT"></div>\n<div class="chart-hover-tooltip" id="chartHoverTooltip"></div>\n<div class="chart-preview-panel" id="chartPreviewPanel"><div class="chart-preview-head"><div class="chart-preview-title"></div><div class="chart-preview-meta"></div></div><div class="chart-preview-canvas"></div></div>'
 )
 
 # ─── 11. ADD JS ───────────────────────────────────────────────────────────────
@@ -1170,12 +1196,164 @@ NEW_JS = r"""
 })();
 
 /* ── LIGA EXPAND ROWS (with sparkline) ───────────────────────────────────── */
-function buildLigaSpark(vals,color,w,h){
+(function(){
+  function parseList(raw){
+    try{
+      var data=JSON.parse(raw||'[]');
+      return Array.isArray(data)?data:[];
+    }catch(_){
+      return [];
+    }
+  }
+  function clamp(value,min,max){
+    return Math.min(max,Math.max(min,value));
+  }
+  function ensureTooltip(){
+    var tooltip=document.getElementById('chartHoverTooltip');
+    if(!tooltip){
+      tooltip=document.createElement('div');
+      tooltip.id='chartHoverTooltip';
+      tooltip.className='chart-hover-tooltip';
+      document.body.appendChild(tooltip);
+    }
+    return tooltip;
+  }
+  function ensurePreview(){
+    var preview=document.getElementById('chartPreviewPanel');
+    if(!preview){
+      preview=document.createElement('div');
+      preview.id='chartPreviewPanel';
+      preview.className='chart-preview-panel';
+      preview.innerHTML=
+        "<div class='chart-preview-head'>"
+        +"<div class='chart-preview-title'></div>"
+        +"<div class='chart-preview-meta'></div>"
+        +"</div>"
+        +"<div class='chart-preview-canvas'></div>";
+      document.body.appendChild(preview);
+    }
+    return preview;
+  }
+  function formatValue(value,format){
+    var num=Number(value);
+    if(!isFinite(num)) return 'â€”';
+    if(format==='int') return Math.round(num).toLocaleString('es-AR');
+    if(format==='float') return num.toFixed(2);
+    return (num>=0?'+':'')+num.toFixed(2)+'%';
+  }
+  function viewBoxSize(svg){
+    var raw=(svg.getAttribute('viewBox')||'').trim().split(/\s+/).map(Number);
+    if(raw.length===4 && raw.every(Number.isFinite)) return { width:raw[2], height:raw[3] };
+    return { width:240, height:72 };
+  }
+  function ensureMarker(svg){
+    if(svg._sparkHoverMarker) return svg._sparkHoverMarker;
+    var marker=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    marker.setAttribute('r','5');
+    marker.setAttribute('fill','#ffffff');
+    marker.setAttribute('stroke',svg.dataset.markerStroke||'#21c7c4');
+    marker.setAttribute('stroke-width','2');
+    marker.setAttribute('opacity','0');
+    marker.setAttribute('pointer-events','none');
+    svg.appendChild(marker);
+    svg._sparkHoverMarker=marker;
+    return marker;
+  }
+  function moveMarker(svg,values,index){
+    var marker=ensureMarker(svg);
+    var box=viewBoxSize(svg);
+    var lo=Math.min.apply(null,values);
+    var hi=Math.max.apply(null,values);
+    var span=(hi-lo)||1;
+    var x=index*(box.width-8)/Math.max(values.length-1,1)+4;
+    var y=box.height-8-((values[index]-lo)/span)*(box.height-16);
+    marker.setAttribute('cx',x.toFixed(2));
+    marker.setAttribute('cy',y.toFixed(2));
+    marker.setAttribute('opacity','1');
+  }
+  function hideMarker(svg){
+    if(svg && svg._sparkHoverMarker) svg._sparkHoverMarker.setAttribute('opacity','0');
+  }
+  function nearestIndex(svg,event,values){
+    var rect=svg.getBoundingClientRect();
+    var ratio=clamp((event.clientX-rect.left)/Math.max(rect.width,1),0,1);
+    return Math.round(ratio*Math.max(values.length-1,0));
+  }
+  function positionTooltip(tooltip,event){
+    tooltip.style.left=Math.min(window.innerWidth-tooltip.offsetWidth-16,event.clientX+16)+'px';
+    tooltip.style.top=Math.min(window.innerHeight-tooltip.offsetHeight-16,event.clientY+16)+'px';
+  }
+  function updatePreview(svg,label,valueText){
+    if(svg.dataset.previewable!=='1') return;
+    var preview=ensurePreview();
+    preview.querySelector('.chart-preview-title').textContent=svg.dataset.title||'Preview';
+    preview.querySelector('.chart-preview-meta').textContent=label+' Â· '+valueText;
+    preview.querySelector('.chart-preview-canvas').innerHTML=svg.outerHTML;
+    preview.classList.add('show');
+    svg.classList.add('is-previewable');
+  }
+  function hidePreview(svg){
+    if(svg) svg.classList.remove('is-previewable');
+    var preview=document.getElementById('chartPreviewPanel');
+    if(preview) preview.classList.remove('show');
+  }
+  function bindSpark(svg){
+    if(!svg || svg.dataset.hoverBound==='1') return;
+    svg.dataset.hoverBound='1';
+    var values=parseList(svg.dataset.values);
+    var labels=parseList(svg.dataset.labels);
+    if(!values.length) return;
+    var tooltip=ensureTooltip();
+    var polyline=svg.querySelector('polyline[stroke]');
+    svg.dataset.markerStroke=polyline?polyline.getAttribute('stroke'):'#21c7c4';
+    function update(event){
+      var idx=nearestIndex(svg,event,values);
+      var label=String(labels[idx]||('Punto '+(idx+1)));
+      var valueText=formatValue(values[idx],svg.dataset.format||'pct');
+      tooltip.innerHTML=
+        '<strong>'+(svg.dataset.title||'Serie')+'</strong>'
+        +"<div class='chart-hover-label'>"+label+"</div>"
+        +"<div class='chart-hover-value'>"+valueText+"</div>";
+      tooltip.classList.add('show');
+      positionTooltip(tooltip,event);
+      moveMarker(svg,values.map(Number),idx);
+      updatePreview(svg,label,valueText);
+    }
+    function leave(){
+      tooltip.classList.remove('show');
+      hideMarker(svg);
+      hidePreview(svg);
+    }
+    svg.addEventListener('mouseenter',update);
+    svg.addEventListener('mousemove',update);
+    svg.addEventListener('mouseleave',leave);
+  }
+  window.__bindC1DashboardSpark=bindSpark;
+  window.__bindC1DashboardSparkAll=function(scope){
+    (scope||document).querySelectorAll("svg.spark[data-values], svg.sparkline[data-values]").forEach(bindSpark);
+  };
+  function init(){
+    window.__bindC1DashboardSparkAll(document);
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',init,{ once:true });
+  }else{
+    init();
+  }
+})();
+
+function buildLigaSpark(vals,labels,color,w,h,title,format,previewable){
   if(!vals||vals.length<2) return '';
   var n=vals.length,lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals),rng=hi-lo||1,pts=[];
   for(var i=0;i<n;i++){ var x=4+(i/(n-1))*(w-8),y=h-4-((vals[i]-lo)/rng)*(h-8); pts.push(x.toFixed(1)+','+y.toFixed(1)); }
   var line=pts.join(' '),lx=pts[n-1].split(',')[0],ly=pts[n-1].split(',')[1];
-  return '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:'+h+'px;display:block;overflow:visible">'
+  return '<svg viewBox="0 0 '+w+' '+h+'" class="spark"'
+    +' data-values=\''+JSON.stringify(vals)+'\''
+    +' data-labels=\''+JSON.stringify(labels||[])+'\''
+    +' data-title="'+String(title||'Serie').replace(/"/g,'&quot;')+'"'
+    +' data-format="'+(format||'pct')+'"'
+    +' data-previewable="'+(previewable?'1':'0')+'"'
+    +' style="width:100%;height:'+h+'px;display:block;overflow:visible">'
     +'<polygon points="4,'+(h-2)+' '+line+' '+lx+','+(h-2)+'" fill="'+color+'" opacity="0.12"/>'
     +'<polyline points="'+line+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
     +'<circle cx="'+lx+'" cy="'+ly+'" r="3" fill="'+color+'"/></svg>';
@@ -1216,6 +1394,7 @@ function initLigaExpand(){
           var w30=row.getAttribute('data-w30')||'—';
           var prevPicks=row.getAttribute('data-prev-picks')||'—';
           var sparkValsRaw=row.getAttribute('data-spark-vals')||'[]';
+          var sparkLabelsRaw=row.getAttribute('data-spark-labels')||'[]';
           var sparkColor=row.getAttribute('data-spark-color')||'#18e8c8';
           var retCls=ret.indexOf('-')===0?'neg':'pos';
           var bestCls=best.indexOf('-')===0?'neg':'pos';
@@ -1223,7 +1402,8 @@ function initLigaExpand(){
           var sparkHtml='';
           try{
             var sv=JSON.parse(sparkValsRaw);
-            if(sv.length>1) sparkHtml='<div class="liga-expand-spark"><div class="liga-expand-spark-label">Retorno acumulado (30 ruedas)</div>'+buildLigaSpark(sv,sparkColor,560,44)+'</div>';
+            var sl=JSON.parse(sparkLabelsRaw);
+            if(sv.length>1) sparkHtml='<div class="liga-expand-spark"><div class="liga-expand-spark-label">Retorno acumulado (30 ruedas)</div>'+buildLigaSpark(sv,sl,sparkColor,560,44,(cells[0]?cells[0].innerText.trim():'Modelo')+' | detalle expandido','pct',false)+'</div>';
           }catch(ex){}
           var dr=document.createElement('tr');
           dr.className='liga-detail-row';
@@ -1246,6 +1426,7 @@ function initLigaExpand(){
             '<div class="liga-detail-signal"><b>Se\u00f1al:</b> '+signal+'</div>'+
             sparkHtml+'</td>';
           row.insertAdjacentElement('afterend',dr);
+          if(window.__bindC1DashboardSparkAll) window.__bindC1DashboardSparkAll(dr);
         }
       });
     });
