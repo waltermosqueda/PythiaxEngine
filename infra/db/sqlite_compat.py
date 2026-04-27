@@ -3,10 +3,16 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from infra.db.config import get_sqlite_fallback_path
+from sqlalchemy.engine import make_url
+
+from infra.db.config import get_database_url, get_sqlite_fallback_path
 
 
 def get_sqlite_db_path() -> Path:
+    database_url = get_database_url()
+    url = make_url(database_url)
+    if url.get_backend_name() == "sqlite" and url.database:
+        return Path(url.database).expanduser().resolve()
     return get_sqlite_fallback_path()
 
 

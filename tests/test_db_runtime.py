@@ -37,6 +37,20 @@ def test_sqlite_fallback_path_respects_env(monkeypatch) -> None:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+def test_sqlite_db_path_prefers_runtime_database_url(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    runtime_path = tmp_dir / "runtime" / "active.db"
+    fallback_path = tmp_dir / "fallback" / "fallback.db"
+    try:
+        monkeypatch.setenv("DATABASE_URL", f"sqlite:///{runtime_path.resolve().as_posix()}")
+        monkeypatch.setenv("SQLITE_FALLBACK_PATH", str(fallback_path))
+
+        assert get_sqlite_fallback_path() == fallback_path.resolve()
+        assert get_sqlite_db_path() == runtime_path.resolve()
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
 def test_connect_sqlite_creates_parent_and_supports_row_factory(monkeypatch) -> None:
     tmp_dir = make_workspace_tmp_dir()
     custom_path = tmp_dir / "db" / "runtime.db"
