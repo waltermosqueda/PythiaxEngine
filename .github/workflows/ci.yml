@@ -11,12 +11,14 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -29,4 +31,4 @@ jobs:
         run: python -m compileall titan_system herramientas SCANNER analisis infra alembic tests
 
       - name: Unit tests
-        run: pytest tests
+        run: python -m pytest tests
