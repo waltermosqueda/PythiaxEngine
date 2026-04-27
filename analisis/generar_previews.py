@@ -94,13 +94,13 @@ def render_html(payload: dict, css: str) -> str:
     rv       = act.get("reference_version")
     champ_lbl = f"V{av}"
     ref_lbl   = f"V{rv}" if rv else "-"
-    rm       = {str(r["version"]): r for r in rec["league_equalized"]}
+    league   = rec.get("dashboard_league_equalized") or rec["league_equalized"]
+    rm       = {str(r["version"]): r for r in league}
     champ    = rm.get(champ_lbl, {})
     ch_eq    = champ.get("equalized_recent") or {}
     ch_30    = champ.get("recent_30") or {}
     ch_ticks = set(champ.get("latest_tickers") or [])
     eq_days  = rec.get("equalized_days", 0)
-    league   = rec["league_equalized"]
     hist_rows = [r for r in league if r.get("role") != "legacy_ml"]
     ml_rows   = [r for r in league if r.get("role") == "legacy_ml"]
     leader    = league[0] if league else {}

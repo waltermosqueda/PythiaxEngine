@@ -28,6 +28,9 @@ HORIZON_RE = re.compile(r"_D(\d+)$")
 STANDARD_TOP_N = 2
 STANDARD_SCOPE = "asset_per_prediction_day"
 STANDARD_SELECTION = "snapshot_rank_then_max_native_horizon_with_db_fallback"
+REDUNDANCY_MIN_COMMON_DAYS = 5
+REDUNDANCY_SAME_DAY_PCT = 85.0
+REDUNDANCY_AGG_JACCARD = 0.9
 
 
 def _to_float(value: Any) -> float | None:
@@ -132,6 +135,104 @@ def _build_focus_labels(
             return labels
 
     return labels
+
+
+def _is_scanner_label(label: str) -> bool:
+    return label.startswith("V") and label[1:].isdigit()
+
+
+def _state_similarity(
+    left_state: dict[str, Any],
+    right_state: dict[str, Any],
+    window_dates: list[str],
+) -> dict[str, Any]:
+    common_dates = sorted(set(left_state["all_dates"]) & set(right_state["all_dates"]) & set(window_dates))
+    same_days = 0
+    total_intersection = 0
+    total_union = 0
+
+    for date_text in common_dates:
+        left_tickers = set((left_state["day_records"].get(date_text) or {}).get("tickers") or [])
+        right_tickers = set((right_state["day_records"].get(date_text) or {}).get("tickers") or [])
+        if left_tickers == right_tickers:
+            same_days += 1
+        union = left_tickers | right_tickers
+        total_intersection += len(left_tickers & right_tickers)
+        total_union += len(union)
+
+    same_pct = (same_days * 100.0 / len(common_dates)) if common_dates else None
+    agg_jaccard = (total_intersection / total_union) if total_union else None
+    return {
+        "common_dates": len(common_dates),
+        "same_days": same_days,
+        "same_pct": round(same_pct, 1) if same_pct is not None else None,
+        "agg_jaccard": round(agg_jaccard, 3) if agg_jaccard is not None else None,
+    }
+
+
+def _build_dashboard_scanner_visibility(
+    rows_equalized: list[dict[str, Any]],
+    state_map: dict[str, dict[str, Any]],
+    active_version: int,
+    window_dates: list[str],
+) -> tuple[list[str], list[dict[str, Any]]]:
+    scanner_rows = [row for row in rows_equalized if _is_scanner_label(str(row.get("version") or ""))]
+    row_map = {str(row["version"]): row for row in scanner_rows}
+    visible_labels: list[str] = []
+    hidden_rows: list[dict[str, Any]] = []
+
+    def add_visible(label: str | None) -> None:
+        if label and label in row_map and label not in visible_labels:
+            visible_labels.append(label)
+
+    add_visible(f"V{active_version}")
+    add_visible("V11")
+
+    for row in scanner_rows:
+        label = str(row["version"])
+        if label in visible_labels:
+            continue
+
+        version_number = int(label[1:]) if _is_scanner_label(label) else None
+        if version_number is not None and version_number < 11:
+            hidden_rows.append(
+                {
+                    "version": label,
+                    "role": row.get("role"),
+                    "hidden_for_dashboard": True,
+                    "anchor_version": "V11" if "V11" in row_map else (visible_labels[0] if visible_labels else None),
+                    "reason": "pre_v11_reference",
+                }
+            )
+            continue
+
+        hidden_reason: dict[str, Any] | None = None
+        for anchor_label in visible_labels:
+            similarity = _state_similarity(state_map[label], state_map[anchor_label], window_dates)
+            if (
+                similarity["common_dates"] >= REDUNDANCY_MIN_COMMON_DAYS
+                and similarity["same_pct"] is not None
+                and similarity["same_pct"] >= REDUNDANCY_SAME_DAY_PCT
+                and similarity["agg_jaccard"] is not None
+                and similarity["agg_jaccard"] >= REDUNDANCY_AGG_JACCARD
+            ):
+                hidden_reason = {
+                    "version": label,
+                    "role": row.get("role"),
+                    "hidden_for_dashboard": True,
+                    "anchor_version": anchor_label,
+                    "reason": "redundant_recent_behavior",
+                    **similarity,
+                }
+                break
+
+        if hidden_reason is not None:
+            hidden_rows.append(hidden_reason)
+            continue
+
+        visible_labels.append(label)
+
+    return visible_labels, hidden_rows
 
 
 def _legacy_run_dirs_by_label() -> dict[str, Path]:
@@ -688,6 +789,18 @@ def build_standardized_competition_snapshot(
     rank_equalized = {str(row["version"]): row["rank"] for row in by_equalized}
     focus_labels = _build_focus_labels(by_equalized, active_version, reference_version)
     row_map = {str(row["version"]): row for row in equalized_rows}
+    dashboard_scanner_labels, hidden_redundant_scanners = _build_dashboard_scanner_visibility(
+        by_equalized,
+        state_map,
+        active_version,
+        competition_dates,
+    )
+    dashboard_scanner_label_set = set(dashboard_scanner_labels)
+    dashboard_league_equalized = [
+        row
+        for row in by_equalized
+        if str(row.get("role") or "") == "legacy_ml" or str(row.get("version") or "") in dashboard_scanner_label_set
+    ]
 
     return {
         "policy": {
@@ -707,6 +820,9 @@ def build_standardized_competition_snapshot(
             "equalized_days": competition_days,
             "competition_start": competition_start,
             "league_equalized": by_equalized,
+            "dashboard_league_equalized": dashboard_league_equalized,
+            "dashboard_scanner_labels": dashboard_scanner_labels,
+            "hidden_redundant_scanners": hidden_redundant_scanners,
             "focus_labels": focus_labels,
             "focus_models": [row_map[label] for label in focus_labels if label in row_map],
             "rank_30": rank_30,

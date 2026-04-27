@@ -1048,17 +1048,32 @@ def build_v12_v13_divergence(con: RuntimeDB) -> dict[str, Any]:
     }
 
 
-def build_overlap_matrix(con: RuntimeDB) -> dict[str, Any]:
-    labels = {
-        "V13": "INVERTIR_V13_D_D10",
+def build_overlap_matrix(
+    con: RuntimeDB,
+    scanner_labels: list[str] | None = None,
+) -> dict[str, Any]:
+    scanner_model_map = {
+        "V11": "INVERTIR_V11_C5_D4",
         "V12": "INVERTIR_V12_D_D10",
-        "ML_V97": "LEGACY_ML_V97_SURGE_D3",
-        "ML_V39": "LEGACY_ML_V39_TOP_D1",
-        "ML_V39FULL": "LEGACY_ML_V39FULL_TOP_D1",
-        "ML_BRAIN_V11": "LEGACY_ML_BRAIN_V11_BUY_D5",
-        "ML_BRAIN_V11_OPT": "LEGACY_ML_BRAIN_V11_OPT_BUY_D5",
-        "ML_V37": "LEGACY_ML_V37_SURGE_D1",
+        "V13": "INVERTIR_V13_D_D10",
     }
+    labels: dict[str, str] = {}
+    for label in scanner_labels or ["V13", "V11"]:
+        model_name = scanner_model_map.get(label)
+        if model_name:
+            labels[label] = model_name
+    if not labels:
+        labels["V13"] = scanner_model_map["V13"]
+    labels.update(
+        {
+            "ML_V97": "LEGACY_ML_V97_SURGE_D3",
+            "ML_V39": "LEGACY_ML_V39_TOP_D1",
+            "ML_V39FULL": "LEGACY_ML_V39FULL_TOP_D1",
+            "ML_BRAIN_V11": "LEGACY_ML_BRAIN_V11_BUY_D5",
+            "ML_BRAIN_V11_OPT": "LEGACY_ML_BRAIN_V11_OPT_BUY_D5",
+            "ML_V37": "LEGACY_ML_V37_SURGE_D1",
+        }
+    )
     recent_dates = query_df(
         con,
         """
@@ -1280,7 +1295,10 @@ def build_dashboard_payload(
             "competition": competition_rows,
             "competition_recent": standardized_competition["recent"],
             "divergence": build_v12_v13_divergence(con),
-            "overlap": build_overlap_matrix(con),
+            "overlap": build_overlap_matrix(
+                con,
+                standardized_competition["recent"].get("dashboard_scanner_labels"),
+            ),
             "sectors": build_sector_snapshot(db),
         }
     return payload
@@ -2652,6 +2670,28 @@ def render_builder_script() -> str:
   syncThemeInputs();
 })();
     """
+
+
+def dashboard_visible_league_rows(recent: dict[str, Any]) -> list[dict[str, Any]]:
+    return list(recent.get("dashboard_league_equalized") or recent.get("league_equalized") or [])
+
+
+def filter_dashboard_competition_rows(
+    rows: list[dict[str, Any]],
+    recent: dict[str, Any],
+) -> list[dict[str, Any]]:
+    scanner_labels = set(recent.get("dashboard_scanner_labels") or [])
+    if not scanner_labels:
+        return list(rows)
+    filtered: list[dict[str, Any]] = []
+    for row in rows:
+        role = str(row.get("role") or "")
+        version = str(row.get("version") or "")
+        if role == "legacy_ml" or version in scanner_labels:
+            filtered.append(row)
+    return filtered
+
+
 def render_index(payload: dict[str, Any]) -> str:
     integrity = payload["integrity"]
     active = payload["active"]
@@ -2660,15 +2700,18 @@ def render_index(payload: dict[str, Any]) -> str:
     divergence = payload["divergence"]
     active_run = active["active_run"] or {}
     live_results = active_run.get("results_d", []) + active_run.get("results_e", [])
-    row_map = {str(row["version"]): row for row in recent["league_equalized"]}
+    visible_league = dashboard_visible_league_rows(recent)
+    row_map = {str(row["version"]): row for row in visible_league}
     champion_label = f"V{active['active_version']}"
     reference_label = f"V{active['reference_version']}" if active.get("reference_version") else None
     champion_family = row_map.get(champion_label, {})
     reference_family = row_map.get(reference_label, {}) if reference_label else {}
-    league_equalized = recent["league_equalized"][:5]
-    league_all = recent["league_equalized"]
+    league_equalized = visible_league[:5]
+    league_all = visible_league
     historical_rows = [row for row in league_all if str(row.get("role")) != "legacy_ml"]
     legacy_rows = [row for row in league_all if str(row.get("role")) == "legacy_ml"]
+    hidden_redundant_scanners = recent.get("hidden_redundant_scanners") or []
+    base_family = row_map.get("V11", {})
     focus_models: list[dict[str, Any]] = []
     for candidate in [champion_family] + historical_rows[:3] + legacy_rows[:3]:
         if candidate and candidate not in focus_models:
@@ -2683,6 +2726,7 @@ def render_index(payload: dict[str, Any]) -> str:
     champion_equalized = champion_family.get("equalized_recent") or {}
     champion_recent_30 = champion_family.get("recent_30") or {}
     reference_equalized = reference_family.get("equalized_recent") or {}
+    base_equalized = base_family.get("equalized_recent") or {}
     leader_window = leader_equalized.get("window") or {}
     champion_latest = set(champion_family.get("latest_tickers", []) or [])
     champion_curve = cumulative_series(champion_recent_30.get("spark_avg_return_pct", []))
@@ -2758,7 +2802,7 @@ def render_index(payload: dict[str, Any]) -> str:
         <div class="drawer-body">
           <div class="kpi-line"><span>{safe(champion_label)} hits</span><strong>{fmt_int(champion_equalized.get('hits'))}/{fmt_int(champion_equalized.get('evaluated'))}</strong></div>
           <div class="kpi-line"><span>{safe(leader_equalized.get('version') or 'Lider')} hits</span><strong>{fmt_int(leader_window.get('hits'))}/{fmt_int(leader_window.get('evaluated'))}</strong></div>
-          <div class="kpi-line"><span>V12 vs V13</span><strong>{fmt_int(divergence.get('changed_dates'))} fechas distintas</strong></div>
+          <div class="kpi-line"><span>Clones ocultos</span><strong>{fmt_int(len(hidden_redundant_scanners))}</strong></div>
           <div class="kpi-line"><span>Lectura</span><strong>Metricas desde outcomes</strong></div>
         </div>
       </details>
@@ -2790,7 +2834,7 @@ def render_index(payload: dict[str, Any]) -> str:
         <div class="stat-card accent-green editable-block" data-block-id="kpi-lider" data-block-label="KPI Lider actual"><div class="stat-label">Lider actual</div><div class="stat-value">{safe(leader_equalized.get('version') or '-')}</div><div class="stat-subtitle">{fmt_pct(leader_window.get('accuracy_pct'))} | {fmt_pct(leader_window.get('avg_return_pct'), 3, signed=True)}</div></div>
         <div class="stat-card accent-gold editable-block" data-block-id="kpi-picks" data-block-label="KPI Picks vivos"><div class="stat-label">Picks vivos</div><div class="stat-value">{fmt_int(len(live_results))} | {safe(active_run.get('regime_label', '-'))}</div><div class="stat-subtitle">breadth {fmt_pct(active_run.get('breadth_pct'), 1)} | target {fmt_date(active_run.get('prediction_for'))}</div></div>
         <div class="stat-card accent-rose editable-block" data-block-id="kpi-db" data-block-label="KPI DB viva"><div class="stat-label">DB viva</div><div class="stat-value">{fmt_int(integrity['outcomes_count'])}</div><div class="stat-subtitle">outcomes | pred {fmt_int(integrity['predictions_count'])}</div></div>
-        <div class="stat-card editable-block" data-block-id="kpi-divergencia" data-block-label="KPI V12 vs V13"><div class="stat-label">V12 vs V13</div><div class="stat-value">{fmt_int(divergence['changed_dates'])}</div><div class="stat-subtitle">fechas distintas sobre {fmt_int(divergence['common_dates'])}</div></div>
+        <div class="stat-card editable-block" data-block-id="kpi-divergencia" data-block-label="KPI familias visibles"><div class="stat-label">Familias scanner</div><div class="stat-value">{fmt_int(len(historical_rows))}</div><div class="stat-subtitle">{fmt_int(len(hidden_redundant_scanners))} clones ocultos por redundancia</div></div>
         <div class="stat-card editable-block" data-block-id="kpi-integridad" data-block-label="KPI Integridad"><div class="stat-label">Integridad</div><div class="stat-value">{integrity['coverage_last_30']['predictions']['covered_days']}/{integrity['coverage_last_30']['predictions']['expected_days']}</div><div class="stat-subtitle">pred | out | regime alineados</div></div>
       </section>
 
@@ -2830,7 +2874,7 @@ def render_index(payload: dict[str, Any]) -> str:
               <div class="mini-title">Sleeve E_D15</div>
               <div class="mini-value">{fmt_pct(active['active_e'].get('accuracy_pct'))}</div>
               <div class="kpi-line"><span>Ret medio</span><strong>{fmt_pct(active['active_e'].get('avg_return_pct'), 3, signed=True)}</strong></div>
-              <div class="kpi-line"><span>Referencia</span><strong>{safe(recent_value_text(reference_equalized))}</strong></div>
+              <div class="kpi-line"><span>Base V11</span><strong>{safe(recent_value_text(base_equalized))}</strong></div>
             </div>
           </div>
         </article>
@@ -2974,7 +3018,7 @@ def render_index(payload: dict[str, Any]) -> str:
         </div>
         <table class="data-table">
           <thead><tr><th>Modelo</th><th>Frescura</th><th>Muestra igualada WR/Ret</th><th>Muestra igualada</th><th>30 ruedas WR/Ret</th><th>30 ruedas muestra</th><th>Universo</th><th>Proximos activos</th></tr></thead>
-          <tbody>{render_full_league_rows(recent['league_equalized'])}</tbody>
+          <tbody>{render_full_league_rows(league_all)}</tbody>
         </table>
       </section>
     </main>
@@ -2988,7 +3032,8 @@ def render_index(payload: dict[str, Any]) -> str:
 def render_executive(payload: dict[str, Any]) -> str:
     integrity = payload["integrity"]
     active = payload["active"]
-    competition = payload["competition"]
+    recent = payload.get("competition_recent") or {}
+    competition = filter_dashboard_competition_rows(payload["competition"], recent)
     divergence = payload["divergence"]
     ingestion = payload["ingestion"]
     active_run = active["active_run"] or {}
@@ -3123,7 +3168,8 @@ def render_executive(payload: dict[str, Any]) -> str:
 
 def render_lab(payload: dict[str, Any]) -> str:
     integrity = payload["integrity"]
-    competition = payload["competition"]
+    recent = payload.get("competition_recent") or {}
+    competition = filter_dashboard_competition_rows(payload["competition"], recent)
     active = payload["active"]
     sectors = payload["sectors"]
     divergence = payload["divergence"]

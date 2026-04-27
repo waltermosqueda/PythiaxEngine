@@ -83,7 +83,7 @@ try:
 except Exception:
     snap = {}
 
-league   = (snap.get('competition_recent') or {}).get('league_equalized') or []
+league   = (snap.get('competition_recent') or {}).get('dashboard_league_equalized') or (snap.get('competition_recent') or {}).get('league_equalized') or []
 active   = snap.get('active') or {}
 run      = (active.get('active_run')) or {}
 champion_ver = f"V{active.get('active_version', '13')}"

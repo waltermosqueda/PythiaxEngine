@@ -157,7 +157,8 @@ def extract_dates(payload: dict[str, Any], models: list[dict[str, Any]]) -> list
 
 
 def normalize_models(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    rows = list(payload["competition_recent"]["league_equalized"])
+    recent = payload["competition_recent"]
+    rows = list(recent.get("dashboard_league_equalized") or recent["league_equalized"])
     active_version = payload["active"]["active_version"]
     reference_version = payload["active"].get("reference_version")
     champion_label = f"V{active_version}"

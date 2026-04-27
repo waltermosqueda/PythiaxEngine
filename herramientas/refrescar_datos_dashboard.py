@@ -217,10 +217,15 @@ def _fmt_ddmm(value: object) -> str:
     return date_value.strftime("%d/%m") if date_value else "--/--"
 
 
+def _dashboard_league(snap: dict) -> list[dict]:
+    cr = snap.get("competition_recent") or {}
+    return list(cr.get("dashboard_league_equalized") or cr.get("league_equalized") or [])
+
+
 def _competition_start_iso(snap: dict) -> str | None:
     cr = snap.get("competition_recent") or {}
     candidates: list[object] = [cr.get("competition_start")]
-    for row in cr.get("league_equalized") or []:
+    for row in _dashboard_league(snap):
         eq = row.get("equalized_recent") or row.get("window") or {}
         candidates.extend([eq.get("competition_start"), eq.get("start_date")])
     parsed = [date_value for candidate in candidates if (date_value := _parse_iso_date(candidate)) is not None]
@@ -454,7 +459,7 @@ def _render_sidebar_config(snap: dict) -> str:
 
 def _render_kpi_strip(snap: dict) -> str:
     cr = snap.get("competition_recent") or {}
-    league = cr.get("league_equalized") or []
+    league = _dashboard_league(snap)
     if not league:
         return ""
     active = snap.get("active") or {}
@@ -551,7 +556,7 @@ def _hero_card_html(row: dict, *, label: str, card_class: str, subtitle: str, pi
 
 def _render_hero_panel(snap: dict) -> str:
     cr = snap.get("competition_recent") or {}
-    league = cr.get("league_equalized") or []
+    league = _dashboard_league(snap)
     if not league:
         return ""
     active = snap.get("active") or {}
@@ -595,7 +600,7 @@ def _render_hero_panel(snap: dict) -> str:
 
 
 def _render_liga_tab2_tbody(snap: dict) -> str:
-    league = (snap.get("competition_recent") or {}).get("league_equalized") or []
+    league = _dashboard_league(snap)
     rows = []
     for row in league:
         eq = _row_window(row, "equalized_recent")
@@ -616,7 +621,7 @@ def _render_liga_tab2_tbody(snap: dict) -> str:
 
 def _render_legacy_grid(snap: dict) -> str:
     """Build model-card HTML for legacy-panel (legacy_ml role only)."""
-    league = (snap.get("competition_recent") or {}).get("league_equalized") or []
+    league = _dashboard_league(snap)
     ml_rows = [m for m in league if str(m.get("role") or "") == "legacy_ml"]
     cards = []
     for row in ml_rows:
@@ -671,7 +676,7 @@ def _render_overlap_table_content(snap: dict) -> str:
 
 
 def _render_models_grid(snap: dict) -> str:
-    league = (snap.get("competition_recent") or {}).get("league_equalized") or []
+    league = _dashboard_league(snap)
     cards = []
     for row in league:
         role = str(row.get("role") or "")
@@ -712,7 +717,7 @@ def _replace_once(html: str, pattern: str, repl: str) -> str:
 
 def _apply_snapshot_sections(html: str, snap: dict) -> str:
     cr = snap.get("competition_recent") or {}
-    league = cr.get("league_equalized") or []
+    league = _dashboard_league(snap)
     active = snap.get("active") or {}
     leader = league[0] if league else {}
     leader_eq = _row_window(leader, "equalized_recent")
@@ -1266,7 +1271,7 @@ def _window_cell(w: dict | None) -> str:
 
 def build_liga_table(snap: dict) -> str:
     cr = snap.get("competition_recent", {})
-    league = cr.get("league_equalized", [])
+    league = _dashboard_league(snap)
     if not league:
         return ""
 
@@ -1359,7 +1364,7 @@ def build_liga_table(snap: dict) -> str:
 # ── build heatmap HTML ────────────────────────────────────────────────────────
 def build_heatmap(snap: dict) -> str:
     cr     = snap.get("competition_recent", {})
-    league = cr.get("league_equalized", [])
+    league = _dashboard_league(snap)
     act    = snap.get("active", {})
     # Try both top-level active and operational_context
     av = act.get("active_version", "") or snap.get("operational_context", {}).get("active_version", "")
@@ -1460,7 +1465,7 @@ def latest_market_date(snap: dict) -> str | None:
     if integrity.get("latest_market_date"):
         return str(integrity["latest_market_date"])
     cr     = snap.get("competition_recent", {})
-    league = cr.get("league_equalized", [])
+    league = _dashboard_league(snap)
     best   = None
     for r in league:
         for key in ("recent_30", "recent_15"):
@@ -1617,7 +1622,7 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
     pred_for     = run.get("prediction_for") or "—"
     regime_cls   = "regime-peligro" if regime_label.upper() == "PELIGRO" else "regime-seguro"
     champion_ver = f"V{active.get('active_version', 13)}"
-    league = (snap.get("competition_recent") or {}).get("league_equalized") or []
+    league = _dashboard_league(snap)
 
     def _prev_tk(row: dict) -> list[str]:
         cal = (row.get("recent_30") or {}).get("calendar") or []
@@ -1722,7 +1727,7 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
 
 def _build_c1pro_hero_row(snap: dict) -> str:
     """Build the 4 hero cards: champion, WR leader, return leader, Señales Vivas."""
-    league = (snap.get("competition_recent") or {}).get("league_equalized") or []
+    league = _dashboard_league(snap)
     active = snap.get("active") or {}
     run    = (active.get("active_run")) or {}
     champion_ver = f"V{active.get('active_version', '13')}"
