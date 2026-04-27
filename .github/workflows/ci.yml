@@ -31,4 +31,42 @@ jobs:
         run: python -m compileall titan_system herramientas SCANNER analisis infra alembic tests
 
       - name: Unit tests
-        run: python -m pytest tests
+        id: unit_tests
+        continue-on-error: true
+        run: python -m pytest tests --junitxml=pytest-results.xml
+
+      - name: Emit pytest annotations
+        if: always()
+        env:
+          PYTEST_OUTCOME: ${{ steps.unit_tests.outcome }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import sys
+          import xml.etree.ElementTree as ET
+
+          junit_path = Path("pytest-results.xml")
+          failures = []
+
+          if junit_path.exists():
+              root = ET.parse(junit_path).getroot()
+              for case in root.iter("testcase"):
+                  case_name = ".".join(
+                      part
+                      for part in [case.attrib.get("classname"), case.attrib.get("name")]
+                      if part
+                  )
+                  for tag in ("failure", "error"):
+                      for node in case.findall(tag):
+                          raw_message = (node.attrib.get("message") or (node.text or "")).strip()
+                          message = raw_message.splitlines()[0][:280] if raw_message else "pytest failure"
+                          print(f"::error title=pytest::{case_name} - {message}")
+                          failures.append(case_name)
+          else:
+              print("::error title=pytest::pytest-results.xml was not generated")
+              failures.append("missing-junit-report")
+
+          if failures or os.getenv("PYTEST_OUTCOME") != "success":
+              sys.exit(1)
+          PY
