@@ -1,28 +1,40 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
+from uuid import uuid4
 
 from infra.db.config import normalize_database_url, read_env_file, resolve_setting
 
 
-def test_read_env_file_parses_basic_and_quoted_values(tmp_path: Path) -> None:
-    env_path = tmp_path / ".env"
-    env_path.write_text(
-        "\n".join(
-            [
-                "# comment",
-                "DATABASE_URL=postgresql+psycopg://user:pass@host/db",
-                'SQLITE_FALLBACK_PATH="titan_system/data/titan.db"',
-                "",
-            ]
-        ),
-        encoding="utf-8",
-    )
+def make_workspace_tmp_dir() -> Path:
+    path = Path(".cache") / "pytest-db-config" / uuid4().hex
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
-    values = read_env_file(env_path)
 
-    assert values["DATABASE_URL"] == "postgresql+psycopg://user:pass@host/db"
-    assert values["SQLITE_FALLBACK_PATH"] == "titan_system/data/titan.db"
+def test_read_env_file_parses_basic_and_quoted_values() -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    try:
+        env_path = tmp_dir / ".env"
+        env_path.write_text(
+            "\n".join(
+                [
+                    "# comment",
+                    "DATABASE_URL=postgresql+psycopg://user:pass@host/db",
+                    'SQLITE_FALLBACK_PATH="titan_system/data/titan.db"',
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        values = read_env_file(env_path)
+
+        assert values["DATABASE_URL"] == "postgresql+psycopg://user:pass@host/db"
+        assert values["SQLITE_FALLBACK_PATH"] == "titan_system/data/titan.db"
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def test_resolve_setting_prefers_real_env_over_env_file(monkeypatch) -> None:

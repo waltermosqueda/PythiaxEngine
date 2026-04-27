@@ -510,7 +510,12 @@ def render_check(result: CheckResult) -> list[str]:
 
 def run_validation(db: TitanDB, expected_date: date) -> tuple[list[CheckResult], date | None]:
     latest_text = db.execute_raw("SELECT MAX(date) AS max_date FROM prices").iloc[0, 0]
-    latest_date = datetime.strptime(latest_text, "%Y-%m-%d").date() if latest_text else None
+    if isinstance(latest_text, datetime):
+        latest_date = latest_text.date()
+    elif isinstance(latest_text, date):
+        latest_date = latest_text
+    else:
+        latest_date = datetime.strptime(str(latest_text)[:10], "%Y-%m-%d").date() if latest_text else None
 
     checks: list[CheckResult] = []
     checks.append(check_global_freshness(latest_date, expected_date))

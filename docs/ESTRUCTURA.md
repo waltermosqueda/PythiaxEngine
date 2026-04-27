@@ -3,6 +3,13 @@
 
 ---
 
+## Decision operativa actual
+
+- La unica linea activa de trabajo es `PythiaxEngine` en GitHub.
+- `Claude/` aparece abajo solo como nombre historico del working copy local.
+- Toda mejora, auditoria o correccion debe contrastarse contra `GitHub + Neon + GitHub Pages`.
+- Solo se inspeccionan proyectos locales hermanos si algo critico se rompio en la migracion cloud.
+
 ## Estructura completa
 
 ```

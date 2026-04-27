@@ -8,6 +8,13 @@ Sistema de trading cuantitativo: estrategias rule-based (INVERTIR) validadas con
 
 ---
 
+## Foco operativo 2026-04-26
+
+- La unica linea activa de trabajo es `PythiaxEngine` en `https://github.com/waltermosqueda/PythiaxEngine`.
+- La carpeta local `Claude/` es solo el nombre historico del working copy. No volver a tratarla como un proyecto separado.
+- Toda mejora, analisis, correccion, auditoria, prediccion o automatizacion debe validarse contra la arquitectura cloud-first: `GitHub + GitHub Actions + Neon Postgres + GitHub Pages`.
+- Solo revisar proyectos locales o dependencias hermanas si una migracion cloud critica quedo rota y bloquea la operacion.
+
 ## Reglas OBLIGATORIAS
 
 1. **NUNCA modificar un scanner productivo ya promovido** — crear versión nueva congelada (`v13 -> v13_1` si el cambio es menor, `v13 -> v14` si el salto es mayor)

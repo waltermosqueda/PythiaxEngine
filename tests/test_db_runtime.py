@@ -4,6 +4,8 @@ import shutil
 from pathlib import Path
 from uuid import uuid4
 
+import pandas as pd
+
 from infra.db.config import DEFAULT_SQLITE_PATH, get_sqlite_fallback_path
 from infra.db.runtime import RuntimeDB, adapt_qmark_sql, aggregate_distinct_sql
 from infra.db.sqlite_compat import connect_sqlite, get_sqlite_db_path
@@ -56,6 +58,8 @@ def test_titandb_uses_configured_sqlite_fallback(monkeypatch) -> None:
     tmp_dir = make_workspace_tmp_dir()
     custom_path = tmp_dir / "db" / "titandb.db"
     try:
+        monkeypatch.setenv("DATABASE_URL", f"sqlite:///{custom_path.resolve().as_posix()}")
+        monkeypatch.delenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", raising=False)
         monkeypatch.setenv("SQLITE_FALLBACK_PATH", str(custom_path))
 
         with TitanDB() as db:
@@ -134,5 +138,90 @@ def test_runtime_db_reads_sqlite_via_database_url(monkeypatch) -> None:
         assert stats["predictions_count"] == 1
         assert stats["outcomes_count"] == 1
         assert stats["db_size_mb"] is not None
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_titandb_sqlalchemy_compat_supports_legacy_queries_and_pandas(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    db_path = tmp_dir / "db" / "compat-runtime.db"
+    try:
+        monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
+        monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
+
+        with TitanDB() as db:
+            assert db.using_sqlalchemy_compat is True
+
+            raw_prices = pd.DataFrame(
+                [
+                    {
+                        "Open": 100.0,
+                        "High": 99.0,
+                        "Low": 101.0,
+                        "Close": 102.0,
+                        "Volume": 1000,
+                        "Adj Close": 102.0,
+                    }
+                ],
+                index=[pd.Timestamp("2026-04-21")],
+            )
+            saved_prices = db.save_prices(raw_prices, "AAPL")
+            db.conn.execute(
+                """
+                INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                ("MSFT", "2026-04-21", 100.0, 99.0, 101.0, 102.0, 1000, 102.0),
+            )
+            db.conn.commit()
+            repaired = db.repair_ohlcv_bounds(start_date="2026-04-21", end_date="2026-04-21")
+
+            prediction_id = db.save_prediction(
+                model_name="INVERTIR_V13_D_D10",
+                ticker="AAPL",
+                prediction_date="2026-04-21",
+                target_date="2026-04-22",
+                direction="UP",
+                confidence=0.81,
+                score=1.7,
+                regime="SEGURO",
+                sector="Tech",
+            )
+            db.conn.execute(
+                """
+                INSERT OR REPLACE INTO outcomes
+                    (prediction_id, actual_direction, actual_return, hit)
+                VALUES (?, ?, ?, ?)
+                """,
+                (prediction_id, "UP", 0.031, 1),
+            )
+            db.conn.execute(
+                """
+                INSERT OR REPLACE INTO data_status (key, value, updated_at)
+                VALUES (?, ?, ?)
+                """,
+                ("latest_prices_date", "2026-04-21", "2026-04-21 20:00:00"),
+            )
+            db.conn.commit()
+
+            row = db.conn.execute(
+                "SELECT high, low FROM prices WHERE ticker = ? AND date = ?",
+                ("MSFT", "2026-04-21"),
+            ).fetchone()
+            status = db.get_market_data_status()
+            predictions = db.get_predictions(model_name="INVERTIR_V13_D_D10")
+            raw_df = db.execute_raw(
+                "SELECT ticker, confidence FROM predictions WHERE model_name = ?",
+                ("INVERTIR_V13_D_D10",),
+            )
+
+        assert saved_prices == 1
+        assert repaired == 1
+        assert prediction_id > 0
+        assert round(float(row[0]), 2) == 102.0
+        assert round(float(row[1]), 2) == 100.0
+        assert status["latest_prices_date"] == "2026-04-21"
+        assert predictions.iloc[0]["ticker"] == "AAPL"
+        assert round(float(raw_df.iloc[0]["confidence"]), 2) == 0.81
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)

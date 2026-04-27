@@ -6,7 +6,7 @@ Genera tableros visuales del estado operativo del proyecto.
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import hashlib
 import html
 import json
@@ -276,6 +276,23 @@ def collapse_target_dates(values: list[Any]) -> str | None:
     if len(target_dates) == 1:
         return target_dates[0]
     return f"{target_dates[0]} -> {target_dates[-1]}"
+
+
+def next_operational_session(analyzed_date: str | None, market_dates: list[str]) -> str | None:
+    if not analyzed_date:
+        return None
+    if analyzed_date in market_dates:
+        idx = market_dates.index(analyzed_date)
+        if idx + 1 < len(market_dates):
+            return market_dates[idx + 1]
+    try:
+        cursor = date.fromisoformat(analyzed_date)
+    except ValueError:
+        return None
+    while True:
+        cursor += timedelta(days=1)
+        if cursor.weekday() < 5:
+            return cursor.isoformat()
 
 
 def query_df(con: RuntimeDB, sql: str, params: tuple[Any, ...] = ()) -> pd.DataFrame:
@@ -710,24 +727,24 @@ def exact_sector_accuracy(db: RuntimeDB, model_name: str, limit: int = 6) -> lis
     return df.head(limit).to_dict(orient="records")
 
 
-def build_latest_results_for_model(con: RuntimeDB, model_name: str) -> dict[str, Any]:
-    latest_prediction_date = query_df(
-        con,
-        """
-        SELECT MAX(prediction_date) AS prediction_date
-        FROM predictions
-        WHERE model_name = ?
-        """,
-        (model_name,),
-    )["prediction_date"].iloc[0]
-    if not latest_prediction_date:
-        return {
-            "model_name": model_name,
-            "prediction_date": None,
-            "target_dates": [],
-            "results": [],
-        }
+def empty_model_results(model_name: str) -> dict[str, Any]:
+    return {
+        "model_name": model_name,
+        "prediction_date": None,
+        "target_dates": [],
+        "results": [],
+    }
 
+
+def build_results_for_model_prediction_date(
+    con: RuntimeDB,
+    model_name: str,
+    prediction_date: Any,
+) -> dict[str, Any]:
+    if not prediction_date:
+        return empty_model_results(model_name)
+
+    prediction_date_text = str(prediction_date)
     df = query_df(
         con,
         """
@@ -741,7 +758,7 @@ def build_latest_results_for_model(con: RuntimeDB, model_name: str) -> dict[str,
             score DESC,
             ticker
         """,
-        (model_name, latest_prediction_date),
+        (model_name, prediction_date_text),
     )
 
     target_dates = sorted({str(value) for value in df["target_date"].tolist() if value}) if not df.empty else []
@@ -767,10 +784,25 @@ def build_latest_results_for_model(con: RuntimeDB, model_name: str) -> dict[str,
 
     return {
         "model_name": model_name,
-        "prediction_date": str(latest_prediction_date),
+        "prediction_date": prediction_date_text,
         "target_dates": target_dates,
         "results": results,
     }
+
+
+def build_latest_results_for_model(con: RuntimeDB, model_name: str) -> dict[str, Any]:
+    latest_prediction_date = query_df(
+        con,
+        """
+        SELECT MAX(prediction_date) AS prediction_date
+        FROM predictions
+        WHERE model_name = ?
+        """,
+        (model_name,),
+    )["prediction_date"].iloc[0]
+    if not latest_prediction_date:
+        return empty_model_results(model_name)
+    return build_results_for_model_prediction_date(con, model_name, latest_prediction_date)
 
 
 def resolve_regime_label_from_db(con: RuntimeDB, analyzed_date: str | None, version: int) -> str:
@@ -809,23 +841,38 @@ def resolve_regime_label_from_db(con: RuntimeDB, analyzed_date: str | None, vers
     return "GLOBAL"
 
 
-def build_run_snapshot_from_db(con: RuntimeDB, version: int) -> dict[str, Any] | None:
+def build_run_snapshot_from_db(
+    con: RuntimeDB,
+    version: int,
+    market_dates: list[str] | None = None,
+) -> dict[str, Any] | None:
     model_d = f"INVERTIR_V{version}_D_D10"
     model_e = f"INVERTIR_V{version}_E_D15"
-    latest_d = build_latest_results_for_model(con, model_d)
-    latest_e = build_latest_results_for_model(con, model_e)
-    if not latest_d["results"] and not latest_e["results"]:
+    latest_d_any = build_latest_results_for_model(con, model_d)
+    latest_e_any = build_latest_results_for_model(con, model_e)
+    if not latest_d_any["results"] and not latest_e_any["results"]:
         return None
 
-    analyzed_candidates = [value for value in [latest_d["prediction_date"], latest_e["prediction_date"]] if value]
+    analyzed_candidates = [value for value in [latest_d_any["prediction_date"], latest_e_any["prediction_date"]] if value]
     analyzed_date = max(analyzed_candidates) if analyzed_candidates else None
+    if not analyzed_date:
+        return None
+
+    # El snapshot publico debe representar un unico corte operativo. Si un
+    # sleeve no emitio picks en la fecha mas reciente, se publica vacio en vez
+    # de arrastrar picks historicos de otra rueda.
+    latest_d = build_results_for_model_prediction_date(con, model_d, analyzed_date)
+    latest_e = build_results_for_model_prediction_date(con, model_e, analyzed_date)
+    prediction_for = next_operational_session(analyzed_date, market_dates or []) or collapse_target_dates(
+        latest_d["target_dates"] + latest_e["target_dates"]
+    )
 
     return {
         "version": version,
         "source": "db_fallback",
         "fallback_reason": "missing_local_run_snapshot",
         "analyzed_date": analyzed_date,
-        "prediction_for": collapse_target_dates(latest_d["target_dates"] + latest_e["target_dates"]),
+        "prediction_for": prediction_for,
         "regime_label": resolve_regime_label_from_db(con, analyzed_date, version),
         "breadth_pct": None,
         "memory_context": [],
@@ -835,21 +882,89 @@ def build_run_snapshot_from_db(con: RuntimeDB, version: int) -> dict[str, Any] |
     }
 
 
-def load_run_snapshot(con: RuntimeDB, version: int | None) -> dict[str, Any] | None:
+def merge_live_results_with_db(
+    snapshot_rows: list[dict[str, Any]] | None,
+    db_rows: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    snapshot_rows = snapshot_rows or []
+    db_rows = db_rows or []
+    if not db_rows:
+        return [dict(row) for row in snapshot_rows]
+
+    snapshot_by_ticker = {
+        str(row.get("ticker")): dict(row)
+        for row in snapshot_rows
+        if row.get("ticker")
+    }
+    merged: list[dict[str, Any]] = []
+    for db_row in db_rows:
+        ticker = str(db_row.get("ticker") or "")
+        base = dict(snapshot_by_ticker.get(ticker, {}))
+        base["ticker"] = db_row.get("ticker")
+        base["signal"] = base.get("signal") or db_row.get("signal")
+        base["sector"] = base.get("sector") or db_row.get("sector")
+        base["confidence"] = db_row.get("confidence")
+        base["score"] = db_row.get("score")
+        base["target_date"] = db_row.get("target_date")
+        if base.get("priority_score") is None:
+            base["priority_score"] = db_row.get("priority_score") or db_row.get("score")
+        if base.get("note") in (None, "", "-"):
+            base["note"] = "db synced" if ticker in snapshot_by_ticker else db_row.get("note") or "db fallback"
+        merged.append(base)
+    return merged
+
+
+def hydrate_run_snapshot_with_db(
+    snapshot: dict[str, Any] | None,
+    db_snapshot: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if snapshot is None:
+        return db_snapshot
+    if db_snapshot is None:
+        return snapshot
+
+    snapshot_analyzed_date = snapshot.get("analyzed_date")
+    db_analyzed_date = db_snapshot.get("analyzed_date")
+    if snapshot_analyzed_date and db_analyzed_date and snapshot_analyzed_date != db_analyzed_date:
+        hydrated = dict(db_snapshot)
+        hydrated["stale_snapshot_ignored"] = True
+        hydrated["stale_snapshot_analyzed_date"] = snapshot_analyzed_date
+        return hydrated
+
+    hydrated = dict(snapshot)
+    hydrated["source"] = "snapshot_db_hybrid"
+    hydrated["db_overlay"] = True
+    hydrated["analyzed_date"] = db_snapshot.get("analyzed_date") or snapshot.get("analyzed_date")
+    hydrated["prediction_for"] = db_snapshot.get("prediction_for") or snapshot.get("prediction_for")
+    hydrated["regime_label"] = db_snapshot.get("regime_label") or snapshot.get("regime_label")
+    hydrated["results_d"] = merge_live_results_with_db(snapshot.get("results_d"), db_snapshot.get("results_d"))
+    hydrated["results_e"] = merge_live_results_with_db(snapshot.get("results_e"), db_snapshot.get("results_e"))
+    return hydrated
+
+
+def load_run_snapshot(
+    con: RuntimeDB,
+    version: int | None,
+    market_dates: list[str] | None = None,
+) -> dict[str, Any] | None:
     if version is None:
         return None
     snapshot = latest_json_snapshot(ROOT / "aprendizaje_operativo" / f"v{version}_runs")
-    if snapshot is not None:
-        return snapshot
-    return build_run_snapshot_from_db(con, version)
+    db_snapshot = build_run_snapshot_from_db(con, version, market_dates)
+    return hydrate_run_snapshot_with_db(snapshot, db_snapshot)
 
 
-def build_active_snapshot(db: RuntimeDB, con: RuntimeDB) -> dict[str, Any]:
+def build_active_snapshot(
+    db: RuntimeDB,
+    con: RuntimeDB,
+    market_dates: list[str] | None = None,
+) -> dict[str, Any]:
     operational = resolve_operational_scanner_context()
     active_version = operational.active_version
     reference_version = operational.reference_version
-    active_run = load_run_snapshot(con, active_version)
-    reference_run = load_run_snapshot(con, reference_version)
+    resolved_market_dates = market_dates or load_market_dates(con)
+    active_run = load_run_snapshot(con, active_version, resolved_market_dates)
+    reference_run = load_run_snapshot(con, reference_version, resolved_market_dates)
 
     active_d = exact_model_accuracy(db, f"INVERTIR_V{active_version}_D_D10")
     active_e = exact_model_accuracy(db, f"INVERTIR_V{active_version}_E_D15")
@@ -1160,7 +1275,7 @@ def build_dashboard_payload(
             },
             "integrity": build_integrity_snapshot(db, con, market_dates),
             "ingestion": build_ingestion_series(con),
-            "active": build_active_snapshot(db, con),
+            "active": build_active_snapshot(db, con, market_dates),
             "competition_policy": standardized_competition["policy"],
             "competition": competition_rows,
             "competition_recent": standardized_competition["recent"],
@@ -3052,6 +3167,7 @@ def render_lab(payload: dict[str, Any]) -> str:
         <div class="kpi-line"><span>Fechas distintas V12/V13</span><strong>{fmt_int(divergence['changed_dates'])}</strong></div>
         <div class="kpi-line"><span>Sleeve E evaluado</span><strong>{fmt_int(active['active_e'].get('total'))} casos</strong></div>
         <div class="kpi-line"><span>Mercado del ultimo snapshot</span><strong>{safe(active_run.get('regime_label', '-'))} | breadth {fmt_pct(active_run.get('breadth_pct'), 1)}</strong></div>
+        <div class="kpi-line"><span>Target operativo</span><strong>{fmt_date(active_run.get('prediction_for'))}</strong></div>
         <div class="footer-note">Un sistema honesto no oculta cuando dos versiones son muy parecidas. Lo muestra, y deja que la diversidad verdadera aparezca en las familias legacy o en sleeves nuevos.</div>
       </div>
     </section>

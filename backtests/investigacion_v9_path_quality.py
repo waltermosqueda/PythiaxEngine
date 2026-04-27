@@ -312,7 +312,9 @@ def align_prepared_to_spy(prepared: dict[str, pd.DataFrame]) -> dict[str, pd.Dat
         work = df.reindex(spy_index)
         for column in work.columns:
             if column.startswith("SIG_") or column in false_on_missing:
-                work[column] = work[column].fillna(False).astype(bool)
+                # Preserve boolean intent without relying on pandas' deprecated
+                # silent downcasting from object+NaN during fillna.
+                work[column] = work[column].astype("boolean").fillna(False).astype(bool)
         aligned[ticker] = work
 
     return aligned

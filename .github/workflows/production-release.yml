@@ -91,6 +91,16 @@ jobs:
       - name: Stage Pages site
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
 
+      - name: Run integrity audit
+        run: |
+          python -m infra.cloud.audit_dashboard_integrity \
+            --snapshot-path dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json \
+            --dashboard-dir dashboards/maquina_pensante \
+            --site-dir dist/github-pages \
+            --sample-size 5 \
+            --seed 130013 \
+            --report-path docs/cloud/reports/dashboard_integrity_audit.json
+
       - name: Validate staged site
         run: |
           test -f dist/github-pages/index.html
@@ -114,6 +124,7 @@ jobs:
             dashboards/maquina_pensante/
             dist/github-pages/site_bundle_manifest.json
             docs/cloud/reports/production_release_runtime_smoke.json
+            docs/cloud/reports/dashboard_integrity_audit.json
 
       - name: Upload Pages artifact
         if: ${{ inputs.deploy_pages }}

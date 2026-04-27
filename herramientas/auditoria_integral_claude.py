@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
-AUDITORIA INTEGRAL CLAUDE
-=========================
+AUDITORIA INTEGRAL PYTHIAXENGINE
+================================
 
 Objetivo:
-  Ejecutar una auditoria reproducible del proyecto Claude para detectar:
+  Ejecutar una auditoria reproducible de PythiaxEngine para detectar:
   - roturas en backtests y flujos criticos
   - desalineaciones entre scanner, gestor, loop operativo y ledger
   - incoherencias de documentacion que puedan volver a inducir errores
+
+Nota:
+  El archivo conserva el nombre historico `auditoria_integral_claude.py`
+  por compatibilidad, pero la auditoria aplica al proyecto cloud-first
+  `PythiaxEngine`.
 
 Uso:
   python herramientas/auditoria_integral_claude.py
@@ -19,15 +24,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import sqlite3
 import subprocess
 import sys
-from datetime import timedelta
+from datetime import timedelta, timezone
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.engine import make_url
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -46,6 +54,7 @@ from herramientas.competencia_topn_estandar import (
     load_entry_snapshots,
 )
 from herramientas.dashboard_paths import AURORA_PRO_HTML, INDEX_HTML as TABLERO_INDEX_PATH, SNAPSHOT_PATH as TABLERO_SNAPSHOT_PATH
+from infra.db.config import get_database_url, get_sqlite_fallback_path
 from infra.db.runtime import connect_runtime_db
 
 REPORTS_DIR = ROOT / "analisis" / "auditorias"
@@ -104,7 +113,11 @@ class AuditResult:
     details: list[str]
 
 
-def run_command(command: list[str], timeout_ms: int = 60000) -> subprocess.CompletedProcess[str]:
+def run_command(
+    command: list[str],
+    timeout_ms: int = 60000,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     try:
         return subprocess.run(
             command,
@@ -115,6 +128,7 @@ def run_command(command: list[str], timeout_ms: int = 60000) -> subprocess.Compl
             errors="replace",
             timeout=max(1, timeout_ms // 1000),
             check=False,
+            env=env,
         )
     except subprocess.TimeoutExpired as exc:
         # Devolver un CompletedProcess sintetico para que los checks lo evaluen como FAIL
@@ -151,6 +165,49 @@ def sqlite_value(query: str, params: tuple[Any, ...] = ()) -> Any:
 def sqlite_value_many(query: str, params: tuple[Any, ...] = ()) -> list[Any]:
     with connect_runtime_db() as con:
         return list(con.execute(query, params).fetchall())
+
+
+def _sqlite_url_for_path(path: Path) -> str:
+    return f"sqlite:///{path.resolve().as_posix()}"
+
+
+def _local_sqlite_value(sqlite_path: Path, query: str, params: tuple[Any, ...] = ()) -> Any:
+    with sqlite3.connect(sqlite_path) as con:
+        row = con.execute(query, params).fetchone()
+        return row[0] if row else None
+
+
+def legacy_runner_env() -> dict[str, str] | None:
+    try:
+        runtime_url = get_database_url()
+        if make_url(runtime_url).get_backend_name() == "sqlite":
+            return None
+        sqlite_path = get_sqlite_fallback_path()
+        if not sqlite_path.exists():
+            return None
+
+        runtime_signature = {
+            "latest_spy": _iso_date_text(sqlite_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'")),
+            "latest_prediction": _iso_date_text(sqlite_value("SELECT MAX(prediction_date) FROM predictions")),
+            "predictions_count": sqlite_value("SELECT COUNT(*) FROM predictions"),
+            "outcomes_count": sqlite_value("SELECT COUNT(*) FROM outcomes"),
+        }
+        local_signature = {
+            "latest_spy": _iso_date_text(_local_sqlite_value(sqlite_path, "SELECT MAX(date) FROM prices WHERE ticker='SPY'")),
+            "latest_prediction": _iso_date_text(_local_sqlite_value(sqlite_path, "SELECT MAX(prediction_date) FROM predictions")),
+            "predictions_count": _local_sqlite_value(sqlite_path, "SELECT COUNT(*) FROM predictions"),
+            "outcomes_count": _local_sqlite_value(sqlite_path, "SELECT COUNT(*) FROM outcomes"),
+        }
+        if runtime_signature != local_signature:
+            return None
+    except Exception:
+        return None
+
+    env = os.environ.copy()
+    env["DATABASE_URL"] = _sqlite_url_for_path(sqlite_path)
+    env["SQLITE_FALLBACK_PATH"] = str(sqlite_path.resolve())
+    env.setdefault("PYTHIAX_TARGET_DATABASE_URL", runtime_url)
+    return env
 
 
 def discover_executable_paths() -> list[Path]:
@@ -552,8 +609,7 @@ def _expected_last_closed_trading_day() -> str:
     - Umbral conservador: 21:30 UTC. Antes de ese umbral, la ultima fecha
       cerrada es el dia habitual anterior a hoy.
     """
-    from datetime import datetime as dt, date
-    utc_now = dt.utcnow()
+    utc_now = datetime.now(timezone.utc)
     hoy_utc = utc_now.date()
 
     # Umbral conservador: siempre despues de cierre NYSE en cualquier estacion
@@ -992,9 +1048,15 @@ def check_doc_alignment() -> AuditResult:
     )
 
 
-def result_from_command(name: str, command: list[str], timeout_ms: int, success_summary: str) -> AuditResult:
+def result_from_command(
+    name: str,
+    command: list[str],
+    timeout_ms: int,
+    success_summary: str,
+    env: dict[str, str] | None = None,
+) -> AuditResult:
     try:
-        completed = run_command(command, timeout_ms=timeout_ms)
+        completed = run_command(command, timeout_ms=timeout_ms, env=env)
     except subprocess.TimeoutExpired as exc:
         return AuditResult(
             name,
@@ -1061,7 +1123,11 @@ def check_ledger() -> AuditResult:
 
 def check_scanner_smoke() -> AuditResult:
     # --equity 1 evita el prompt interactivo de capital (0 causa ZeroDivisionError en sizing)
-    completed = run_command([sys.executable, str(ACTIVE_SCANNER), "--equity", "1"], timeout_ms=60000)
+    completed = run_command(
+        [sys.executable, str(ACTIVE_SCANNER), "--equity", "1"],
+        timeout_ms=60000,
+        env=legacy_runner_env(),
+    )
     return _scanner_health_from_output("Smoke scanner activo", completed)
 
 
@@ -1115,6 +1181,7 @@ def check_learning_smoke_for_version(version: int) -> AuditResult:
     latest_spy = sqlite_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'")
     script_path = ROOT / "herramientas" / f"aprendizaje_operativo_v{version}.py"
     role = _learning_role(version)
+    timeout_ms = 240000 if version == 11 else 45000
     return result_from_command(
         f"Smoke aprendizaje V{version}",
         [
@@ -1124,8 +1191,9 @@ def check_learning_smoke_for_version(version: int) -> AuditResult:
             "--date",
             str(latest_spy),
         ],
-        timeout_ms=45000,
+        timeout_ms=timeout_ms,
         success_summary=f"El loop operativo {role} V{version} puede emitir resumen diario sin fallar.",
+        env=legacy_runner_env(),
     )
 
 
@@ -1135,6 +1203,7 @@ def check_gestor_smoke() -> AuditResult:
         [sys.executable, str(ROOT / "herramientas" / "gestor_posiciones_v11.py"), "daily-report"],
         timeout_ms=45000,
         success_summary="El gestor puede emitir su reporte diario sized sin fallar.",
+        env=legacy_runner_env(),
     )
 
 
@@ -1146,7 +1215,11 @@ def check_reference_scanner_smoke() -> AuditResult:
             "No existe scanner productivo previo para validar.",
             [],
         )
-    completed = run_command([sys.executable, str(PREV_SCANNER), "--equity", "1"], timeout_ms=90000)
+    completed = run_command(
+        [sys.executable, str(PREV_SCANNER), "--equity", "1"],
+        timeout_ms=90000,
+        env=legacy_runner_env(),
+    )
     return _scanner_health_from_output("Smoke scanner referencia inmediata", completed)
 
 
@@ -1294,6 +1367,7 @@ def check_backtests_full() -> list[AuditResult]:
             )
         )
     results: list[AuditResult] = []
+    env = legacy_runner_env()
     for name, command, timeout_ms in commands:
         results.append(
             result_from_command(
@@ -1301,6 +1375,7 @@ def check_backtests_full() -> list[AuditResult]:
                 command,
                 timeout_ms=timeout_ms,
                 success_summary=f"{name} corre sin crash.",
+                env=env,
             )
         )
     return results
@@ -1370,7 +1445,7 @@ def write_report(mode: str, results: list[AuditResult]) -> Path:
     path = REPORTS_DIR / f"{now.strftime('%Y-%m-%d_%H-%M-%S')}_auditoria_integral_{mode}.txt"
     lines = [
         LINE,
-        f"  AUDITORIA INTEGRAL CLAUDE | {now.strftime('%Y-%m-%d %H:%M:%S')}",
+        f"  AUDITORIA INTEGRAL PYTHIAXENGINE | {now.strftime('%Y-%m-%d %H:%M:%S')}",
         LINE,
         f"  Modo            : {mode}",
         f"  Resultado final : {overall_status(results)}",
@@ -1390,7 +1465,7 @@ def _console_safe(text: str) -> str:
 
 def print_report(path: Path, results: list[AuditResult], mode: str) -> None:
     print(_console_safe(LINE))
-    print(_console_safe("  AUDITORIA INTEGRAL CLAUDE"))
+    print(_console_safe("  AUDITORIA INTEGRAL PYTHIAXENGINE"))
     print(_console_safe(LINE))
     print(_console_safe(f"  Modo            : {mode}"))
     print(_console_safe(f"  Resultado final : {overall_status(results)}"))
@@ -1403,7 +1478,7 @@ def print_report(path: Path, results: list[AuditResult], mode: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Auditoria integral reproducible del proyecto Claude")
+    parser = argparse.ArgumentParser(description="Auditoria integral reproducible de PythiaxEngine")
     parser.add_argument("--mode", choices=["fast", "full"], default="full")
     return parser.parse_args()
 

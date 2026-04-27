@@ -758,7 +758,7 @@ def assign_priority_bucket(score: float, q1: float, q2: float) -> int:
 
 
 def load_priority_profiles(db: TitanDB, as_of_date: str) -> dict[tuple[str, str], PriorityProfile]:
-    df = pd.read_sql_query(
+    df = db.execute_raw(
         """
         SELECT p.model_name, p.regime, p.score, o.actual_return
         FROM predictions p
@@ -768,8 +768,7 @@ def load_priority_profiles(db: TitanDB, as_of_date: str) -> dict[tuple[str, str]
           AND p.target_date <= ?
         ORDER BY p.model_name, p.regime, p.score
         """,
-        db.conn,
-        params=[
+        [
             f"{MEMORY_BASE_MODEL_NAME}_A_D7",
             f"{MEMORY_BASE_MODEL_NAME}_C5_D4",
             as_of_date,

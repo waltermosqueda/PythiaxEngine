@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-AUTO-ACTUALIZADOR Y PIPELINE DIARIO V13
-======================================
+AUTO-ACTUALIZADOR Y PIPELINE DIARIO PYTHIAXENGINE
+================================================
 Actualiza titan.db automaticamente cuando detecta dias bursatiles cerrados
 sin datos y, cuando corresponde, ejecuta el flujo diario completo:
 
@@ -13,17 +13,24 @@ red de seguridad.
 
 Ubicacion: herramientas/auto_actualizar.py
 Registrar en Windows: ejecutar herramientas/setup_tarea_windows.bat
+
+Nota:
+  La carpeta local puede seguir llamandose `Claude/`, pero este pipeline
+  pertenece a `PythiaxEngine` y debe priorizar siempre el flujo cloud-first.
 """
 
 import json
 import logging
+import os
 import subprocess
 import sys
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from sqlalchemy.engine import make_url
 
-# Este script esta en Claude/herramientas/ y sube un nivel a la raiz.
+# Este script vive en el working copy historico `Claude/`, pero opera sobre la
+# raiz canonica del repo PythiaxEngine.
 BASE_DIR = Path(__file__).parent.parent
 LOG_PATH = BASE_DIR / "bitacora" / "auto_actualizar.log"
 RUN_REPORTS_DIR = BASE_DIR / "aprendizaje_operativo" / "v11_reports"
@@ -47,12 +54,10 @@ from herramientas.scanner_operativo_context import (
     learning_version_from_path,
     resolve_operational_scanner_context,
 )
-from infra.db.config import get_database_url
-from infra.db.sqlite_compat import connect_sqlite, get_sqlite_db_path
+from infra.db.config import get_database_url, normalize_database_url
+from infra.db.sqlite_compat import get_sqlite_db_path
 from herramientas.legacy_ml_registry import load_enabled_legacy_ml_entries
 from titan_system.core.database import TitanDB
-
-DB_PATH = get_sqlite_db_path()
 
 logging.basicConfig(
     filename=LOG_PATH,
@@ -62,6 +67,33 @@ logging.basicConfig(
     encoding="utf-8",
 )
 log = logging.getLogger()
+
+
+def runtime_backend_name() -> str:
+    return make_url(get_database_url()).get_backend_name()
+
+
+def runtime_sqlite_path() -> Path:
+    return get_sqlite_db_path()
+
+
+def runtime_db_details() -> dict[str, str]:
+    backend = runtime_backend_name()
+    details = {"db_backend": backend}
+    if backend == "sqlite":
+        details["db_path"] = str(runtime_sqlite_path())
+    return details
+
+
+def cloud_target_database_url() -> str | None:
+    for env_name in ("PYTHIAX_TARGET_DATABASE_URL", "TARGET_DATABASE_URL"):
+        value = os.getenv(env_name)
+        if value and value.strip():
+            return normalize_database_url(value.strip())
+    try:
+        return get_database_url()
+    except Exception:
+        return None
 
 
 def es_dia_bursatil(fecha: date) -> bool:
@@ -111,16 +143,20 @@ def dias_bursatiles_faltantes(ultima_fecha: date, fecha_objetivo: date) -> int:
 
 
 def get_ultima_fecha_db() -> date | None:
-    """Lee la fecha mas reciente en titan.db."""
-    if not DB_PATH.exists():
+    """Lee la fecha mas reciente en la base activa del runtime."""
+    if runtime_backend_name() == "sqlite" and not runtime_sqlite_path().exists():
         return None
 
     try:
-        con = connect_sqlite(DB_PATH)
-        row = con.execute("SELECT MAX(date) FROM prices").fetchone()
-        con.close()
+        with TitanDB() as db:
+            row = db.conn.execute("SELECT MAX(date) FROM prices").fetchone()
         if row and row[0]:
-            return datetime.strptime(row[0], "%Y-%m-%d").date()
+            latest_value = row[0]
+            if isinstance(latest_value, datetime):
+                return latest_value.date()
+            if isinstance(latest_value, date):
+                return latest_value
+            return datetime.strptime(str(latest_value)[:10], "%Y-%m-%d").date()
     except Exception as exc:
         log.error(f"Error leyendo DB: {exc}")
 
@@ -293,9 +329,14 @@ def build_legacy_ml_steps(command_name: str) -> list[tuple[str, Path]]:
     return steps
 
 
-def ejecutar_paso_opcional(step_name: str, command: list[str], fecha_base: date) -> bool:
+def ejecutar_paso_opcional(
+    step_name: str,
+    command: list[str],
+    fecha_base: date,
+    timeout_seconds: int | None = None,
+) -> bool:
     log.info(f"[PIPELINE][OPTIONAL] Iniciando paso {step_name}: {' '.join(command)}")
-    timeout_seconds = _timeout_seconds_for_step(step_name, optional=True)
+    timeout_seconds = timeout_seconds or _timeout_seconds_for_step(step_name, optional=True)
     try:
         result = subprocess.run(
             command,
@@ -370,10 +411,9 @@ def refrescar_dashboard(step_name: str, fecha_base: date, observed_failures: lis
 def sync_target_incremental(step_name: str, fecha_base: date, observed_failures: list[str]) -> None:
     if not CLOUD_SYNC_SCRIPT.exists():
         return
-    try:
-        target_url = get_database_url()
-    except Exception as exc:
-        log.warning(f"[PIPELINE][OPTIONAL] No se pudo resolver DATABASE_URL para sync incremental: {exc}")
+    target_url = cloud_target_database_url()
+    if target_url is None:
+        log.warning("[PIPELINE][OPTIONAL] No se pudo resolver target URL para sync incremental.")
         return
     if not target_url or target_url.startswith("sqlite:"):
         return
@@ -381,7 +421,10 @@ def sync_target_incremental(step_name: str, fecha_base: date, observed_failures:
         step_name,
         [
             sys.executable,
-            str(CLOUD_SYNC_SCRIPT),
+            "-m",
+            "infra.db.sync_sqlite_delta_to_target",
+            "--target-url",
+            target_url,
             "--report-path",
             str(CLOUD_SYNC_REPORT),
         ],
@@ -569,13 +612,14 @@ def main() -> int:
     force_pipeline = "--force-pipeline" in sys.argv
     log.info(f"-- Auto-actualizador iniciado ({now:%Y-%m-%d %H:%M}) --")
 
-    if not DB_PATH.exists():
-        log.error(f"DB no encontrada: {DB_PATH}")
-        print(f"[ERROR] DB no encontrada: {DB_PATH}")
+    if runtime_backend_name() == "sqlite" and not runtime_sqlite_path().exists():
+        db_path = runtime_sqlite_path()
+        log.error(f"DB no encontrada: {db_path}")
+        print(f"[ERROR] DB no encontrada: {db_path}")
         emit_critical_alert(
             code="db_missing",
             summary="No se encontro titan.db para correr el auto-actualizador.",
-            details={"db_path": str(DB_PATH)},
+            details=runtime_db_details(),
         )
         return 1
 
@@ -586,7 +630,7 @@ def main() -> int:
         emit_critical_alert(
             code="db_date_unreadable",
             summary="No se pudo leer la ultima fecha de la DB.",
-            details={"db_path": str(DB_PATH)},
+            details=runtime_db_details(),
         )
         return 1
 

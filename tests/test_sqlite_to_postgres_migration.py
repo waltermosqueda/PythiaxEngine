@@ -5,9 +5,14 @@ import sqlite3
 from pathlib import Path
 from uuid import uuid4
 
+import pandas as pd
 from sqlalchemy import create_engine, text
 
-from infra.db.migrate_sqlite_to_postgres import migrate_sqlite_to_target, sqlite_path_to_url
+from infra.db.migrate_sqlite_to_postgres import (
+    adapt_chunk_for_target_backend,
+    migrate_sqlite_to_target,
+    sqlite_path_to_url,
+)
 from titan_system.core.database import TitanDB
 
 
@@ -184,3 +189,27 @@ def test_sqlite_migration_with_reset_is_repeatable() -> None:
         assert outcome_count == 1
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_adapt_chunk_for_sqlite_serializes_json_columns() -> None:
+    chunk = pd.DataFrame(
+        [
+            {
+                "id": 1,
+                "run_id": "dashboard_build-1",
+                "pipeline_name": "dashboard_build",
+                "status": "SUCCESS",
+                "artifact_manifest": {"files": ["index.html"]},
+                "metadata_json": {"variant": "all", "count": 1},
+            }
+        ]
+    )
+
+    adapted = adapt_chunk_for_target_backend(
+        "pipeline_runs",
+        chunk,
+        target_backend="sqlite",
+    )
+
+    assert adapted.loc[0, "artifact_manifest"] == '{"files": ["index.html"]}'
+    assert adapted.loc[0, "metadata_json"] == '{"variant": "all", "count": 1}'

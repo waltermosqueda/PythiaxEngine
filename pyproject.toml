@@ -45,7 +45,7 @@ include = ["titan_system*", "SCANNER*", "herramientas*", "analisis*", "infra*"]
 namespaces = true
 
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "-q -p no:cacheprovider -p no:tmpdir"
 testpaths = ["tests"]
 
 [tool.ruff]

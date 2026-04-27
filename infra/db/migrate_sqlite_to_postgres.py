@@ -265,6 +265,27 @@ def normalize_chunk(table_name: str, chunk: pd.DataFrame) -> pd.DataFrame:
     return normalized
 
 
+def adapt_chunk_for_target_backend(
+    table_name: str,
+    chunk: pd.DataFrame,
+    *,
+    target_backend: str,
+) -> pd.DataFrame:
+    if target_backend != "sqlite" or not JSON_COLUMNS.get(table_name):
+        return chunk
+
+    adapted = chunk.copy()
+    for column_name in JSON_COLUMNS.get(table_name, ()):
+        if column_name not in adapted.columns:
+            continue
+        adapted[column_name] = adapted[column_name].apply(
+            lambda value: json.dumps(value, ensure_ascii=False)
+            if isinstance(value, (dict, list))
+            else value
+        )
+    return adapted
+
+
 def resolve_insert_chunk_size(
     *,
     target_engine: Engine,
@@ -319,16 +340,21 @@ def migrate_table(
         chunk_iter = pd.read_sql_query(query, source_connection, chunksize=chunk_size)
         for chunk in chunk_iter:
             normalized_chunk = normalize_chunk(table_name, chunk)
+            prepared_chunk = adapt_chunk_for_target_backend(
+                table_name,
+                normalized_chunk,
+                target_backend=target_engine.dialect.name,
+            )
             insert_chunk_size = resolve_insert_chunk_size(
                 target_engine=target_engine,
-                normalized_chunk=normalized_chunk,
+                normalized_chunk=prepared_chunk,
                 requested_chunk_size=chunk_size,
             )
 
             run_db_operation_with_retry(
                 operation_name=f"insert_chunk:{table_name}",
                 engine=target_engine,
-                func=lambda normalized_chunk=normalized_chunk, insert_chunk_size=insert_chunk_size: normalized_chunk.to_sql(
+                func=lambda prepared_chunk=prepared_chunk, insert_chunk_size=insert_chunk_size: prepared_chunk.to_sql(
                     table_name,
                     target_engine,
                     if_exists="append",
@@ -337,7 +363,7 @@ def migrate_table(
                     method="multi",
                 ),
             )
-            inserted_rows += len(normalized_chunk.index)
+            inserted_rows += len(prepared_chunk.index)
 
     target_rows = count_rows(target_engine, table_name)
     return TableMigrationResult(

@@ -2,6 +2,10 @@
 
 Esta carpeta guarda la memoria operativa de la base historica util, la referencia inmediata y el scanner activo.
 
+Nota de foco:
+- Estos artefactos locales son apoyo y trazabilidad del repo `PythiaxEngine`.
+- La fuente de verdad operativa para mejoras y auditorias es la arquitectura cloud-first (`GitHub + Neon + GitHub Pages`), no una rama local separada llamada `Claude`.
+
 Reglas:
 - `SCANNER/` sigue reservado solo para scanners productivos canonicos `invertir_vN.py` o `invertir_vN_M.py`
 - los artefactos diarios, snapshots y rastros de aprendizaje viven aca

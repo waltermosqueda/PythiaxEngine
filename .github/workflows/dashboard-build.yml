@@ -44,6 +44,15 @@ jobs:
       - name: Build dashboard bundle
         run: python analisis/generar_tablero_maquina_pensante.py --variant all
 
+      - name: Run integrity audit
+        run: |
+          python -m infra.cloud.audit_dashboard_integrity \
+            --snapshot-path dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json \
+            --dashboard-dir dashboards/maquina_pensante \
+            --sample-size 5 \
+            --seed 130013 \
+            --report-path docs/cloud/reports/dashboard_integrity_audit.json
+
       - name: Validate generated bundle
         run: |
           test -f dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
@@ -58,4 +67,6 @@ jobs:
         with:
           name: pythiax-dashboard-${{ github.run_id }}
           retention-days: 30
-          path: dashboards/maquina_pensante/
+          path: |
+            dashboards/maquina_pensante/
+            docs/cloud/reports/dashboard_integrity_audit.json

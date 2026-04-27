@@ -3,6 +3,8 @@
 
 ## Las 10 reglas que NUNCA pueden olvidarse
 
+0. **Foco cloud-first obligatorio** - La unica linea activa de trabajo es `PythiaxEngine` sobre `GitHub + Neon + GitHub Pages`. La carpeta `Claude/` es solo el nombre historico del working copy y no debe retomarse como proyecto separado. Solo revisar dependencias locales o proyectos hermanos si hay una rotura critica de migracion.
+
 1. **RSI = Wilder's smoothing SIEMPRE** - `ewm(com=13, adjust=False)` - `rolling(14).mean()` produce muchas senales falsas. Antes de devolver cualquier resultado con RSI: verificar que metodo se uso.
 
 2. **NUNCA modificar un scanner productivo ya promovido** - crear version nueva congelada (`v13 -> v13_1` si el cambio es menor, `v13 -> v14` si el salto es mayor).

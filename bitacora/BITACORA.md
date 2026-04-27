@@ -4,6 +4,92 @@ Este archivo se sincroniza via Google Drive y puede usarse desde cualquier PC.
 
 ---
 
+## 2026-04-26 - Foco cloud-first PythiaxEngine + auditoria end-to-end
+
+### Decision boundary
+- `PythiaxEngine` en GitHub pasa a ser la unica linea activa de trabajo.
+- La carpeta local `Claude/` queda solo como nombre historico del working copy.
+- Solo revisar proyectos locales hermanos o legados si una migracion cloud critica se rompe y bloquea el pipeline/dashboard.
+
+### Cambios aplicados
+- agregue `AGENTS.md` con politica explicita para agentes:
+  - foco unico en `PythiaxEngine`
+  - stack objetivo `GitHub + GitHub Actions + Neon Postgres + GitHub Pages`
+  - prohibicion de retomar `Claude/` como proyecto separado
+- actualice documentos de orientacion para agentes:
+  - `README.md`
+  - `CLAUDE.md`
+  - `.claude/context-essentials.md`
+  - `docs/ESTRUCTURA.md`
+  - `docs/cloud/README.md`
+  - `docs/cloud/MIGRATION_STATUS.md`
+  - `aprendizaje_operativo/README.md`
+- reetiquete la auditoria y el auto-update como `PythiaxEngine` manteniendo nombres historicos de archivo por compatibilidad:
+  - `herramientas/auditoria_integral_claude.py`
+  - `herramientas/auto_actualizar.py`
+- corriji una incoherencia real del dashboard activo:
+  - `analisis/generar_tablero_maquina_pensante.py`
+  - `build_run_snapshot_from_db()` ya no mezcla picks de sleeves de fechas distintas
+  - si el sleeve `E` no tiene picks en la rueda mas reciente, queda vacio en vez de arrastrar picks viejos
+  - `hydrate_run_snapshot_with_db()` ignora snapshots locales stale si la DB ya tiene una rueda mas nueva
+- reforcé la auditoria de integridad del dashboard:
+  - `infra/cloud/audit_dashboard_integrity.py`
+  - nuevo gate para fallar si `prediction_for` sale como rango
+  - nuevo gate para fallar si algun `target_date` vivo queda antes de `analyzed_date`
+  - helper esperado del auditor alineado con el mismo corte temporal que usa el generador
+- subi cobertura de tests:
+  - `tests/test_dashboard_active_snapshot_fallback.py`
+  - `tests/test_cloud_dashboard_integrity.py`
+- ajusté el timeout del smoke `aprendizaje_operativo_v11.py daily-summary` dentro de la auditoria full para evitar falsos FAIL por tiempo de ejecucion con la base actual.
+
+### Validacion ejecutada
+- `python -m pytest tests/test_dashboard_active_snapshot_fallback.py tests/test_cloud_dashboard_integrity.py tests/test_decide_cloud_refresh.py tests/test_auto_actualizar.py`
+  - `11 passed`
+- `python analisis/generar_tablero_maquina_pensante.py --variant all`
+  - snapshot local regenerado con `generated_at = 2026-04-26T20:32:10`
+  - `latest_market_date = 2026-04-24`
+  - `active_run.source = snapshot_db_hybrid`
+  - `active_run.analyzed_date = 2026-04-24`
+  - `active_run.prediction_for = 2026-04-27`
+  - `results_d = 9`
+  - `results_e = 0`
+- `python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages`
+  - site bundle local regenerado
+- `python -m infra.cloud.audit_dashboard_integrity --snapshot-path dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json --dashboard-dir dashboards/maquina_pensante --site-dir dist/github-pages --sample-size 5 --seed 130013 --report-path docs/cloud/reports/dashboard_integrity_audit.json`
+  - `checks_total = 46`
+  - `checks_ok = 46`
+  - `checks_failed = 0`
+- `python herramientas/auditoria_integral_claude.py --mode full`
+  - resultado final `WARN` (no `FAIL`)
+  - cadena operativa + dashboard + scanner + gestor + aprendizaje + backtests criticos OK
+  - backtests centinela ejecutados: `V9`, `V10`, `V11`, `V12`, `V14`
+
+### Hallazgos clave
+- la DB activa ya esta en:
+  - `latest_prices_date = 2026-04-24`
+  - `latest_prediction_date = 2026-04-24`
+  - `latest_outcome_date = 2026-04-24`
+  - `latest_regime_date = 2026-04-24`
+- el warning residual de la auditoria full hoy viene de `validate_market_data.py`:
+  - `INTC 2026-04-24` gap open `+23.1%`
+  - `STNE 2026-04-24` gap open `-16.0%`
+  - por ahora quedan como `WARN` revisable, no como corrupcion confirmada
+- el dashboard publico en GitHub Pages sigue stale respecto al repo/base actual:
+  - live snapshot `generated_at = 2026-04-25T05:31:05`
+  - live `latest_market_date = 2026-04-23`
+  - live `active_run.source = db_fallback`
+  - live `prediction_for = 2026-04-07 -> 2026-05-07`
+- el backend actual indica refresh pendiente:
+  - `decide_cloud_refresh()` => `latest_prices_date = 2026-04-24`
+  - `last_publish_market_date = 2026-04-23`
+  - `should_refresh = True`
+
+### Pendiente recomendado
+- push de estos cambios al repo `PythiaxEngine`
+- correr/publicar una nueva corrida cloud (`Cloud Daily Operations` o workflow equivalente) para que GitHub Pages deje de mostrar el snapshot viejo del `2026-04-23`
+
+---
+
 ## 2026-04-23 | Sesion 111 - Verificacion quirurgica Pages live vs bundle local + saneamiento de validacion
 
 ### Objetivo

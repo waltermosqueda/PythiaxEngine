@@ -1,9 +1,10 @@
 # Migration Status
 
 - Fecha de inicio: 2026-04-22
-- Estado actual: `FASE 1 COMPLETADA / FASE 2 AVANZADA / NEON BOOTSTRAP COMPLETADO / DASHBOARD POSTGRES VALIDADO / CUTOVER PREFLIGHT OK`
+- Estado actual: `FASE 1 COMPLETADA / FASE 2 AVANZADA / NEON BOOTSTRAP COMPLETADO / DASHBOARD POSTGRES VALIDADO / CUTOVER PREFLIGHT OK / CLOUD DAILY OPS READY`
 - Nombre publico del proyecto: `PythiaxEngine`
 - Ruta local historica: `Claude/`
+- Decision boundary: desde ahora `PythiaxEngine` en GitHub es la unica fuente de verdad; `Claude/` queda deprecado como proyecto separado y solo se revisa por emergencias criticas de migracion.
 - Arquitectura objetivo activa: `GitHub + GitHub Actions + Neon Postgres + GitHub Pages`
 - Hosting puente gratis actual: `GitHub Pages`
 - Repo remoto objetivo: `https://github.com/waltermosqueda/PythiaxEngine`
@@ -98,6 +99,14 @@
 - agregado preflight local de un solo comando para bootstrap + smoke + dashboard + Pages bundle:
   - `infra/cloud/cutover_preflight.py`
   - `docs/cloud/CUTOVER_PREFLIGHT_ONE_SHOT.md`
+- agregado bootstrap inverso `target -> SQLite runner` para GitHub Actions:
+  - `infra/db/bootstrap_sqlite_from_target.py`
+- agregada auditoria reproducible DB vs snapshot/site:
+  - `infra/cloud/audit_dashboard_integrity.py`
+- agregado workflow diario cloud-first end-to-end:
+  - `.github/workflows/cloud-daily-operations.yml`
+- documentado el flujo diario cloud-first:
+  - `docs/cloud/CLOUD_DAILY_OPERATIONS.md`
 - agregado workflow manual de validacion cloud:
   - `.github/workflows/neon-schema-smoke.yml`
 - agregado workflow manual one-shot para release remoto y publish opcional:
@@ -126,22 +135,26 @@
   - reporte final en `docs/cloud/reports/cutover_preflight_report.json`
 - alineado `analisis/preview_c1_pro.html` con el snapshot productivo local
 - definido `C1 Pro` como entrypoint productivo del bundle listo para publicar en el site
+- integrado `dashboard_integrity_audit` a los workflows de build/publish del dashboard
+- corregida una rotura real en `auto_actualizar` para permitir timeout explicito en sync cloud opcional
 
 ## Lo que falta inmediatamente
 
-1. Instalar dependencias `dev/cloud` para correr CI local completa.
-2. Cargar `DATABASE_URL` real en GitHub y dejarla disponible localmente via entorno o `.env`.
-3. Correr `Production Release` o, alternativamente, `Neon Schema Smoke` + `Dashboard Build` + `GitHub Pages Publish`.
+1. Confirmar `DATABASE_URL` real en GitHub.
+2. Habilitar `GitHub Pages` via GitHub Actions si todavia no quedo activo.
+3. Correr una primera vez `Cloud Daily Operations` por `workflow_dispatch`.
 4. Verificar la primera publicacion remota y dejar `shadow mode`.
-5. Extender la capa dual a escrituras y piezas operativas restantes.
-6. Desacoplar snapshots operativos restantes para poder publicar dashboard 100% cloud.
+5. Desacoplar snapshots operativos restantes para que toda la capa visible viva solo de DB.
+6. Si se quiere eliminar tambien la compatibilidad `SQLite`, migrar lecturas/escrituras legacy profundas a `Postgres` nativo.
 
 ## Bloqueadores conocidos
 
 - hay dependencias legacy fuera del repo:
   - `Machine Winners`
-- la operacion sigue siendo `SQLite-first`; la capa dual real con `Postgres`
-  todavia no llega a queries y escrituras profundas
+- el motor historico sigue siendo `SQLite-first`, pero ahora ya puede correr
+  cloud-first en GitHub Actions bootstrappeando una `SQLite` efimera desde
+  `Postgres`; todavia falta eliminar esa capa de compatibilidad si se busca
+  una arquitectura puramente `Postgres-native`
 - parte de los snapshots operativos del dashboard todavia vive fuera del repo:
   - `aprendizaje_operativo/*_runs`
 - aunque falten esos snapshots, la liga competitiva ya puede reconstruirse desde
@@ -171,12 +184,12 @@
 
 ## Proximo corte recomendado
 
-`FASE 2: production release remoto + shadow mode`
+`FASE 2: cloud daily operations + shadow mode`
 
 Pasos exactos:
 
 1. verificar secret `DATABASE_URL` en GitHub
 2. habilitar `GitHub Pages`
-3. correr workflow `Production Release`
+3. correr workflow `Cloud Daily Operations`
 4. validar dashboard publico y artifacts
 5. mantener `shadow mode` antes de apagar la tarea local

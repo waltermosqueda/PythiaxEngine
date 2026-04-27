@@ -321,7 +321,7 @@ class OperationalLearningLegacyML:
         return alerts
 
     def context_memory_rows(self, regime_label: str, limit: int = 4) -> list[dict[str, object]]:
-        df = pd.read_sql_query(
+        df = self.db.execute_raw(
             """
             SELECT
                 p.model_name,
@@ -335,8 +335,7 @@ class OperationalLearningLegacyML:
             GROUP BY p.model_name, p.regime
             ORDER BY total DESC, accuracy_pct DESC
             """,
-            self.db.conn,
-            params=(self.model_name,),
+            (self.model_name,),
         )
         if df.empty:
             return []
@@ -972,24 +971,33 @@ class OperationalLearningLegacyML:
         return summary
 
     def report(self) -> pd.DataFrame:
-        return pd.read_sql_query(
+        df = self.db.execute_raw(
             """
             SELECT
                 p.model_name,
                 COUNT(*) AS total_predictions,
                 SUM(CASE WHEN o.id IS NOT NULL THEN 1 ELSE 0 END) AS evaluated,
-                ROUND(AVG(o.hit) * 100, 2) AS accuracy_pct,
-                ROUND(AVG(o.actual_return) * 100, 3) AS avg_return_pct,
-                ROUND(AVG(p.confidence) * 100, 2) AS avg_confidence_pct
+                AVG(o.hit) * 100 AS accuracy_pct,
+                AVG(o.actual_return) * 100 AS avg_return_pct,
+                AVG(p.confidence) * 100 AS avg_confidence_pct
             FROM predictions p
             LEFT JOIN outcomes o ON p.id = o.prediction_id
             WHERE p.model_name = ?
             GROUP BY p.model_name
             ORDER BY p.model_name
             """,
-            self.db.conn,
-            params=(self.model_name,),
+            (self.model_name,),
         )
+        for column, digits in {
+            "accuracy_pct": 2,
+            "avg_return_pct": 3,
+            "avg_confidence_pct": 2,
+        }.items():
+            if column in df.columns:
+                df[column] = df[column].apply(
+                    lambda value, d=digits: round(float(value), d) if pd.notna(value) else None
+                )
+        return df
 
     def report_status(self) -> dict[str, Any]:
         row = self.db.conn.execute(

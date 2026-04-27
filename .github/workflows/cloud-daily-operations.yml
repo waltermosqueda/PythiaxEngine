@@ -1,21 +1,19 @@
-name: GitHub Pages Publish
+name: Cloud Daily Operations
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
   schedule:
-    - cron: "37 3 * * 2-6"
+    - cron: "*/15 13-21 * * 1-5"
+    - cron: "25 22 * * 1-5"
 
 concurrency:
-  group: github-pages-publish
+  group: cloud-daily-operations
   cancel-in-progress: false
 
 jobs:
-  publish:
+  cloud-daily-operations:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 180
     permissions:
       contents: read
       pages: write
@@ -25,6 +23,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      TZ: America/Buenos_Aires
       PYTHIAX_COMMIT_SHA: ${{ github.sha }}
       PYTHIAX_RUN_ID: ${{ github.run_id }}
       PYTHIAX_RUN_ATTEMPT: ${{ github.run_attempt }}
@@ -52,13 +51,40 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
-      - name: Build dashboard bundle
-        run: python analisis/generar_tablero_maquina_pensante.py --variant all
+      - name: Apply schema with Alembic
+        run: alembic upgrade head
+
+      - name: Bootstrap runner SQLite from target
+        run: |
+          python -m infra.db.bootstrap_sqlite_from_target \
+            --source-url "$DATABASE_URL" \
+            --target-sqlite-path "$GITHUB_WORKSPACE/titan_system/data/titan.db" \
+            --reset-target \
+            --report-path docs/cloud/reports/target_to_sqlite_bootstrap.json
+
+      - name: Run cloud-native pipeline
+        env:
+          DATABASE_URL: sqlite:////${{ github.workspace }}/titan_system/data/titan.db
+          SQLITE_FALLBACK_PATH: ${{ github.workspace }}/titan_system/data/titan.db
+          PYTHIAX_TARGET_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python herramientas/auto_actualizar.py
+
+      - name: Decide cloud refresh
+        id: refresh
+        run: |
+          FORCE_ARGS=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            FORCE_ARGS="--force"
+          fi
+          python -m infra.cloud.decide_cloud_refresh --github-output "$GITHUB_OUTPUT" $FORCE_ARGS
 
       - name: Stage GitHub Pages site
+        if: steps.refresh.outputs.should_refresh == 'true'
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
 
-      - name: Run integrity audit
+      - name: Audit DB vs dashboard vs site
+        if: steps.refresh.outputs.should_refresh == 'true'
         run: |
           python -m infra.cloud.audit_dashboard_integrity \
             --snapshot-path dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json \
@@ -69,6 +95,7 @@ jobs:
             --report-path docs/cloud/reports/dashboard_integrity_audit.json
 
       - name: Validate staged site
+        if: steps.refresh.outputs.should_refresh == 'true'
         run: |
           test -f dist/github-pages/index.html
           test -f dist/github-pages/preview_c1_pro.html
@@ -81,24 +108,36 @@ jobs:
           test -f dist/github-pages/.nojekyll
           cmp -s dist/github-pages/index.html dist/github-pages/preview_c1_pro.html
 
-      - name: Upload dashboard artifact
+      - name: Report refresh decision
+        if: steps.refresh.outputs.should_refresh != 'true'
+        run: |
+          echo "No cloud refresh needed."
+          echo "latest_prices_date=${{ steps.refresh.outputs.latest_prices_date }}"
+          echo "last_publish_market_date=${{ steps.refresh.outputs.last_publish_market_date }}"
+
+      - name: Upload cloud operations artifact
+        if: steps.refresh.outputs.should_refresh == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: pythiax-pages-publish-${{ github.run_id }}
+          name: pythiax-cloud-daily-${{ github.run_id }}
           retention-days: 30
           path: |
             dashboards/maquina_pensante/
-            dist/github-pages/site_bundle_manifest.json
+            dist/github-pages/
+            docs/cloud/reports/target_to_sqlite_bootstrap.json
             docs/cloud/reports/dashboard_integrity_audit.json
 
       - name: Upload Pages artifact
+        if: steps.refresh.outputs.should_refresh == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist/github-pages
 
       - name: Deploy to GitHub Pages
         id: deployment
+        if: steps.refresh.outputs.should_refresh == 'true'
         uses: actions/deploy-pages@v4
 
       - name: Record publish in pipeline ledger
+        if: steps.refresh.outputs.should_refresh == 'true'
         run: python -m infra.publish.record_pages_publish --site-dir dist/github-pages --page-url "${{ steps.deployment.outputs.page_url }}"

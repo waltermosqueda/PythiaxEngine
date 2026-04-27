@@ -40,14 +40,17 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
 
-import sqlite3
 import os
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 import pandas as pd
 import numpy as np
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
 
-from infra.db.config import get_sqlite_fallback_path
+from infra.db.config import get_database_url, get_sqlite_fallback_path
+from infra.db.runtime import adapt_qmark_sql
+from infra.db.titandb_compat import create_titandb_compat_connection
 
 
 class TitanDB:
@@ -113,34 +116,52 @@ class TitanDB:
         3. Herramientas como mypy detectan errores antes de correr el código
         4. En entrevistas, demuestran que escribís código profesional
         """
-        self.db_path = db_path or str(get_sqlite_fallback_path())
+        self._engine = None
+        self.database_url = ""
+        self.backend_name = "sqlite"
+        self.using_sqlalchemy_compat = False
 
-        # Crear el directorio 'data/' si no existe
-        # exist_ok=True = no da error si ya existe
+        if db_path is not None:
+            self.db_path = str(os.path.abspath(db_path))
+            self.database_url = f"sqlite:///{self.db_path.replace(os.sep, '/')}"
+            self.backend_name = "sqlite"
+        else:
+            self.database_url = get_database_url()
+            self.backend_name = make_url(self.database_url).get_backend_name()
+            self.db_path = str(get_sqlite_fallback_path())
+
+        force_sqlalchemy_compat = os.getenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+
+        if self.backend_name == "sqlite" and not force_sqlalchemy_compat:
+            self._connect_sqlite_native()
+        else:
+            self._connect_runtime_backend()
+
+    def _connect_sqlite_native(self):
+        import sqlite3
+
+        self.db_path = str(os.path.abspath(self.db_path))
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
 
-        # Abrir conexión a la base de datos
-        # Si el archivo no existe, SQLite lo CREA automáticamente
         self.conn = sqlite3.connect(self.db_path)
-
-        # Row factory: hace que las consultas devuelvan diccionarios
-        # en vez de tuplas. Así podés hacer row['ticker'] en vez de row[0]
         self.conn.row_factory = sqlite3.Row
-
-        # WAL mode: permite lecturas y escrituras simultáneas
-        # Sin WAL: si estás escribiendo, nadie puede leer (y viceversa)
-        # Con WAL: múltiples lectores + 1 escritor al mismo tiempo
-        # Es un setting estándar de producción
         self.conn.execute("PRAGMA journal_mode=WAL")
-
-        # foreign_keys: activa las restricciones de integridad referencial
-        # Esto significa: si una predicción referencia a un ticker que no
-        # existe en la tabla de precios, SQLite da error en vez de dejarte
-        # meter datos inconsistentes
         self.conn.execute("PRAGMA foreign_keys=ON")
-
-        # Crear todas las tablas (si no existen)
         self._create_tables()
+
+    def _connect_runtime_backend(self):
+        self._engine, self.conn = create_titandb_compat_connection(self.database_url)
+        self.using_sqlalchemy_compat = True
+
+        if self.backend_name == "sqlite":
+            database = make_url(self.database_url).database
+            if database:
+                self.db_path = str(os.path.abspath(database))
 
     # ── Context Manager (para usar con 'with') ──────────────────────────────
 
@@ -168,6 +189,39 @@ class TitanDB:
         """Cierra la conexión a la base de datos."""
         if self.conn:
             self.conn.close()
+        if self._engine is not None:
+            self._engine.dispose()
+
+    @staticmethod
+    def _normalize_scalar(value: Any) -> Any:
+        if isinstance(value, datetime):
+            return value.isoformat(sep=" ", timespec="seconds")
+        if isinstance(value, date):
+            return value.isoformat()
+        return value
+
+    @staticmethod
+    def _round_or_none(value: Any, digits: int) -> float | None:
+        if value is None:
+            return None
+        return round(float(value), digits)
+
+    def _normalize_frame(self, frame: pd.DataFrame) -> pd.DataFrame:
+        if frame.empty:
+            return frame
+        normalized = frame.copy()
+        for column in normalized.columns:
+            if normalized[column].dtype == "object":
+                normalized[column] = normalized[column].map(self._normalize_scalar)
+        return normalized
+
+    def _read_sql_query(self, query: str, params: Any = ()) -> pd.DataFrame:
+        if not self.using_sqlalchemy_compat:
+            return self._normalize_frame(pd.read_sql_query(query, self.conn, params=params))
+
+        adapted_sql, adapted_params = adapt_qmark_sql(query, params)
+        frame = pd.read_sql_query(text(adapted_sql), self.conn._connection, params=adapted_params)
+        return self._normalize_frame(frame)
 
     # ═══════════════════════════════════════════════════════════════════════════
     #  CREACIÓN DE TABLAS (Schema / Esquema)
@@ -207,6 +261,9 @@ class TitanDB:
         no hace nada. Esto permite correr _create_tables() muchas veces
         sin error. Es una práctica estándar en producción.
         """
+
+        if self.using_sqlalchemy_compat:
+            return
 
         cursor = self.conn.cursor()
 
@@ -502,7 +559,7 @@ class TitanDB:
         deterministica y reproducible entre maquinas.
         """
         query = """
-            SELECT rowid, open, high, low, close
+            SELECT ticker, date, open, high, low, close
             FROM prices
             WHERE open IS NOT NULL AND close IS NOT NULL
               AND high IS NOT NULL AND low IS NOT NULL
@@ -518,15 +575,16 @@ class TitanDB:
         rows = self.conn.execute(query, params).fetchall()
         updates = []
         for row in rows:
-            rowid = row[0]
-            open_price = float(row[1])
-            high_price = float(row[2])
-            low_price = float(row[3])
-            close_price = float(row[4])
+            ticker = row[0]
+            date_str = row[1]
+            open_price = float(row[2])
+            high_price = float(row[3])
+            low_price = float(row[4])
+            close_price = float(row[5])
             repaired_high = max(high_price, open_price, close_price)
             repaired_low = min(low_price, open_price, close_price)
             if repaired_high != high_price or repaired_low != low_price:
-                updates.append((repaired_high, repaired_low, rowid))
+                updates.append((repaired_high, repaired_low, ticker, date_str))
 
         if not updates:
             return 0
@@ -534,7 +592,7 @@ class TitanDB:
         self.conn.executemany("""
             UPDATE prices
             SET high = ?, low = ?
-            WHERE rowid = ?
+            WHERE ticker = ? AND date = ?
         """, updates)
         self.conn.commit()
         return len(updates)
@@ -579,7 +637,7 @@ class TitanDB:
 
         # pd.read_sql_query: ejecuta SQL y devuelve un DataFrame directamente
         # Es la forma más cómoda de pasar de SQL a pandas
-        df = pd.read_sql_query(query, self.conn, params=params)
+        df = self._read_sql_query(query, params)
 
         if not df.empty:
             df['date'] = pd.to_datetime(df['date'])
@@ -610,7 +668,7 @@ class TitanDB:
             "SELECT MAX(date) FROM prices WHERE ticker = ?", (ticker,)
         )
         result = cursor.fetchone()
-        return result[0] if result and result[0] else None
+        return self._normalize_scalar(result[0]) if result and result[0] else None
 
     def get_all_latest_dates(self) -> Dict[str, str]:
         """
@@ -622,7 +680,7 @@ class TitanDB:
         cursor = self.conn.execute(
             "SELECT ticker, MAX(date) FROM prices GROUP BY ticker"
         )
-        return {row[0]: row[1] for row in cursor.fetchall()}
+        return {row[0]: self._normalize_scalar(row[1]) for row in cursor.fetchall()}
 
     def count_prices(self) -> Dict[str, int]:
         """
@@ -674,7 +732,19 @@ class TitanDB:
               target_date, direction.upper(), confidence, score, regime, sector))
 
         self.conn.commit()
-        return cursor.lastrowid
+        lastrowid = getattr(cursor, "lastrowid", None)
+        if lastrowid:
+            return int(lastrowid)
+
+        row = self.conn.execute(
+            """
+            SELECT id
+            FROM predictions
+            WHERE model_name = ? AND ticker = ? AND prediction_date = ? AND target_date = ?
+            """,
+            (model_name, ticker, prediction_date, target_date),
+        ).fetchone()
+        return int(row[0]) if row else 0
 
     def save_predictions_bulk(self, predictions: List[Dict[str, Any]]) -> int:
         """
@@ -772,7 +842,7 @@ class TitanDB:
 
         query += " ORDER BY p.prediction_date DESC, p.confidence DESC"
 
-        return pd.read_sql_query(query, self.conn, params=params)
+        return self._read_sql_query(query, params)
 
     # ═══════════════════════════════════════════════════════════════════════════
     #  OPERACIONES CON OUTCOMES (RESULTADOS REALES)
@@ -1004,11 +1074,11 @@ class TitanDB:
             SELECT
                 COUNT(*) as total,
                 SUM(o.hit) as aciertos,
-                ROUND(AVG(o.hit) * 100, 2) as accuracy_pct,
-                ROUND(AVG(o.actual_return) * 100, 4) as avg_return_pct,
-                ROUND(AVG(CASE WHEN o.hit = 1 THEN o.actual_return END) * 100, 4) as avg_return_right,
-                ROUND(AVG(CASE WHEN o.hit = 0 THEN o.actual_return END) * 100, 4) as avg_return_wrong,
-                ROUND(AVG(p.confidence) * 100, 2) as avg_confidence
+                AVG(o.hit) * 100 as accuracy_pct,
+                AVG(o.actual_return) * 100 as avg_return_pct,
+                AVG(CASE WHEN o.hit = 1 THEN o.actual_return END) * 100 as avg_return_right,
+                AVG(CASE WHEN o.hit = 0 THEN o.actual_return END) * 100 as avg_return_wrong,
+                AVG(p.confidence) * 100 as avg_confidence
             FROM predictions p
             INNER JOIN outcomes o ON p.id = o.prediction_id
             WHERE p.model_name = ?
@@ -1030,11 +1100,11 @@ class TitanDB:
         return {
             'total': row[0],
             'aciertos': row[1],
-            'accuracy_pct': row[2],
-            'avg_return_pct': row[3],
-            'avg_return_when_right': row[4],
-            'avg_return_when_wrong': row[5],
-            'avg_confidence': row[6],
+            'accuracy_pct': self._round_or_none(row[2], 2),
+            'avg_return_pct': self._round_or_none(row[3], 4),
+            'avg_return_when_right': self._round_or_none(row[4], 4),
+            'avg_return_when_wrong': self._round_or_none(row[5], 4),
+            'avg_confidence': self._round_or_none(row[6], 2),
         }
 
     def get_accuracy_by_sector(self, model_name: str) -> pd.DataFrame:
@@ -1050,15 +1120,20 @@ class TitanDB:
                 p.sector,
                 COUNT(*) as total,
                 SUM(o.hit) as aciertos,
-                ROUND(AVG(o.hit) * 100, 2) as accuracy_pct,
-                ROUND(AVG(o.actual_return) * 100, 4) as avg_return_pct
+                AVG(o.hit) * 100 as accuracy_pct,
+                AVG(o.actual_return) * 100 as avg_return_pct
             FROM predictions p
             INNER JOIN outcomes o ON p.id = o.prediction_id
             WHERE p.model_name = ? AND p.sector IS NOT NULL
             GROUP BY p.sector
             ORDER BY accuracy_pct DESC
         """
-        return pd.read_sql_query(query, self.conn, params=[model_name])
+        frame = self._read_sql_query(query, [model_name])
+        if "accuracy_pct" in frame.columns:
+            frame["accuracy_pct"] = frame["accuracy_pct"].apply(lambda value: self._round_or_none(value, 2))
+        if "avg_return_pct" in frame.columns:
+            frame["avg_return_pct"] = frame["avg_return_pct"].apply(lambda value: self._round_or_none(value, 4))
+        return frame
 
     def get_accuracy_by_regime(self, model_name: str) -> pd.DataFrame:
         """
@@ -1070,15 +1145,20 @@ class TitanDB:
                 p.regime,
                 COUNT(*) as total,
                 SUM(o.hit) as aciertos,
-                ROUND(AVG(o.hit) * 100, 2) as accuracy_pct,
-                ROUND(AVG(o.actual_return) * 100, 4) as avg_return_pct
+                AVG(o.hit) * 100 as accuracy_pct,
+                AVG(o.actual_return) * 100 as avg_return_pct
             FROM predictions p
             INNER JOIN outcomes o ON p.id = o.prediction_id
             WHERE p.model_name = ? AND p.regime IS NOT NULL
             GROUP BY p.regime
             ORDER BY accuracy_pct DESC
         """
-        return pd.read_sql_query(query, self.conn, params=[model_name])
+        frame = self._read_sql_query(query, [model_name])
+        if "accuracy_pct" in frame.columns:
+            frame["accuracy_pct"] = frame["accuracy_pct"].apply(lambda value: self._round_or_none(value, 2))
+        if "avg_return_pct" in frame.columns:
+            frame["avg_return_pct"] = frame["avg_return_pct"].apply(lambda value: self._round_or_none(value, 4))
+        return frame
 
     def get_accuracy_by_confidence(self, model_name: str,
                                     bins: int = 5) -> pd.DataFrame:
@@ -1099,17 +1179,26 @@ class TitanDB:
             SELECT
                 NTILE(?) OVER (ORDER BY p.confidence) as confidence_bucket,
                 COUNT(*) as total,
-                ROUND(MIN(p.confidence) * 100, 1) as conf_min,
-                ROUND(MAX(p.confidence) * 100, 1) as conf_max,
-                ROUND(AVG(o.hit) * 100, 2) as accuracy_pct,
-                ROUND(AVG(o.actual_return) * 100, 4) as avg_return_pct
+                MIN(p.confidence) * 100 as conf_min,
+                MAX(p.confidence) * 100 as conf_max,
+                AVG(o.hit) * 100 as accuracy_pct,
+                AVG(o.actual_return) * 100 as avg_return_pct
             FROM predictions p
             INNER JOIN outcomes o ON p.id = o.prediction_id
             WHERE p.model_name = ?
             GROUP BY confidence_bucket
             ORDER BY confidence_bucket
         """
-        return pd.read_sql_query(query, self.conn, params=[bins, model_name])
+        frame = self._read_sql_query(query, [bins, model_name])
+        for column, digits in {
+            "conf_min": 1,
+            "conf_max": 1,
+            "accuracy_pct": 2,
+            "avg_return_pct": 4,
+        }.items():
+            if column in frame.columns:
+                frame[column] = frame[column].apply(lambda value, d=digits: self._round_or_none(value, d))
+        return frame
 
     def get_daily_performance(self, model_name: str) -> pd.DataFrame:
         """
@@ -1121,16 +1210,24 @@ class TitanDB:
                 p.target_date as date,
                 COUNT(*) as n_predictions,
                 SUM(o.hit) as aciertos,
-                ROUND(AVG(o.hit) * 100, 2) as accuracy_pct,
-                ROUND(SUM(o.actual_return) * 100, 4) as total_return_pct,
-                ROUND(AVG(o.actual_return) * 100, 4) as avg_return_pct
+                AVG(o.hit) * 100 as accuracy_pct,
+                SUM(o.actual_return) * 100 as total_return_pct,
+                AVG(o.actual_return) * 100 as avg_return_pct
             FROM predictions p
             INNER JOIN outcomes o ON p.id = o.prediction_id
             WHERE p.model_name = ?
             GROUP BY p.target_date
             ORDER BY p.target_date ASC
         """
-        return pd.read_sql_query(query, self.conn, params=[model_name])
+        frame = self._read_sql_query(query, [model_name])
+        for column, digits in {
+            "accuracy_pct": 2,
+            "total_return_pct": 4,
+            "avg_return_pct": 4,
+        }.items():
+            if column in frame.columns:
+                frame[column] = frame[column].apply(lambda value, d=digits: self._round_or_none(value, d))
+        return frame
 
     def get_streak(self, model_name: str) -> Dict[str, int]:
         """
@@ -1193,7 +1290,7 @@ class TitanDB:
         stats['models'] = [m[0] for m in models]
 
         # Tamaño del archivo DB
-        if os.path.exists(self.db_path):
+        if self.backend_name == "sqlite" and os.path.exists(self.db_path):
             size_mb = os.path.getsize(self.db_path) / (1024 * 1024)
             stats['db_size_mb'] = round(size_mb, 2)
 
@@ -1207,7 +1304,7 @@ class TitanDB:
         IMPORTANTE: solo usá esto para SELECT, nunca para INSERT/UPDATE/DELETE
         desde fuera de la clase.
         """
-        return pd.read_sql_query(query, self.conn, params=params)
+        return self._read_sql_query(query, params)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
