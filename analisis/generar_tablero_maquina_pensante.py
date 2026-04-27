@@ -83,6 +83,23 @@ def json_default(value: Any) -> Any:
     return str(value)
 
 
+def sparkline_labels_from_calendar(window: dict[str, Any]) -> list[str]:
+    labels: list[str] = []
+    for item in (window.get("calendar") or []):
+        date_text = item.get("date")
+        if date_text:
+            labels.append(str(date_text))
+    return labels
+
+
+def sparkline_labels_from_series(items: list[dict[str, Any]], fallback_prefix: str = "Punto") -> list[str]:
+    labels: list[str] = []
+    for idx, item in enumerate(items, start=1):
+        label = item.get("date") or item.get("label") or item.get("prediction_date")
+        labels.append(str(label) if label else f"{fallback_prefix} {idx}")
+    return labels
+
+
 def dom_id(value: Any) -> str:
     text = str(value or "").strip().lower()
     parts: list[str] = []
@@ -645,6 +662,7 @@ def fetch_entry_summary(con: RuntimeDB, entry: dict[str, Any], market_dates: lis
         params,
     )
     series = daily["avg_return_pct"].tolist()[-60:] if not daily.empty else []
+    spark_labels = daily["target_date"].astype(str).tolist()[-60:] if not daily.empty else []
     cumulative = []
     total = 0.0
     for value in series:
@@ -675,6 +693,7 @@ def fetch_entry_summary(con: RuntimeDB, entry: dict[str, Any], market_dates: lis
         "stale_market_days": market_staleness(latest_prediction_date, market_dates),
         "spark_avg_return_pct": series,
         "spark_cumulative_return_pct": cumulative,
+        "spark_labels": spark_labels,
         "recent_10": recent_10,
         "recent_15": recent_15,
         "recent_30": recent_30,
@@ -1304,13 +1323,26 @@ def build_dashboard_payload(
     return payload
 
 
-def sparkline_svg(values: list[float], stroke: str, fill: str = "none", width: int = 240, height: int = 72) -> str:
+def sparkline_svg(
+    values: list[float],
+    stroke: str,
+    fill: str = "none",
+    width: int = 240,
+    height: int = 72,
+    labels: list[str] | None = None,
+    title: str | None = None,
+    value_format: str = "pct",
+    previewable: bool = False,
+) -> str:
     if not values:
         return (
             f"<svg viewBox='0 0 {width} {height}' class='sparkline'>"
             f"<rect x='0' y='0' width='{width}' height='{height}' rx='12' fill='rgba(0,0,0,0.04)' />"
             "</svg>"
         )
+    normalized_labels = list(labels or [])
+    if len(normalized_labels) < len(values):
+        normalized_labels.extend(f"Punto {idx}" for idx in range(len(normalized_labels) + 1, len(values) + 1))
     points: list[tuple[float, float]] = []
     lo = min(values)
     hi = max(values)
@@ -1322,8 +1354,15 @@ def sparkline_svg(values: list[float], stroke: str, fill: str = "none", width: i
     line = " ".join(f"{x:.2f},{y:.2f}" for x, y in points)
     area = " ".join([f"4,{height-4}"] + [f"{x:.2f},{y:.2f}" for x, y in points] + [f"{width-4},{height-4}"])
     baseline = height - 4
+    values_json = safe(json.dumps([round(float(value), 6) for value in values], ensure_ascii=True))
+    labels_json = safe(json.dumps(normalized_labels[: len(values)], ensure_ascii=True))
     return (
-        f"<svg viewBox='0 0 {width} {height}' class='sparkline'>"
+        f"<svg viewBox='0 0 {width} {height}' class='sparkline'"
+        f" data-values='{values_json}'"
+        f" data-labels='{labels_json}'"
+        f" data-title='{safe(title or '')}'"
+        f" data-format='{safe(value_format)}'"
+        f" data-previewable='{'1' if previewable else '0'}'>"
         f"<polyline points='0,{baseline} {width},{baseline}' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' />"
         f"<polygon points='{area}' fill='{fill}' opacity='0.18' />"
         f"<polyline points='{line}' fill='none' stroke='{stroke}' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' />"
@@ -1388,12 +1427,17 @@ def render_competition_rows(rows: list[dict[str, Any]]) -> str:
     html_rows = []
     for row in rows:
         bar_width = max(0, min(100, int(round(to_float(row.get("accuracy_pct")) or 0))))
+        spark_values = [float(value) for value in row.get("spark_cumulative_return_pct", []) if value is not None]
         spark = sparkline_svg(
-            [float(value) for value in row.get("spark_cumulative_return_pct", []) if value is not None],
+            spark_values,
             "#0b7fab",
             "#0b7fab",
             width=160,
             height=46,
+            labels=[str(label) for label in (row.get("spark_labels") or [])],
+            title=f"{row['version']} | retorno acumulado",
+            value_format="pct",
+            previewable=True,
         )
         latest = ", ".join(row.get("latest_tickers", [])[:6]) or "-"
         html_rows.append(
@@ -1482,6 +1526,192 @@ def render_model_strip(rows: list[dict[str, Any]]) -> str:
     return "".join(cards)
 
 
+def render_chart_hover_css() -> str:
+    return """
+    .sparkline[data-values]{cursor:crosshair}
+    .sparkline.is-previewable{cursor:zoom-in}
+    .sparkline-preview-wrap{display:flex;align-items:center;justify-content:flex-start;min-width:230px}
+    .league-spark-cell{min-width:230px;width:250px}
+    .league-spark-cell .sparkline{margin-top:0}
+    .chart-hover-tooltip{
+      position:fixed;z-index:96;max-width:280px;padding:10px 12px;border-radius:14px;
+      background:rgba(5,12,20,0.96);border:1px solid rgba(255,255,255,0.10);box-shadow:0 18px 40px rgba(0,0,0,0.35);
+      color:#edf4fb;font-size:12px;line-height:1.45;pointer-events:none;opacity:0;transform:translateY(6px);
+      transition:opacity .08s ease, transform .08s ease
+    }
+    .chart-hover-tooltip.show{opacity:1;transform:translateY(0)}
+    .chart-hover-tooltip strong{display:block;margin-bottom:4px}
+    .chart-hover-label{color:#8ea4b8;font-size:11px}
+    .chart-hover-value{margin-top:6px;font-size:14px;font-weight:800;color:#ffffff}
+    .chart-preview-panel{
+      position:fixed;right:18px;bottom:18px;z-index:95;width:min(520px, calc(100vw - 28px));
+      padding:14px 14px 12px 14px;border-radius:22px;background:linear-gradient(180deg, rgba(16,29,48,0.98) 0%, rgba(10,19,33,0.98) 100%);
+      border:1px solid rgba(255,255,255,0.10);box-shadow:0 26px 65px rgba(0,0,0,0.40);
+      opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .12s ease, transform .12s ease
+    }
+    .chart-preview-panel.show{opacity:1;transform:translateY(0)}
+    .chart-preview-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:10px}
+    .chart-preview-title{font-size:12px;text-transform:uppercase;letter-spacing:0.12em;color:#8ea4b8;font-weight:800}
+    .chart-preview-meta{font-size:18px;font-weight:800;color:#edf4fb;text-align:right}
+    .chart-preview-canvas{border-radius:16px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
+    .chart-preview-canvas svg{display:block;width:100%;height:auto;max-height:240px}
+    @media (max-width: 900px){
+      .chart-preview-panel{left:14px;right:14px;width:auto}
+      .league-spark-cell{min-width:190px;width:210px}
+    }
+    """
+
+
+def render_chart_interaction_script() -> str:
+    return r"""
+(function(){
+  function parseList(raw){
+    try {
+      const data = JSON.parse(raw || "[]");
+      return Array.isArray(data) ? data : [];
+    } catch (_) {
+      return [];
+    }
+  }
+  function clamp(value, min, max){
+    return Math.min(max, Math.max(min, value));
+  }
+  function ensureTooltip(){
+    let tooltip = document.getElementById("chartHoverTooltip");
+    if (!tooltip) {
+      tooltip = document.createElement("div");
+      tooltip.id = "chartHoverTooltip";
+      tooltip.className = "chart-hover-tooltip";
+      document.body.appendChild(tooltip);
+    }
+    return tooltip;
+  }
+  function ensurePreview(){
+    let preview = document.getElementById("chartPreviewPanel");
+    if (!preview) {
+      preview = document.createElement("div");
+      preview.id = "chartPreviewPanel";
+      preview.className = "chart-preview-panel";
+      preview.innerHTML =
+        "<div class='chart-preview-head'>"
+        + "<div class='chart-preview-title'></div>"
+        + "<div class='chart-preview-meta'></div>"
+        + "</div>"
+        + "<div class='chart-preview-canvas'></div>";
+      document.body.appendChild(preview);
+    }
+    return preview;
+  }
+  function formatValue(value, format){
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "—";
+    if (format === "int") return Math.round(num).toLocaleString("es-AR");
+    if (format === "float") return num.toFixed(2);
+    return (num >= 0 ? "+" : "") + num.toFixed(2) + "%";
+  }
+  function viewBoxSize(svg){
+    const raw = (svg.getAttribute("viewBox") || "").trim().split(/\s+/).map(Number);
+    if (raw.length === 4 && raw.every(Number.isFinite)) {
+      return { width: raw[2], height: raw[3] };
+    }
+    return { width: 240, height: 72 };
+  }
+  function ensureMarker(svg){
+    if (svg._sparkHoverMarker) return svg._sparkHoverMarker;
+    const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    marker.setAttribute("r", "5");
+    marker.setAttribute("fill", "#ffffff");
+    marker.setAttribute("stroke", svg.dataset.markerStroke || "#21c7c4");
+    marker.setAttribute("stroke-width", "2");
+    marker.setAttribute("opacity", "0");
+    marker.setAttribute("pointer-events", "none");
+    svg.appendChild(marker);
+    svg._sparkHoverMarker = marker;
+    return marker;
+  }
+  function moveMarker(svg, values, index){
+    const marker = ensureMarker(svg);
+    const box = viewBoxSize(svg);
+    const width = box.width;
+    const height = box.height;
+    const lo = Math.min.apply(null, values);
+    const hi = Math.max.apply(null, values);
+    const span = (hi - lo) || 1;
+    const x = index * (width - 8) / Math.max(values.length - 1, 1) + 4;
+    const y = height - 8 - ((values[index] - lo) / span) * (height - 16);
+    marker.setAttribute("cx", x.toFixed(2));
+    marker.setAttribute("cy", y.toFixed(2));
+    marker.setAttribute("opacity", "1");
+  }
+  function hideMarker(svg){
+    const marker = svg._sparkHoverMarker;
+    if (marker) marker.setAttribute("opacity", "0");
+  }
+  function nearestIndex(svg, event, values){
+    const rect = svg.getBoundingClientRect();
+    const ratio = clamp((event.clientX - rect.left) / Math.max(rect.width, 1), 0, 1);
+    return Math.round(ratio * Math.max(values.length - 1, 0));
+  }
+  function positionTooltip(tooltip, event){
+    tooltip.style.left = Math.min(window.innerWidth - tooltip.offsetWidth - 16, event.clientX + 16) + "px";
+    tooltip.style.top = Math.min(window.innerHeight - tooltip.offsetHeight - 16, event.clientY + 16) + "px";
+  }
+  function updatePreview(svg, label, valueText){
+    if (svg.dataset.previewable !== "1") return;
+    const preview = ensurePreview();
+    preview.querySelector(".chart-preview-title").textContent = svg.dataset.title || "Preview";
+    preview.querySelector(".chart-preview-meta").textContent = label + " · " + valueText;
+    preview.querySelector(".chart-preview-canvas").innerHTML = svg.outerHTML;
+    preview.classList.add("show");
+    svg.classList.add("is-previewable");
+  }
+  function hidePreview(svg){
+    if (svg) svg.classList.remove("is-previewable");
+    const preview = document.getElementById("chartPreviewPanel");
+    if (preview) preview.classList.remove("show");
+  }
+  function bindSpark(svg){
+    if (svg.dataset.hoverBound === "1") return;
+    svg.dataset.hoverBound = "1";
+    const values = parseList(svg.dataset.values);
+    const labels = parseList(svg.dataset.labels);
+    if (!values.length) return;
+    const tooltip = ensureTooltip();
+    svg.dataset.markerStroke = svg.querySelector("polyline[stroke]")?.getAttribute("stroke") || "#21c7c4";
+    function update(event){
+      const idx = nearestIndex(svg, event, values);
+      const label = String(labels[idx] || ("Punto " + (idx + 1)));
+      const valueText = formatValue(values[idx], svg.dataset.format || "pct");
+      tooltip.innerHTML =
+        "<strong>" + (svg.dataset.title || "Serie") + "</strong>"
+        + "<div class='chart-hover-label'>" + label + "</div>"
+        + "<div class='chart-hover-value'>" + valueText + "</div>";
+      tooltip.classList.add("show");
+      positionTooltip(tooltip, event);
+      moveMarker(svg, values.map(Number), idx);
+      updatePreview(svg, label, valueText);
+    }
+    function leave(){
+      tooltip.classList.remove("show");
+      hideMarker(svg);
+      hidePreview(svg);
+    }
+    svg.addEventListener("mouseenter", update);
+    svg.addEventListener("mousemove", update);
+    svg.addEventListener("mouseleave", leave);
+  }
+  function init(){
+    document.querySelectorAll("svg.sparkline[data-values]").forEach(bindSpark);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
+})();
+"""
+
+
 def render_base_css() -> str:
     return """
     :root{
@@ -1563,7 +1793,7 @@ def render_base_css() -> str:
     .kpi-line{display:flex;justify-content:space-between;gap:12px;border-top:1px solid rgba(80,70,40,0.12);padding:10px 0;font-size:14px}.kpi-line:first-child{border-top:none;padding-top:0}
     .footer-note{margin-top:18px;color:var(--muted);font-size:13px;line-height:1.6}
     @media (max-width: 1180px){.hero,.two-col,.three-col,.metric-grid,.model-strip,.variant-grid,.inline-grid{grid-template-columns:1fr}.page{width:min(100vw - 24px, 1480px)}}
-    """
+    """ + render_chart_hover_css()
 
 
 def render_main_css() -> str:
@@ -1795,7 +2025,7 @@ def render_main_css() -> str:
     .heat-tooltip .muted-line{color:var(--muted);font-size:11px}
     @media (max-width: 1480px){.group-grid,.secondary-grid,.bottom-grid{grid-template-columns:1fr 1fr}.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.prime-grid{grid-template-columns:1fr}.compact-ranking-grid{grid-template-columns:1fr}}
     @media (max-width: 1220px){.app-shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.main-grid,.prime-grid,.secondary-grid,.bottom-grid,.dense-grid,.kpi-grid,.focus-grid,.group-grid,.builder-grid,.builder-actions,.compact-ranking-grid{grid-template-columns:1fr}.builder-panel{left:12px;right:12px;width:auto}}
-    """
+    """ + render_chart_hover_css()
 
 
 def latest_ticker_cloud(tickers: list[str], limit: int = 12) -> str:
@@ -1881,6 +2111,9 @@ def render_focus_cards(rows: list[dict[str, Any]]) -> str:
             fill,
             width=320,
             height=90,
+            labels=sparkline_labels_from_calendar(row.get("recent_30") or {}),
+            title=f"{row['version']} | contexto 30 ruedas",
+            value_format="pct",
         )
         cards.append(
             "<article class='focus-card'>"
@@ -1949,6 +2182,21 @@ def render_full_league_rows(rows: list[dict[str, Any]]) -> str:
     for row in rows:
         equalized = row.get("equalized_recent") or {}
         thirty = row.get("recent_30") or {}
+        role = str(row.get("role") or "")
+        stroke, fill = tone_for_role(role)
+        series = equalized.get("spark_avg_return_pct") or thirty.get("spark_avg_return_pct") or []
+        labels = sparkline_labels_from_calendar(equalized) or sparkline_labels_from_calendar(thirty)
+        curve = sparkline_svg(
+            cumulative_series(series),
+            stroke,
+            fill,
+            width=236,
+            height=72,
+            labels=labels,
+            title=f"{row['version']} | curva reciente",
+            value_format="pct",
+            previewable=True,
+        )
         body.append(
             "<tr>"
             f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
@@ -1959,6 +2207,7 @@ def render_full_league_rows(rows: list[dict[str, Any]]) -> str:
             f"<td>{fmt_int(thirty.get('active_days'))}/{fmt_int(thirty.get('window_days'))}<br><span class='mini'>{fmt_int(thirty.get('evaluated'))} picks</span></td>"
             f"<td>{fmt_int(row.get('unique_tickers'))}<br><span class='mini'>{fmt_int(row.get('latest_picks'))} ultimos</span></td>"
             f"<td class='tight'>{safe(', '.join(row.get('latest_tickers', [])[:10]) or '-')}</td>"
+            f"<td class='league-spark-cell'>{curve}</td>"
             "</tr>"
         )
     return "".join(body)
@@ -1991,7 +2240,16 @@ def render_group_model_cards(rows: list[dict[str, Any]], champion_latest: set[st
         role = str(row.get("role") or "")
         stroke, fill = tone_for_role(role)
         series = eq.get("spark_avg_return_pct") or thirty.get("spark_avg_return_pct") or []
-        curve = sparkline_svg(cumulative_series(series), stroke, fill, width=280, height=84)
+        curve = sparkline_svg(
+            cumulative_series(series),
+            stroke,
+            fill,
+            width=280,
+            height=84,
+            labels=sparkline_labels_from_calendar(eq) or sparkline_labels_from_calendar(thirty),
+            title=f"{row['version']} | muestra visible",
+            value_format="pct",
+        )
         overlap = latest_overlap_pct(row, champion_latest)
         block_id = f"model-{dom_id(role)}-{dom_id(row['version'])}"
         cards.append(
@@ -2732,9 +2990,36 @@ def render_index(payload: dict[str, Any]) -> str:
     champion_curve = cumulative_series(champion_recent_30.get("spark_avg_return_pct", []))
     leader_curve = cumulative_series(leader_window.get("spark_avg_return_pct", []))
     historical_leader_curve = cumulative_series((historical_leader.get("equalized_recent") or {}).get("spark_avg_return_pct", []))
-    champion_curve_svg = sparkline_svg(champion_curve, "#21c7c4", "#21c7c4", width=420, height=94)
-    leader_curve_svg = sparkline_svg(leader_curve, "#f0c96f", "#f0c96f", width=240, height=58)
-    historical_leader_svg = sparkline_svg(historical_leader_curve, "#5ed39d", "#5ed39d", width=220, height=54)
+    champion_curve_svg = sparkline_svg(
+        champion_curve,
+        "#21c7c4",
+        "#21c7c4",
+        width=420,
+        height=94,
+        labels=sparkline_labels_from_calendar(champion_recent_30),
+        title=f"{champion_label} | curva 30 ruedas",
+        value_format="pct",
+    )
+    leader_curve_svg = sparkline_svg(
+        leader_curve,
+        "#f0c96f",
+        "#f0c96f",
+        width=240,
+        height=58,
+        labels=sparkline_labels_from_calendar(leader_window),
+        title=f"{leader_equalized.get('version') or 'Lider'} | curva visible",
+        value_format="pct",
+    )
+    historical_leader_svg = sparkline_svg(
+        historical_leader_curve,
+        "#5ed39d",
+        "#5ed39d",
+        width=220,
+        height=54,
+        labels=sparkline_labels_from_calendar(historical_leader.get("equalized_recent") or {}),
+        title=f"{historical_leader.get('version') or 'Scanner'} | curva visible",
+        value_format="pct",
+    )
 
     return f"""<!doctype html>
 <html lang="es">
@@ -3017,13 +3302,14 @@ def render_index(payload: dict[str, Any]) -> str:
           </div>
         </div>
         <table class="data-table">
-          <thead><tr><th>Modelo</th><th>Frescura</th><th>Muestra igualada WR/Ret</th><th>Muestra igualada</th><th>30 ruedas WR/Ret</th><th>30 ruedas muestra</th><th>Universo</th><th>Proximos activos</th></tr></thead>
+          <thead><tr><th>Modelo</th><th>Frescura</th><th>Muestra igualada WR/Ret</th><th>Muestra igualada</th><th>30 ruedas WR/Ret</th><th>30 ruedas muestra</th><th>Universo</th><th>Proximos activos</th><th>Curva</th></tr></thead>
           <tbody>{render_full_league_rows(league_all)}</tbody>
         </table>
       </section>
     </main>
     {render_builder_markup()}
   </div>
+  <script>{render_chart_interaction_script()}</script>
   <script>{render_builder_script()}</script>
 </body>
 </html>"""
@@ -3039,9 +3325,30 @@ def render_executive(payload: dict[str, Any]) -> str:
     active_run = active["active_run"] or {}
     executive_rows = competition[:8]
     latest_results = active_run.get("results_d", []) + active_run.get("results_e", [])
-    hero_spark = sparkline_svg([to_int(item["count"]) for item in ingestion["predictions"]], "#0b7fab", "#0b7fab")
-    outcome_spark = sparkline_svg([to_int(item["count"]) for item in ingestion["outcomes"]], "#b7852b", "#b7852b")
-    regime_spark = sparkline_svg([to_int(item["count"]) for item in ingestion["regimes"]], "#3f7f61", "#3f7f61")
+    hero_spark = sparkline_svg(
+        [to_int(item["count"]) for item in ingestion["predictions"]],
+        "#0b7fab",
+        "#0b7fab",
+        labels=sparkline_labels_from_series(ingestion["predictions"], fallback_prefix="Rueda"),
+        title="Predictions | registros por rueda",
+        value_format="int",
+    )
+    outcome_spark = sparkline_svg(
+        [to_int(item["count"]) for item in ingestion["outcomes"]],
+        "#b7852b",
+        "#b7852b",
+        labels=sparkline_labels_from_series(ingestion["outcomes"], fallback_prefix="Rueda"),
+        title="Outcomes | registros por rueda",
+        value_format="int",
+    )
+    regime_spark = sparkline_svg(
+        [to_int(item["count"]) for item in ingestion["regimes"]],
+        "#3f7f61",
+        "#3f7f61",
+        labels=sparkline_labels_from_series(ingestion["regimes"], fallback_prefix="Rueda"),
+        title="Regimes | registros por rueda",
+        value_format="int",
+    )
     active_d = active["active_d"]
     active_e = active["active_e"]
     reference_d = active["reference_d"] or {}
@@ -3162,6 +3469,7 @@ def render_executive(payload: dict[str, Any]) -> str:
       <div class="footer-note">Clave de lectura: V12 y V13 aparecen practicamente iguales en la base D reciente, mientras que la familia legacy queda muy lejos del champion y por eso aporta informacion nueva.</div>
     </section>
   </main>
+  <script>{render_chart_interaction_script()}</script>
 </body>
 </html>"""
 
@@ -3228,14 +3536,32 @@ def render_lab(payload: dict[str, Any]) -> str:
       <div class="two-col">
         <div class="panel" style="margin:0">
           <div class="section-head"><div><h3 class="section-title" style="font-size:24px">V13 D_D10</h3></div></div>
-          {sparkline_svg(active_d_series, "#0b7fab", "#0b7fab", width=560, height=120)}
+          {sparkline_svg(
+              active_d_series,
+              "#0b7fab",
+              "#0b7fab",
+              width=560,
+              height=120,
+              labels=sparkline_labels_from_series(active["active_d_daily"], fallback_prefix="Rueda"),
+              title="V13 D_D10 | retorno medio por rueda",
+              value_format="pct",
+          )}
           <div class="kpi-line"><span>WR</span><strong>{fmt_pct(active['active_d'].get('accuracy_pct'))}</strong></div>
           <div class="kpi-line"><span>Ret medio</span><strong>{fmt_pct(active['active_d'].get('avg_return_pct'), 3, signed=True)}</strong></div>
           <div class="kpi-line"><span>Conf media</span><strong>{fmt_pct(active['active_d'].get('avg_confidence'))}</strong></div>
         </div>
         <div class="panel" style="margin:0">
           <div class="section-head"><div><h3 class="section-title" style="font-size:24px">V13 E_D15</h3></div></div>
-          {sparkline_svg(active_e_series, "#b7852b", "#b7852b", width=560, height=120)}
+          {sparkline_svg(
+              active_e_series,
+              "#b7852b",
+              "#b7852b",
+              width=560,
+              height=120,
+              labels=sparkline_labels_from_series(active["active_e_daily"], fallback_prefix="Rueda"),
+              title="V13 E_D15 | retorno medio por rueda",
+              value_format="pct",
+          )}
           <div class="kpi-line"><span>WR</span><strong>{fmt_pct(active['active_e'].get('accuracy_pct'))}</strong></div>
           <div class="kpi-line"><span>Ret medio</span><strong>{fmt_pct(active['active_e'].get('avg_return_pct'), 3, signed=True)}</strong></div>
           <div class="kpi-line"><span>Conf media</span><strong>{fmt_pct(active['active_e'].get('avg_confidence'))}</strong></div>
@@ -3274,6 +3600,7 @@ def render_lab(payload: dict[str, Any]) -> str:
       </table>
     </section>
   </main>
+  <script>{render_chart_interaction_script()}</script>
 </body>
 </html>"""
 

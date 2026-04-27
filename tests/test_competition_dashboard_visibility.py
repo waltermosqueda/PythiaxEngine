@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import herramientas.competencia_topn_estandar as standardized
 from herramientas.competencia_topn_estandar import _build_dashboard_scanner_visibility
 
 
@@ -108,3 +109,51 @@ def test_dashboard_visibility_keeps_distinct_scanner_family() -> None:
 
     assert visible == ["V13", "V11", "V14"]
     assert hidden == []
+
+
+def test_build_entry_state_carries_spark_labels(monkeypatch) -> None:
+    entry = {"label": "V11", "role": "base", "prefix": "V11"}
+    active_dates = ["2026-04-22", "2026-04-23", "2026-04-24"]
+    day_records = {
+        "2026-04-22": {
+            "picks": 2,
+            "avg_return_pct": 1.1,
+            "evaluated_assets": [{"hit": 1, "actual_return": 0.02, "confidence": 0.7}],
+            "tickers": ["LMT"],
+            "latest_target_date": "2026-04-23",
+        },
+        "2026-04-23": {
+            "picks": 1,
+            "avg_return_pct": -0.4,
+            "evaluated_assets": [{"hit": 0, "actual_return": -0.01, "confidence": 0.6}],
+            "tickers": ["IREN"],
+            "latest_target_date": "2026-04-24",
+        },
+        "2026-04-24": {
+            "picks": 3,
+            "avg_return_pct": 2.3,
+            "evaluated_assets": [{"hit": 1, "actual_return": 0.03, "confidence": 0.8}],
+            "tickers": ["NVDA"],
+            "latest_target_date": "2026-04-27",
+        },
+    }
+
+    monkeypatch.setattr(standardized, "load_entry_snapshots", lambda entry: [])
+    monkeypatch.setattr(standardized, "_load_operational_row_map", lambda con, entry: {})
+    monkeypatch.setattr(
+        standardized,
+        "_build_ranked_picks_by_date",
+        lambda snapshots, row_map: ({}, {date_text: "snapshot" for date_text in active_dates}, "snapshot"),
+    )
+    monkeypatch.setattr(
+        standardized,
+        "_build_day_records",
+        lambda ranked_picks_by_date, source_by_date, row_map, top_n: (day_records, active_dates, active_dates, {"LMT", "IREN", "NVDA"}),
+    )
+    monkeypatch.setattr(standardized, "_market_staleness", lambda latest_date, market_dates: 0)
+    monkeypatch.setattr(standardized, "build_window_metrics_from_records", lambda records, window_dates: {})
+
+    state = standardized._build_entry_state(None, entry, active_dates, top_n=2)
+
+    assert state["row"]["spark_labels"] == active_dates
+    assert state["row"]["spark_cumulative_return_pct"] == [1.1, 0.7, 3.0]

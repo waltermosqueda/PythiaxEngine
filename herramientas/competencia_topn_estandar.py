@@ -692,6 +692,7 @@ def _build_entry_state(
     for value in spark_series:
         running += value
         cumulative.append(round(running, 4))
+    spark_labels = active_evaluated_dates[-60:]
 
     state = {
         "entry": entry,
@@ -724,6 +725,7 @@ def _build_entry_state(
             "stale_market_days": _market_staleness(latest_date, market_dates),
             "spark_avg_return_pct": spark_series,
             "spark_cumulative_return_pct": cumulative,
+            "spark_labels": spark_labels,
             "recent_10": build_window_metrics_from_records(day_records, market_dates[-10:]),
             "recent_15": build_window_metrics_from_records(day_records, market_dates[-15:]),
             "recent_30": build_window_metrics_from_records(day_records, market_dates[-30:]),
