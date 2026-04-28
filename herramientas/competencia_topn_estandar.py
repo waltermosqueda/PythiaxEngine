@@ -11,23 +11,17 @@ Regla central:
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 import re
-import sqlite3
 from typing import Any
 
 from herramientas.competencia_modelos import monitored_entries
-from herramientas.legacy_ml_registry import load_enabled_legacy_ml_entries
-
-
-ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = ROOT / "titan_system" / "data" / "titan.db"
+from infra.db.model_run_snapshots import fetch_model_run_snapshots
+from infra.db.runtime import RuntimeDB
 HORIZON_RE = re.compile(r"_D(\d+)$")
 
 STANDARD_TOP_N = 2
 STANDARD_SCOPE = "asset_per_prediction_day"
-STANDARD_SELECTION = "snapshot_rank_then_max_native_horizon_with_db_fallback"
+STANDARD_SELECTION = "db_snapshot_rank_then_max_native_horizon_with_prediction_fallback"
 REDUNDANCY_MIN_COMMON_DAYS = 5
 REDUNDANCY_SAME_DAY_PCT = 85.0
 REDUNDANCY_AGG_JACCARD = 0.9
@@ -235,37 +229,18 @@ def _build_dashboard_scanner_visibility(
     return visible_labels, hidden_rows
 
 
-def _legacy_run_dirs_by_label() -> dict[str, Path]:
-    mapping: dict[str, Path] = {}
-    for entry in load_enabled_legacy_ml_entries():
-        mapping[entry.label] = ROOT / "aprendizaje_operativo" / f"{entry.model_id}_runs"
-    return mapping
-
-
-def run_dir_for_entry(entry: dict[str, Any]) -> Path:
-    label = str(entry["label"])
-    if label.startswith("V") and label[1:].isdigit():
-        return ROOT / "aprendizaje_operativo" / f"v{label[1:]}_runs"
-
-    legacy_map = _legacy_run_dirs_by_label()
-    if label in legacy_map:
-        return legacy_map[label]
-
-    raise KeyError(f"No se pudo resolver run dir para {label}")
-
-
-def load_entry_snapshots(entry: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    run_dir = run_dir_for_entry(entry)
-    if not run_dir.exists():
-        return {}
-
+def load_entry_snapshots(con: RuntimeDB, entry: dict[str, Any]) -> dict[str, dict[str, Any]]:
     snapshots: dict[str, dict[str, Any]] = {}
-    for path in sorted(run_dir.glob("*.json")):
-        try:
-            snapshots[path.stem] = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
+    for row in load_entry_snapshot_rows(con, entry):
+        analyzed_date = str(row.get("analyzed_date") or "")
+        payload = row.get("snapshot") or {}
+        if analyzed_date and isinstance(payload, dict):
+            snapshots[analyzed_date] = payload
     return snapshots
+
+
+def load_entry_snapshot_rows(con: RuntimeDB, entry: dict[str, Any]) -> list[dict[str, Any]]:
+    return fetch_model_run_snapshots(con, model_keys=[str(entry["label"])])
 
 
 def extract_ranked_snapshot_picks(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
@@ -321,7 +296,7 @@ def _build_db_fallback_ranked_picks(
                 "target_date": row.get("target_date"),
                 "model_name": row.get("model_name"),
                 "horizon": row.get("horizon", 0),
-                "_source": "db_fallback",
+                "_source": "prediction_db_fallback",
             }
         )
 
@@ -359,22 +334,22 @@ def _build_ranked_picks_by_date(
         if not ranked_snapshot:
             continue
         ranked_by_date[date_text] = ranked_snapshot
-        source_by_date[date_text] = "snapshot"
+        source_by_date[date_text] = "snapshot_db"
 
     fallback_by_date = _build_db_fallback_ranked_picks(row_map)
     for date_text, ranked_fallback in fallback_by_date.items():
         if date_text in ranked_by_date:
             continue
         ranked_by_date[date_text] = ranked_fallback
-        source_by_date[date_text] = "db_fallback"
+        source_by_date[date_text] = "prediction_db_fallback"
 
     source_modes = set(source_by_date.values())
     if not source_modes:
         selection_source = "none"
-    elif source_modes == {"snapshot"}:
-        selection_source = "snapshot"
-    elif source_modes == {"db_fallback"}:
-        selection_source = "db_fallback"
+    elif source_modes == {"snapshot_db"}:
+        selection_source = "snapshot_db"
+    elif source_modes == {"prediction_db_fallback"}:
+        selection_source = "prediction_db_fallback"
     else:
         selection_source = "mixed"
 
@@ -382,7 +357,7 @@ def _build_ranked_picks_by_date(
 
 
 def _load_operational_row_map(
-    con: sqlite3.Connection,
+    con: RuntimeDB,
     entry: dict[str, Any],
 ) -> dict[tuple[str, str], dict[str, Any]]:
     prefix = str(entry["prefix"])
@@ -653,12 +628,13 @@ def build_window_metrics_from_records(
 
 
 def _build_entry_state(
-    con: sqlite3.Connection,
+    con: RuntimeDB,
     entry: dict[str, Any],
     market_dates: list[str],
     top_n: int,
 ) -> dict[str, Any]:
-    snapshots = load_entry_snapshots(entry)
+    snapshot_rows = load_entry_snapshot_rows(con, entry)
+    snapshots = load_entry_snapshots(con, entry)
     row_map = _load_operational_row_map(con, entry)
     ranked_picks_by_date, source_by_date, selection_source = _build_ranked_picks_by_date(
         snapshots,
@@ -681,6 +657,24 @@ def _build_entry_state(
         for asset in total_evaluated_assets
         if asset.get("confidence") is not None
     ]
+    latest_snapshot_row = snapshot_rows[-1] if snapshot_rows else None
+    latest_snapshot_date = str(latest_snapshot_row.get("analyzed_date")) if latest_snapshot_row else None
+    latest_snapshot_payload = (
+        latest_snapshot_row.get("snapshot") if latest_snapshot_row and isinstance(latest_snapshot_row.get("snapshot"), dict) else {}
+    )
+    latest_snapshot_ranked = extract_ranked_snapshot_picks(latest_snapshot_payload)[:top_n]
+    latest_snapshot_tickers = [
+        str(item.get("ticker"))
+        for item in latest_snapshot_ranked
+        if item.get("ticker")
+    ]
+    latest_snapshot_target_dates = sorted(
+        {
+            str(item.get("target_date"))
+            for item in latest_snapshot_ranked
+            if item.get("target_date")
+        }
+    )
     latest_date = all_dates[-1] if all_dates else None
     latest_record = day_records.get(latest_date or "", {})
     spark_series = [
@@ -706,8 +700,8 @@ def _build_entry_state(
             "pattern": str(entry["prefix"]),
             "exact_model_name": bool(entry.get("exact_model_name", False)),
             "selection_source": selection_source,
-            "snapshot_days": sum(1 for source in source_by_date.values() if source == "snapshot"),
-            "db_fallback_days": sum(1 for source in source_by_date.values() if source == "db_fallback"),
+            "snapshot_days": len(snapshot_rows),
+            "db_fallback_days": sum(1 for source in source_by_date.values() if source == "prediction_db_fallback"),
             "pred_days": len(all_dates),
             "total_preds": sum(_to_int(day_records[date_text]["picks"]) for date_text in all_dates),
             "evaluated": len(total_evaluated_assets),
@@ -717,12 +711,21 @@ def _build_entry_state(
             ) if total_evaluated_assets else None,
             "avg_confidence_pct": (sum(total_confidences) / len(total_confidences)) if total_confidences else None,
             "first_date": all_dates[0] if all_dates else None,
-            "last_date": latest_date,
-            "latest_target_date": latest_record.get("latest_target_date"),
-            "latest_picks": _to_int(latest_record.get("picks")),
-            "latest_tickers": list(latest_record.get("tickers") or []),
+            "last_date": latest_snapshot_date or latest_date,
+            "last_signal_date": latest_date,
+            "latest_snapshot_date": latest_snapshot_date,
+            "latest_prediction_for": latest_snapshot_row.get("prediction_for") if latest_snapshot_row else None,
+            "latest_target_date": (
+                latest_snapshot_target_dates[-1]
+                if latest_snapshot_target_dates
+                else latest_record.get("latest_target_date")
+            ),
+            "latest_picks": len(latest_snapshot_tickers) if latest_snapshot_row else _to_int(latest_record.get("picks")),
+            "latest_tickers": latest_snapshot_tickers if latest_snapshot_row else list(latest_record.get("tickers") or []),
             "unique_tickers": len(unique_tickers),
-            "stale_market_days": _market_staleness(latest_date, market_dates),
+            "latest_snapshot_signal_count": int(latest_snapshot_row.get("signal_count") or 0) if latest_snapshot_row else 0,
+            "snapshot_stale_market_days": _market_staleness(latest_snapshot_date, market_dates),
+            "stale_market_days": _market_staleness(latest_snapshot_date or latest_date, market_dates),
             "spark_avg_return_pct": spark_series,
             "spark_cumulative_return_pct": cumulative,
             "spark_labels": spark_labels,
@@ -737,7 +740,7 @@ def _build_entry_state(
 
 
 def build_standardized_competition_snapshot(
-    con: sqlite3.Connection,
+    con: RuntimeDB,
     market_dates: list[str],
     active_version: int,
     reference_version: int | None,
@@ -810,8 +813,8 @@ def build_standardized_competition_snapshot(
             "scope": STANDARD_SCOPE,
             "selection": STANDARD_SELECTION,
             "notes": (
-                "Se comparan activos por prediction_date usando el ranking del snapshot; "
-                "si faltan snapshots locales, se usa fallback desde la DB ordenado por confidence/score. "
+                "Se comparan activos por prediction_date usando el ranking del snapshot persistido en Postgres; "
+                "si falta snapshot diario, se usa fallback desde predictions ordenado por confidence/score. "
                 "Si un scanner guarda varios horizontes para el mismo activo, se usa el de mayor horizonte."
             ),
         },
@@ -859,7 +862,7 @@ def _eligible_common_dates(states: list[dict[str, Any]], start_date: str | None 
 
 
 def summarize_topn_study(
-    con: sqlite3.Connection,
+    con: RuntimeDB,
     labels: list[str],
     market_dates: list[str],
     top_ns: tuple[int, ...] = (1, 2, 3, 4),
@@ -961,7 +964,7 @@ def summarize_topn_study(
     return summary
 
 
-def load_market_dates(con: sqlite3.Connection) -> list[str]:
+def load_market_dates(con: RuntimeDB) -> list[str]:
     rows = con.execute(
         """
         SELECT DISTINCT date

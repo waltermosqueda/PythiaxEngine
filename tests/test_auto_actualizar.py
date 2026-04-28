@@ -35,7 +35,7 @@ def test_ejecutar_paso_opcional_accepts_explicit_timeout(monkeypatch) -> None:
     )
 
     ok = auto_actualizar.ejecutar_paso_opcional(
-        "sync_target_incremental_core",
+        "auditoria_centinela",
         ["python", "fake.py"],
         date(2026, 4, 24),
         timeout_seconds=1800,
@@ -69,38 +69,83 @@ def test_get_ultima_fecha_db_reads_active_runtime_backend(monkeypatch) -> None:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def test_cloud_target_database_url_prefers_explicit_target_env(monkeypatch) -> None:
+def test_require_cloud_database_runtime_rejects_sqlite_when_flag_enabled(monkeypatch) -> None:
     monkeypatch.setenv("DATABASE_URL", "sqlite:////tmp/runner.db")
-    monkeypatch.setenv("PYTHIAX_TARGET_DATABASE_URL", "postgresql://user:pass@host/dbname")
+    monkeypatch.setenv("PYTHIAX_REQUIRE_CLOUD_DB", "1")
 
-    assert auto_actualizar.cloud_target_database_url() == "postgresql+psycopg://user:pass@host/dbname"
+    try:
+        auto_actualizar.require_cloud_database_runtime()
+    except RuntimeError as exc:
+        assert "Neon/Postgres" in str(exc)
+    else:
+        raise AssertionError("Se esperaba RuntimeError al exigir cloud DB sobre SQLite.")
 
 
-def test_sync_target_incremental_uses_explicit_cloud_target_when_runtime_is_sqlite(monkeypatch) -> None:
-    captured: dict[str, object] = {}
+def test_build_model_snapshot_freshness_report_detects_missing_models(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    db_path = tmp_dir / "freshness.db"
+    try:
+        monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
+        monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
+        monkeypatch.setattr(
+            auto_actualizar,
+            "monitored_entries",
+            lambda: [
+                {"label": "V13", "role": "activo"},
+                {"label": "ML_V97", "role": "legacy_ml"},
+            ],
+        )
 
-    monkeypatch.setenv("DATABASE_URL", "sqlite:////tmp/runner.db")
-    monkeypatch.setenv("PYTHIAX_TARGET_DATABASE_URL", "postgresql://user:pass@host/dbname")
+        with TitanDB() as db:
+            db.conn.execute(
+                """
+                INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                ("SPY", "2026-04-24", 500.0, 505.0, 499.0, 504.0, 1000000, 504.0),
+            )
+            db.save_model_run_snapshot(
+                model_key="V13",
+                model_name="INVERTIR_V13",
+                analyzed_date="2026-04-24",
+                prediction_for="2026-04-25",
+                freshness="AL DIA",
+                signal_count=2,
+                role="activo",
+                snapshot_payload={"picks": [{"ticker": "AAPL"}]},
+            )
 
-    def fake_optional(step_name, command, fecha_base, timeout_seconds=None):
-        captured["step_name"] = step_name
-        captured["command"] = command
-        captured["fecha_base"] = fecha_base
-        captured["timeout_seconds"] = timeout_seconds
-        return True
+        report = auto_actualizar.build_model_snapshot_freshness_report(date(2026, 4, 24))
 
-    monkeypatch.setattr(auto_actualizar, "ejecutar_paso_opcional", fake_optional)
+        assert report["expected_models"] == 2
+        assert report["fresh_models"] == 1
+        assert report["missing_models"] == ["ML_V97"]
+        assert report["latest_prices_date"] == "2026-04-24"
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    observed_failures: list[str] = []
-    auto_actualizar.sync_target_incremental(
-        "sync_target_incremental_core",
-        date(2026, 4, 24),
-        observed_failures,
+
+def test_monitored_snapshots_already_current_requires_full_coverage_and_matching_date(monkeypatch) -> None:
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_model_snapshot_freshness_report",
+        lambda fecha_base: {
+            "missing_models": [],
+            "latest_prices_date": "2026-04-24",
+            "latest_prediction_date": "2026-04-24",
+        },
     )
 
-    assert observed_failures == []
-    assert captured["step_name"] == "sync_target_incremental_core"
-    assert "--target-url" in captured["command"]
-    assert "postgresql+psycopg://user:pass@host/dbname" in captured["command"]
-    assert "--report-path" in captured["command"]
-    assert captured["timeout_seconds"] == 30 * 60
+    assert auto_actualizar.monitored_snapshots_already_current(date(2026, 4, 24)) is True
+
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_model_snapshot_freshness_report",
+        lambda fecha_base: {
+            "missing_models": ["ML_V97"],
+            "latest_prices_date": "2026-04-24",
+            "latest_prediction_date": "2026-04-24",
+        },
+    )
+
+    assert auto_actualizar.monitored_snapshots_already_current(date(2026, 4, 24)) is False

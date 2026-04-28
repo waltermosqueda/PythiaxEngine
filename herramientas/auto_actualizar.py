@@ -39,8 +39,7 @@ VALIDATE_SCRIPT = BASE_DIR / "herramientas" / "validate_market_data.py"
 GESTOR_SCRIPT = BASE_DIR / "herramientas" / "gestor_posiciones_v11.py"
 AUDIT_SCRIPT = BASE_DIR / "herramientas" / "auditoria_integral_claude.py"
 DASHBOARD_SCRIPT = BASE_DIR / "analisis" / "generar_tablero_maquina_pensante.py"
-CLOUD_SYNC_SCRIPT = BASE_DIR / "infra" / "db" / "sync_sqlite_delta_to_target.py"
-CLOUD_SYNC_REPORT = BASE_DIR / "docs" / "cloud" / "reports" / "sqlite_to_target_incremental_sync.json"
+MODEL_FRESHNESS_REPORT = BASE_DIR / "docs" / "cloud" / "reports" / "model_snapshot_freshness.json"
 MARKET_CLOSE_HOUR = 19
 POST_CLOSE_RETRY_ATTEMPTS = 4
 POST_CLOSE_RETRY_SLEEP_SECONDS = 20 * 60
@@ -54,8 +53,15 @@ from herramientas.scanner_operativo_context import (
     learning_version_from_path,
     resolve_operational_scanner_context,
 )
-from infra.db.config import get_database_url, normalize_database_url
-from infra.db.sqlite_compat import get_sqlite_db_path
+from herramientas.competencia_modelos import monitored_entries
+from infra.db.config import get_database_url
+from infra.db.model_run_snapshots import fetch_model_run_snapshots
+from infra.db.runtime import (
+    cloud_runtime_required as shared_cloud_runtime_required,
+    connect_runtime_db,
+    require_cloud_database_runtime as shared_require_cloud_database_runtime,
+    runtime_backend_name as shared_runtime_backend_name,
+)
 from herramientas.legacy_ml_registry import load_enabled_legacy_ml_entries
 from titan_system.core.database import TitanDB
 
@@ -70,30 +76,35 @@ log = logging.getLogger()
 
 
 def runtime_backend_name() -> str:
-    return make_url(get_database_url()).get_backend_name()
+    return shared_runtime_backend_name(get_database_url())
 
 
-def runtime_sqlite_path() -> Path:
-    return get_sqlite_db_path()
+def cloud_runtime_required() -> bool:
+    return shared_cloud_runtime_required()
+
+
+def runtime_sqlite_path() -> Path | None:
+    url = make_url(get_database_url())
+    if url.get_backend_name() == "sqlite" and url.database:
+        return Path(url.database).resolve()
+    return None
+
+
+def runtime_is_cloud_backend() -> bool:
+    return runtime_backend_name().startswith("postgres")
 
 
 def runtime_db_details() -> dict[str, str]:
     backend = runtime_backend_name()
     details = {"db_backend": backend}
-    if backend == "sqlite":
-        details["db_path"] = str(runtime_sqlite_path())
+    sqlite_path = runtime_sqlite_path()
+    if sqlite_path is not None:
+        details["db_path"] = str(sqlite_path)
     return details
 
 
-def cloud_target_database_url() -> str | None:
-    for env_name in ("PYTHIAX_TARGET_DATABASE_URL", "TARGET_DATABASE_URL"):
-        value = os.getenv(env_name)
-        if value and value.strip():
-            return normalize_database_url(value.strip())
-    try:
-        return get_database_url()
-    except Exception:
-        return None
+def require_cloud_database_runtime() -> None:
+    shared_require_cloud_database_runtime(get_database_url())
 
 
 def es_dia_bursatil(fecha: date) -> bool:
@@ -193,6 +204,15 @@ def guardar_salida(step_name: str, fecha_base: date, text: str) -> Path:
     RUN_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     path = RUN_REPORTS_DIR / f"{fecha_base.isoformat()}_{step_name}.txt"
     path.write_text(text, encoding="utf-8")
+    return path
+
+
+def guardar_reporte_json(path: Path, payload: dict[str, object]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False, default=str) + "\n",
+        encoding="utf-8",
+    )
     return path
 
 
@@ -329,6 +349,139 @@ def build_legacy_ml_steps(command_name: str) -> list[tuple[str, Path]]:
     return steps
 
 
+def expected_monitored_snapshot_entries() -> list[dict[str, str]]:
+    expected: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for entry in monitored_entries():
+        label = str(entry["label"])
+        if label in seen:
+            continue
+        seen.add(label)
+        expected.append(
+            {
+                "label": label,
+                "role": str(entry.get("role") or ""),
+            }
+        )
+    return expected
+
+
+def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]:
+    expected_entries = expected_monitored_snapshot_entries()
+    expected_labels = [entry["label"] for entry in expected_entries]
+
+    with connect_runtime_db() as con:
+        snapshot_rows = fetch_model_run_snapshots(
+            con,
+            model_keys=expected_labels,
+            analyzed_date_from=fecha_base.isoformat(),
+            analyzed_date_to=fecha_base.isoformat(),
+        )
+        latest_prices_date = con.scalar("SELECT MAX(date) FROM prices")
+        latest_prediction_date = con.scalar("SELECT MAX(prediction_date) FROM predictions")
+
+    row_by_label = {str(row.get("model_key")): row for row in snapshot_rows}
+    models: list[dict[str, object]] = []
+    missing_models: list[str] = []
+    zero_signal_models: list[str] = []
+
+    for entry in expected_entries:
+        label = entry["label"]
+        row = row_by_label.get(label)
+        if row is None:
+            missing_models.append(label)
+            models.append(
+                {
+                    "label": label,
+                    "role": entry["role"],
+                    "status": "missing_snapshot",
+                    "analyzed_date": None,
+                    "prediction_for": None,
+                    "signal_count": None,
+                }
+            )
+            continue
+
+        signal_count = int(row.get("signal_count") or 0)
+        if signal_count == 0:
+            zero_signal_models.append(label)
+        models.append(
+            {
+                "label": label,
+                "role": entry["role"],
+                "status": "ok_zero_signal" if signal_count == 0 else "ok",
+                "analyzed_date": row.get("analyzed_date"),
+                "prediction_for": row.get("prediction_for"),
+                "signal_count": signal_count,
+                "freshness": row.get("freshness"),
+                "regime_label": row.get("regime_label"),
+            }
+        )
+
+    return {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "fecha_base": fecha_base.isoformat(),
+        "db_backend": runtime_backend_name(),
+        "expected_models": len(expected_entries),
+        "snapshot_rows_found": len(snapshot_rows),
+        "fresh_models": len(expected_entries) - len(missing_models),
+        "missing_models": missing_models,
+        "zero_signal_models": zero_signal_models,
+        "latest_prices_date": str(latest_prices_date) if latest_prices_date else None,
+        "latest_prediction_date": str(latest_prediction_date) if latest_prediction_date else None,
+        "models": models,
+    }
+
+
+def validate_model_snapshot_freshness(fecha_base: date) -> bool:
+    report = build_model_snapshot_freshness_report(fecha_base)
+    report_path = guardar_reporte_json(MODEL_FRESHNESS_REPORT, report)
+    missing_models = list(report.get("missing_models") or [])
+
+    if not missing_models:
+        print(f"  Cobertura de snapshots monitoreados: OK ({report_path})")
+        log.info(
+            "[PIPELINE] Cobertura de snapshots OK para %s. Reporte: %s",
+            fecha_base.isoformat(),
+            report_path,
+        )
+        return True
+
+    summary = (
+        "Faltan snapshots diarios en Postgres para modelos monitoreados: "
+        + ", ".join(missing_models)
+    )
+    emit_critical_alert(
+        code="missing_model_run_snapshots",
+        summary=summary,
+        details={
+            "fecha_base": fecha_base.isoformat(),
+            "missing_models": missing_models,
+            "report_path": str(report_path),
+        },
+    )
+    print(f"  [ERROR] {summary}. Ver {report_path}")
+    log.error("[PIPELINE] %s", summary)
+    return False
+
+
+def model_snapshot_coverage_is_current(report: dict[str, object], fecha_base: date) -> bool:
+    fecha_iso = fecha_base.isoformat()
+    if list(report.get("missing_models") or []):
+        return False
+    if report.get("latest_prices_date") != fecha_iso:
+        return False
+    latest_prediction_date = report.get("latest_prediction_date")
+    if latest_prediction_date not in (None, fecha_iso):
+        return False
+    return True
+
+
+def monitored_snapshots_already_current(fecha_base: date) -> bool:
+    report = build_model_snapshot_freshness_report(fecha_base)
+    return model_snapshot_coverage_is_current(report, fecha_base)
+
+
 def ejecutar_paso_opcional(
     step_name: str,
     command: list[str],
@@ -396,43 +549,44 @@ def ejecutar_paso_opcional(
     return True
 
 
-def refrescar_dashboard(step_name: str, fecha_base: date, observed_failures: list[str]) -> None:
+def refrescar_dashboard(fecha_base: date) -> bool:
     if not DASHBOARD_SCRIPT.exists():
-        return
-    ok = ejecutar_paso_opcional(
-        step_name,
+        emit_critical_alert(
+            code="dashboard_script_missing",
+            summary="No se encontro el generador canonico del dashboard.",
+            details={"dashboard_script": str(DASHBOARD_SCRIPT)},
+        )
+        print(f"  [ERROR] No existe el generador del dashboard: {DASHBOARD_SCRIPT}")
+        return False
+    return ejecutar_paso(
+        "dashboard_maquina",
         [sys.executable, str(DASHBOARD_SCRIPT)],
         fecha_base,
     )
-    if not ok:
-        observed_failures.append(step_name)
 
 
-def sync_target_incremental(step_name: str, fecha_base: date, observed_failures: list[str]) -> None:
-    if not CLOUD_SYNC_SCRIPT.exists():
-        return
-    target_url = cloud_target_database_url()
-    if target_url is None:
-        log.warning("[PIPELINE][OPTIONAL] No se pudo resolver target URL para sync incremental.")
-        return
-    if not target_url or target_url.startswith("sqlite:"):
-        return
-    ok = ejecutar_paso_opcional(
-        step_name,
-        [
-            sys.executable,
-            "-m",
-            "infra.db.sync_sqlite_delta_to_target",
-            "--target-url",
-            target_url,
-            "--report-path",
-            str(CLOUD_SYNC_REPORT),
-        ],
-        fecha_base,
-        timeout_seconds=30 * 60,
+def ejecutar_publicacion_liviana(fecha_base: date) -> bool:
+    print("\n  Reusando snapshots vigentes; se omite recomputo pesado y se refresca publicacion.\n")
+    log.info(
+        "[PIPELINE] Snapshots vigentes para %s. Se omite recomputo pesado y solo se refresca dashboard/publicacion.",
+        fecha_base.isoformat(),
     )
-    if not ok:
-        observed_failures.append(step_name)
+
+    if not validate_model_snapshot_freshness(fecha_base):
+        return False
+
+    if not refrescar_dashboard(fecha_base):
+        return False
+
+    auditoria_ok = ejecutar_paso_opcional(
+        "auditoria_centinela",
+        [sys.executable, str(AUDIT_SCRIPT), "--mode", "fast"],
+        fecha_base,
+    )
+    if not auditoria_ok:
+        log.warning("[PIPELINE] Auditoria centinela fallo durante publicacion liviana.")
+        print("  [WARN] Auditoria centinela fallo. El dashboard ya quedo regenerado con evidencia vigente.")
+    return True
 
 
 def ejecutar_pipeline_diario(fecha_base: date, ahora: datetime) -> bool:
@@ -496,92 +650,89 @@ def ejecutar_pipeline_diario(fecha_base: date, ahora: datetime) -> bool:
             [sys.executable, str(script_path), "daily-summary", "--date", fecha_base.isoformat()],
             fecha_base,
         )
-    if not resumen_ok:
-        return False
-
-    observed_failures: list[str] = []
+        if not resumen_ok:
+            return False
 
     # Antes del dashboard core, alineamos Neon/Postgres con la SQLite local para
     # que el bundle visible y GitHub Pages salgan del mismo corte operativo.
-    sync_target_incremental("sync_target_incremental_core", fecha_base, observed_failures)
 
     # Refrescamos el dashboard core antes de los opcionales lentos para que el
     # tablero operativo y el heatmap queden alineados con la rueda cerrada.
-    refrescar_dashboard("dashboard_maquina_core", fecha_base, observed_failures)
 
     # La auditoría centinela es una verificación de calidad de CÓDIGO, no de
     # frescura de datos. Un fallo (ej. proyecto stale) NO debe bloquear los
     # pasos opcionales de datos (legacy ML, observados). Solo se avisa en log.
+
+    if operational.observed_versions and len(operational.observed_versions) != len(operational.observed_learning_chain):
+        log.error("[PIPELINE] Hay versiones observadas habilitadas sin script de aprendizaje resoluble.")
+        print("  [ERROR] Hay modelos observados habilitados sin script resoluble.")
+        emit_critical_alert(
+            code="observed_learning_missing",
+            summary="Hay modelos observados habilitados sin script de aprendizaje resoluble.",
+            details={
+                "observed_versions": list(operational.observed_versions),
+                "resolved_learning_chain": [str(path) for path in operational.observed_learning_chain],
+            },
+        )
+        return False
+
+    for step_name, script_path in build_observed_steps("run"):
+        ok = ejecutar_paso(
+            step_name,
+            [sys.executable, str(script_path), "run", "--date", fecha_base.isoformat()],
+            fecha_base,
+        )
+        if not ok:
+            return False
+
+    for step_name, script_path in build_observed_steps("daily-summary"):
+        ok = ejecutar_paso(
+            step_name,
+            [sys.executable, str(script_path), "daily-summary", "--date", fecha_base.isoformat()],
+            fecha_base,
+        )
+        if not ok:
+            return False
+
+    for step_name, script_path in build_legacy_ml_steps("run"):
+        ok = ejecutar_paso(
+            step_name,
+            [sys.executable, str(script_path), "run", "--date", fecha_base.isoformat()],
+            fecha_base,
+        )
+        if not ok:
+            return False
+
+    for step_name, script_path in build_legacy_ml_steps("daily-summary"):
+        ok = ejecutar_paso(
+            step_name,
+            [sys.executable, str(script_path), "daily-summary", "--date", fecha_base.isoformat()],
+            fecha_base,
+        )
+        if not ok:
+            return False
+
+    # Repetimos el sync despues de observados/legacy para que el refresh final
+    # capture tambien ese material en Postgres antes de publicar el dashboard.
+
+    # Segundo refresh para incorporar tambien lo que hayan agregado los modelos
+    # observados/legacy si llegaron a completarse en esta misma corrida.
+
+    # Refresco de datos dinámicos en dashboard_operativo_aurora_pro.html (heatmap + liga)
+    if not validate_model_snapshot_freshness(fecha_base):
+        return False
+
+    if not refrescar_dashboard(fecha_base):
+        return False
+
     auditoria_ok = ejecutar_paso_opcional(
         "auditoria_centinela",
         [sys.executable, str(AUDIT_SCRIPT), "--mode", "fast"],
         fecha_base,
     )
     if not auditoria_ok:
-        log.warning("[PIPELINE] Auditoria centinela fallo (posible estado stale). "
-                    "Los pasos opcionales de datos continuaran de todas formas.")
-        observed_failures.append("auditoria_centinela")
-
-    if operational.observed_versions and len(operational.observed_versions) != len(operational.observed_learning_chain):
-        log.warning(
-            "[PIPELINE][OPTIONAL] Hay versiones observadas habilitadas sin script de aprendizaje resoluble."
-        )
-        print("  [WARN] Hay modelos observados habilitados sin script resoluble.")
-
-    for step_name, script_path in build_observed_steps("run"):
-        ok = ejecutar_paso_opcional(
-            step_name,
-            [sys.executable, str(script_path), "run", "--date", fecha_base.isoformat()],
-            fecha_base,
-        )
-        if not ok:
-            observed_failures.append(step_name)
-
-    for step_name, script_path in build_observed_steps("daily-summary"):
-        ok = ejecutar_paso_opcional(
-            step_name,
-            [sys.executable, str(script_path), "daily-summary", "--date", fecha_base.isoformat()],
-            fecha_base,
-        )
-        if not ok:
-            observed_failures.append(step_name)
-
-    for step_name, script_path in build_legacy_ml_steps("run"):
-        ok = ejecutar_paso_opcional(
-            step_name,
-            [sys.executable, str(script_path), "run", "--date", fecha_base.isoformat()],
-            fecha_base,
-        )
-        if not ok:
-            observed_failures.append(step_name)
-
-    for step_name, script_path in build_legacy_ml_steps("daily-summary"):
-        ok = ejecutar_paso_opcional(
-            step_name,
-            [sys.executable, str(script_path), "daily-summary", "--date", fecha_base.isoformat()],
-            fecha_base,
-        )
-        if not ok:
-            observed_failures.append(step_name)
-
-    # Repetimos el sync despues de observados/legacy para que el refresh final
-    # capture tambien ese material en Postgres antes de publicar el dashboard.
-    sync_target_incremental("sync_target_incremental_final", fecha_base, observed_failures)
-
-    # Segundo refresh para incorporar tambien lo que hayan agregado los modelos
-    # observados/legacy si llegaron a completarse en esta misma corrida.
-    refrescar_dashboard("dashboard_maquina_final", fecha_base, observed_failures)
-
-    # Refresco de datos dinámicos en dashboard_operativo_aurora_pro.html (heatmap + liga)
-    ejecutar_paso_opcional(
-        "refrescar_preview_dashboard",
-        [sys.executable, str(BASE_DIR / "herramientas" / "refrescar_datos_dashboard.py")],
-        fecha_base,
-    )
-
-    if observed_failures:
-        log.warning(f"[PIPELINE][OPTIONAL] Fallaron pasos observados: {sorted(set(observed_failures))}")
-        print(f"  [WARN] Fallaron pasos observados: {', '.join(sorted(set(observed_failures)))}")
+        log.warning("[PIPELINE] Auditoria centinela fallo. Se registra como warning post-dashboard.")
+        print("  [WARN] Auditoria centinela fallo. El dashboard ya quedo generado con datos validados.")
 
     log.info(f"[PIPELINE] Pipeline diario completado para {fecha_base}")
     print("\n  Pipeline diario completado.\n")
@@ -612,8 +763,21 @@ def main() -> int:
     force_pipeline = "--force-pipeline" in sys.argv
     log.info(f"-- Auto-actualizador iniciado ({now:%Y-%m-%d %H:%M}) --")
 
-    if runtime_backend_name() == "sqlite" and not runtime_sqlite_path().exists():
-        db_path = runtime_sqlite_path()
+    try:
+        require_cloud_database_runtime()
+    except Exception as exc:
+        log.error(str(exc))
+        print(f"[ERROR] {exc}")
+        emit_critical_alert(
+            code="cloud_db_required",
+            summary=str(exc),
+            details=runtime_db_details(),
+        )
+        return 1
+
+    sqlite_path = runtime_sqlite_path()
+    if runtime_backend_name() == "sqlite" and sqlite_path is not None and not sqlite_path.exists():
+        db_path = sqlite_path
         log.error(f"DB no encontrada: {db_path}")
         print(f"[ERROR] DB no encontrada: {db_path}")
         emit_critical_alert(
@@ -687,6 +851,9 @@ def main() -> int:
                 },
             )
             return 2
+
+        if monitored_snapshots_already_current(latest_after):
+            return 0 if ejecutar_publicacion_liviana(latest_after) else 1
 
         return 0 if ejecutar_pipeline_diario(latest_after, now) else 1
 

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
 import pandas as pd
 from sqlalchemy import text
-from sqlalchemy.engine import Connection, CursorResult, Engine
+from sqlalchemy.engine import Connection, CursorResult, Engine, make_url
 
 from infra.db.config import get_database_url
 from infra.db.session import create_db_engine
@@ -62,6 +63,27 @@ class RuntimeBackend:
     @property
     def is_postgres(self) -> bool:
         return self.name.startswith("postgres")
+
+
+def runtime_backend_name(database_url: str | None = None) -> str:
+    return make_url(database_url or get_database_url()).get_backend_name()
+
+
+def cloud_runtime_required() -> bool:
+    value = os.getenv("PYTHIAX_REQUIRE_CLOUD_DB", "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def require_cloud_database_runtime(database_url: str | None = None) -> None:
+    if not cloud_runtime_required():
+        return
+    backend = runtime_backend_name(database_url)
+    if backend.startswith("postgres"):
+        return
+    raise RuntimeError(
+        "PYTHIAX_REQUIRE_CLOUD_DB=1 exige ejecutar este entrypoint sobre Neon/Postgres. "
+        f"Backend actual detectado: {backend}."
+    )
 
 
 def resolve_runtime_backend(engine: Engine | None = None) -> RuntimeBackend:
@@ -121,7 +143,7 @@ class RuntimeDB:
     def db_stats(self) -> dict[str, Any]:
         stats: dict[str, Any] = {}
 
-        for table in ["prices", "predictions", "outcomes", "regimes"]:
+        for table in ["prices", "predictions", "outcomes", "regimes", "model_run_snapshots"]:
             stats[f"{table}_count"] = int(self.scalar(f"SELECT COUNT(*) FROM {table}") or 0)
 
         row = self.execute("SELECT MIN(date), MAX(date) FROM prices").fetchone()

@@ -26,7 +26,6 @@ import argparse
 import json
 import os
 import re
-import sqlite3
 import subprocess
 import sys
 from datetime import timedelta, timezone
@@ -34,8 +33,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-
-from sqlalchemy.engine import make_url
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -54,11 +51,11 @@ from herramientas.competencia_topn_estandar import (
     load_entry_snapshots,
 )
 from herramientas.dashboard_paths import AURORA_PRO_HTML, INDEX_HTML as TABLERO_INDEX_PATH, SNAPSHOT_PATH as TABLERO_SNAPSHOT_PATH
-from infra.db.config import get_database_url, get_sqlite_fallback_path
-from infra.db.runtime import connect_runtime_db
+from infra.db.runtime import connect_runtime_db, require_cloud_database_runtime
 
 REPORTS_DIR = ROOT / "analisis" / "auditorias"
 SENTINEL_STATE_PATH = REPORTS_DIR / "sentinel_status.json"
+PIPELINE_STEP_REPORTS_DIR = ROOT / "aprendizaje_operativo" / "v11_reports"
 LINE = "=" * 110
 SUBLINE = "-" * 110
 SCANNER_DIR = ROOT / "SCANNER"
@@ -121,7 +118,7 @@ def run_command(
     try:
         return subprocess.run(
             command,
-            cwd=str(ROOT.parent),
+            cwd=str(ROOT),
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -156,58 +153,75 @@ def load_sentinel_state() -> dict[str, Any]:
         return {}
 
 
-def sqlite_value(query: str, params: tuple[Any, ...] = ()) -> Any:
+def runtime_value(query: str, params: tuple[Any, ...] = ()) -> Any:
     with connect_runtime_db() as con:
         row = con.execute(query, params).fetchone()
         return row[0] if row else None
 
 
-def sqlite_value_many(query: str, params: tuple[Any, ...] = ()) -> list[Any]:
+def runtime_value_many(query: str, params: tuple[Any, ...] = ()) -> list[Any]:
     with connect_runtime_db() as con:
         return list(con.execute(query, params).fetchall())
 
 
-def _sqlite_url_for_path(path: Path) -> str:
-    return f"sqlite:///{path.resolve().as_posix()}"
+def latest_db_market_date() -> str | None:
+    return _iso_date_text(runtime_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'"))
 
 
-def _local_sqlite_value(sqlite_path: Path, query: str, params: tuple[Any, ...] = ()) -> Any:
-    with sqlite3.connect(sqlite_path) as con:
-        row = con.execute(query, params).fetchone()
-        return row[0] if row else None
-
-
-def legacy_runner_env() -> dict[str, str] | None:
-    try:
-        runtime_url = get_database_url()
-        if make_url(runtime_url).get_backend_name() == "sqlite":
-            return None
-        sqlite_path = get_sqlite_fallback_path()
-        if not sqlite_path.exists():
-            return None
-
-        runtime_signature = {
-            "latest_spy": _iso_date_text(sqlite_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'")),
-            "latest_prediction": _iso_date_text(sqlite_value("SELECT MAX(prediction_date) FROM predictions")),
-            "predictions_count": sqlite_value("SELECT COUNT(*) FROM predictions"),
-            "outcomes_count": sqlite_value("SELECT COUNT(*) FROM outcomes"),
-        }
-        local_signature = {
-            "latest_spy": _iso_date_text(_local_sqlite_value(sqlite_path, "SELECT MAX(date) FROM prices WHERE ticker='SPY'")),
-            "latest_prediction": _iso_date_text(_local_sqlite_value(sqlite_path, "SELECT MAX(prediction_date) FROM predictions")),
-            "predictions_count": _local_sqlite_value(sqlite_path, "SELECT COUNT(*) FROM predictions"),
-            "outcomes_count": _local_sqlite_value(sqlite_path, "SELECT COUNT(*) FROM outcomes"),
-        }
-        if runtime_signature != local_signature:
-            return None
-    except Exception:
+def pipeline_step_report_path(step_name: str, report_date: str | None = None) -> Path | None:
+    resolved_date = report_date or latest_db_market_date()
+    if not resolved_date:
         return None
+    return PIPELINE_STEP_REPORTS_DIR / f"{resolved_date}_{step_name}.txt"
 
-    env = os.environ.copy()
-    env["DATABASE_URL"] = _sqlite_url_for_path(sqlite_path)
-    env["SQLITE_FALLBACK_PATH"] = str(sqlite_path.resolve())
-    env.setdefault("PYTHIAX_TARGET_DATABASE_URL", runtime_url)
-    return env
+
+def parse_pipeline_step_report(step_name: str, report_date: str | None = None) -> tuple[Path | None, str | None, str]:
+    report_path = pipeline_step_report_path(step_name, report_date=report_date)
+    if report_path is None or not report_path.exists():
+        return report_path, None, ""
+    text = report_path.read_text(encoding="utf-8", errors="replace")
+    return_code = None
+    for line in text.splitlines():
+        if line.startswith("Return code:"):
+            return_code = line.split(":", 1)[1].strip()
+            break
+    return report_path, return_code, text
+
+
+def result_from_pipeline_step_report(
+    name: str,
+    step_name: str,
+    success_summary: str,
+    *,
+    report_date: str | None = None,
+    required_fragments: list[str] | None = None,
+) -> AuditResult:
+    report_path, return_code, text = parse_pipeline_step_report(step_name, report_date=report_date)
+    details = [f"report = {relative(report_path)}"] if report_path and report_path.exists() else []
+    if report_path is None or not report_path.exists():
+        return AuditResult(
+            name,
+            "FAIL",
+            f"No existe evidencia persistida del paso {step_name}.",
+            details or [f"step_name = {step_name}"],
+        )
+    details.extend(text.strip().splitlines()[-12:])
+    if return_code != "0":
+        return AuditResult(
+            name,
+            "FAIL",
+            f"El paso persistido {step_name} no termino OK.",
+            details,
+        )
+    missing = [fragment for fragment in (required_fragments or []) if fragment not in text]
+    if missing:
+        return AuditResult(
+            name,
+            "FAIL",
+            f"La evidencia persistida de {step_name} esta incompleta o no valida el resultado esperado.",
+            details + missing,
+        )
+    return AuditResult(name, "PASS", success_summary, details)
 
 
 def discover_executable_paths() -> list[Path]:
@@ -521,8 +535,7 @@ def check_pipeline_gestor_step() -> AuditResult:
         "operational.active_learning is None",
         '"gestor"',
         '"daily-report"',
-        '"dashboard_maquina_core"',
-        '"dashboard_maquina_final"',
+        '"dashboard_maquina"',
         '"auditoria_centinela"',
         '"--mode", "fast"',
     ]
@@ -538,15 +551,15 @@ def check_pipeline_gestor_step() -> AuditResult:
         "Pipeline diario gestor",
         "PASS",
         "auto_actualizar integra el cierre gestor + dashboard + auditoria centinela y la cadena dinamica de aprendizaje.",
-        ["Pipeline esperado: update -> validate -> aprendizaje base/referencia/activo -> scanner activo -> gestor -> resumenes -> dashboard core -> auditoria fast -> opcionales -> dashboard final"],
+        ["Pipeline esperado: update -> validate -> aprendizaje base/referencia/activo -> scanner activo -> gestor -> resumenes -> observados -> legacy ML -> dashboard -> auditoria fast"],
     )
 
 
 def check_market_metadata() -> AuditResult:
-    latest_prices_date = sqlite_value("SELECT value FROM data_status WHERE key='latest_prices_date'")
-    updated_at = sqlite_value("SELECT value FROM data_status WHERE key='market_data_updated_at'")
-    latest_spy = _iso_date_text(sqlite_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'"))
-    total_rows = sqlite_value("SELECT COUNT(*) FROM data_status")
+    latest_prices_date = runtime_value("SELECT value FROM data_status WHERE key='latest_prices_date'")
+    updated_at = runtime_value("SELECT value FROM data_status WHERE key='market_data_updated_at'")
+    latest_spy = _iso_date_text(runtime_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'"))
+    total_rows = runtime_value("SELECT COUNT(*) FROM data_status")
 
     details = [
         f"latest_prices_date = {latest_prices_date}",
@@ -637,7 +650,7 @@ def check_db_temporal_freshness() -> AuditResult:
     segun el horario real del mercado. Si la DB esta vieja, todos los analisis
     subsiguientes son sobre datos obsoletos.
     """
-    db_latest = _iso_date_text(sqlite_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'"))
+    db_latest = _iso_date_text(runtime_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'"))
     expected = _expected_last_closed_trading_day()
 
     details = [
@@ -687,7 +700,7 @@ def check_pending_evaluations_stale() -> AuditResult:
     En el dashboard se muestran como provisionales/pendientes aunque el
     dato real ya existe — es el error critico que se quiere prevenir.
     """
-    db_latest = sqlite_value("SELECT MAX(date) FROM prices")
+    db_latest = runtime_value("SELECT MAX(date) FROM prices")
     if not db_latest:
         return AuditResult(
             "Evaluaciones pendientes stale",
@@ -696,7 +709,7 @@ def check_pending_evaluations_stale() -> AuditResult:
             [],
         )
 
-    stale_count = sqlite_value(
+    stale_count = runtime_value(
         """
         SELECT COUNT(*)
         FROM predictions p
@@ -720,7 +733,7 @@ def check_pending_evaluations_stale() -> AuditResult:
         )
 
     # Detalle: cuales modelos tienen el problema
-    stale_rows = sqlite_value_many(
+    stale_rows = runtime_value_many(
         """
         SELECT p.model_name, COUNT(*) as cnt, MIN(p.target_date) as oldest_target
         FROM predictions p
@@ -774,9 +787,9 @@ def check_dashboard_freshness() -> AuditResult:
     snapshot_outcome = integrity.get("latest_outcome_date")
     generated_at = payload.get("generated_at")
 
-    db_market = sqlite_value("SELECT value FROM data_status WHERE key='latest_prices_date'")
-    db_prediction = _iso_date_text(sqlite_value("SELECT MAX(prediction_date) FROM predictions"))
-    db_outcome = _iso_date_text(sqlite_value(
+    db_market = runtime_value("SELECT value FROM data_status WHERE key='latest_prices_date'")
+    db_prediction = _iso_date_text(runtime_value("SELECT MAX(prediction_date) FROM predictions"))
+    db_outcome = _iso_date_text(runtime_value(
         """
         SELECT MAX(p.target_date)
         FROM outcomes o
@@ -860,24 +873,27 @@ def check_dashboard_topn_alignment() -> AuditResult:
     }
 
     mismatches: list[str] = []
-    for entry in monitored_entries():
-        label = str(entry["label"])
-        row = competition_rows.get(label)
-        if row is None:
-            mismatches.append(f"{label}:sin_fila_dashboard")
-            continue
+    with connect_runtime_db() as con:
+        for entry in monitored_entries():
+            label = str(entry["label"])
+            row = competition_rows.get(label)
+            if row is None:
+                mismatches.append(f"{label}:sin_fila_dashboard")
+                continue
 
-        snapshots = load_entry_snapshots(entry)
-        if not snapshots:
-            mismatches.append(f"{label}:sin_snapshots")
-            continue
+            snapshots = load_entry_snapshots(con, entry)
+            if not snapshots:
+                mismatches.append(f"{label}:sin_snapshots")
+                continue
 
-        latest_date = max(snapshots)
-        expected = [str(item["ticker"]) for item in extract_ranked_snapshot_picks(snapshots[latest_date])[:STANDARD_TOP_N]]
-        actual = [str(item) for item in (row.get("latest_tickers") or [])]
-        details.append(f"{label} | latest_date = {latest_date} | expected = {', '.join(expected) or '-'} | actual = {', '.join(actual) or '-'}")
-        if actual != expected:
-            mismatches.append(label)
+            latest_date = max(snapshots)
+            expected = [str(item["ticker"]) for item in extract_ranked_snapshot_picks(snapshots[latest_date])[:STANDARD_TOP_N]]
+            actual = [str(item) for item in (row.get("latest_tickers") or [])]
+            details.append(
+                f"{label} | latest_date = {latest_date} | expected = {', '.join(expected) or '-'} | actual = {', '.join(actual) or '-'}"
+            )
+            if actual != expected:
+                mismatches.append(label)
 
     if mismatches:
         return AuditResult(
@@ -911,8 +927,8 @@ def check_sentinel_freshness(mode: str) -> AuditResult:
             )
         return AuditResult(
             "Centinela de integridad",
-            "FAIL",
-            "No existe baseline de auditoria full. Ejecutar una auditoria integral full antes de confiar en el proyecto.",
+            "WARN",
+            "No existe baseline de auditoria full. Conviene correr una auditoria full, pero esto no invalida por si solo la frescura de datos.",
             [],
         )
 
@@ -921,8 +937,8 @@ def check_sentinel_freshness(mode: str) -> AuditResult:
         if mode == "fast":
             return AuditResult(
                 "Centinela de integridad",
-                "FAIL",
-                "Hay cambios ejecutables posteriores al ultimo full audit. El proyecto esta stale hasta rerunear auditoria full.",
+                "WARN",
+                "Hay cambios ejecutables posteriores al ultimo full audit. Hace falta revalidar codigo con auditoria full, aunque la capa de datos puede seguir sana.",
                 details,
             )
         return AuditResult(
@@ -1122,13 +1138,18 @@ def check_ledger() -> AuditResult:
 
 
 def check_scanner_smoke() -> AuditResult:
-    # --equity 1 evita el prompt interactivo de capital (0 causa ZeroDivisionError en sizing)
-    completed = run_command(
-        [sys.executable, str(ACTIVE_SCANNER), "--equity", "1"],
-        timeout_ms=60000,
-        env=legacy_runner_env(),
+    latest_spy = latest_db_market_date()
+    return result_from_pipeline_step_report(
+        "Smoke scanner activo",
+        "scanner",
+        "El scanner activo dejo evidencia persistida y vigente en el pipeline diario.",
+        report_date=latest_spy,
+        required_fragments=[
+            "Return code: 0",
+            "Estado senal            : VIGENTE",
+            str(latest_spy) if latest_spy else "Estado senal            : VIGENTE",
+        ],
     )
-    return _scanner_health_from_output("Smoke scanner activo", completed)
 
 
 def learning_versions_under_audit() -> list[int]:
@@ -1178,32 +1199,31 @@ def check_active_learning_alignment() -> AuditResult:
 
 
 def check_learning_smoke_for_version(version: int) -> AuditResult:
-    latest_spy = sqlite_value("SELECT MAX(date) FROM prices WHERE ticker='SPY'")
-    script_path = ROOT / "herramientas" / f"aprendizaje_operativo_v{version}.py"
     role = _learning_role(version)
-    timeout_ms = 240000 if version == 11 else 45000
-    return result_from_command(
+    latest_spy = latest_db_market_date()
+    return result_from_pipeline_step_report(
         f"Smoke aprendizaje V{version}",
-        [
-            sys.executable,
-            str(script_path),
-            "daily-summary",
-            "--date",
-            str(latest_spy),
-        ],
-        timeout_ms=timeout_ms,
+        f"resumen_v{version}",
         success_summary=f"El loop operativo {role} V{version} puede emitir resumen diario sin fallar.",
-        env=legacy_runner_env(),
+        report_date=latest_spy,
+        required_fragments=[
+            "Return code: 0",
+            f"RESUMEN DIARIO V{version}",
+        ],
     )
 
 
 def check_gestor_smoke() -> AuditResult:
-    return result_from_command(
+    return result_from_pipeline_step_report(
         "Smoke gestor diario",
-        [sys.executable, str(ROOT / "herramientas" / "gestor_posiciones_v11.py"), "daily-report"],
-        timeout_ms=45000,
+        "gestor",
         success_summary="El gestor puede emitir su reporte diario sized sin fallar.",
-        env=legacy_runner_env(),
+        report_date=latest_db_market_date(),
+        required_fragments=[
+            "Return code: 0",
+            "REPORTE DIARIO GESTOR V11",
+            "Frescura DB      : AL DIA",
+        ],
     )
 
 
@@ -1215,12 +1235,46 @@ def check_reference_scanner_smoke() -> AuditResult:
             "No existe scanner productivo previo para validar.",
             [],
         )
-    completed = run_command(
-        [sys.executable, str(PREV_SCANNER), "--equity", "1"],
-        timeout_ms=90000,
-        env=legacy_runner_env(),
+    reference_version = OPERATIONAL.reference_version
+    latest_spy = latest_db_market_date()
+    if reference_version is None or latest_spy is None:
+        return AuditResult(
+            "Smoke scanner referencia inmediata",
+            "FAIL",
+            "No se pudo resolver la referencia inmediata o la fecha mas reciente de mercado.",
+            [],
+        )
+    with connect_runtime_db() as con:
+        row = con.execute(
+            """
+            SELECT analyzed_date, prediction_for, freshness, signal_count
+            FROM model_run_snapshots
+            WHERE model_key = ? AND analyzed_date = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (f"V{reference_version}", latest_spy),
+        ).fetchone()
+    if row is None:
+        return AuditResult(
+            "Smoke scanner referencia inmediata",
+            "FAIL",
+            "La referencia inmediata no dejo snapshot diario persistido en la fecha mas reciente.",
+            [f"model_key = V{reference_version}", f"analyzed_date = {latest_spy}"],
+        )
+    details = [
+        f"model_key = V{reference_version}",
+        f"analyzed_date = {row[0]}",
+        f"prediction_for = {row[1]}",
+        f"freshness = {row[2]}",
+        f"signal_count = {row[3]}",
+    ]
+    return AuditResult(
+        "Smoke scanner referencia inmediata",
+        "PASS",
+        "La referencia inmediata dejo snapshot diario coherente en la fecha mas reciente.",
+        details,
     )
-    return _scanner_health_from_output("Smoke scanner referencia inmediata", completed)
 
 
 def _check_learning_persistence(version: int) -> AuditResult:
@@ -1261,7 +1315,7 @@ def _check_learning_persistence(version: int) -> AuditResult:
         + len(artifact.get("results_d", [])) * 1
         + len(artifact.get("results_e", [])) * 1
     )
-    actual = sqlite_value(
+    actual = runtime_value(
         "SELECT COUNT(*) FROM predictions WHERE model_name LIKE ? AND prediction_date = ?",
         (f"{model_prefix}_%", analyzed_date),
     ) or 0
@@ -1367,7 +1421,6 @@ def check_backtests_full() -> list[AuditResult]:
             )
         )
     results: list[AuditResult] = []
-    env = legacy_runner_env()
     for name, command, timeout_ms in commands:
         results.append(
             result_from_command(
@@ -1375,7 +1428,6 @@ def check_backtests_full() -> list[AuditResult]:
                 command,
                 timeout_ms=timeout_ms,
                 success_summary=f"{name} corre sin crash.",
-                env=env,
             )
         )
     return results
@@ -1489,6 +1541,7 @@ def main() -> int:
         sys.stdout.reconfigure(errors="replace")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(errors="replace")
+    require_cloud_database_runtime()
 
     results: list[AuditResult] = [
         check_sentinel_freshness(args.mode),

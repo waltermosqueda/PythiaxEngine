@@ -58,6 +58,20 @@ UPSERT_RULES: dict[str, dict[str, tuple[str, ...]]] = {
             "max_drawdown",
         ),
     },
+    "model_run_snapshots": {
+        "conflict_columns": ("model_key", "analyzed_date"),
+        "update_columns": (
+            "model_name",
+            "model_version",
+            "role",
+            "prediction_for",
+            "freshness",
+            "regime_label",
+            "breadth_pct",
+            "signal_count",
+            "snapshot_json",
+        ),
+    },
 }
 
 INSERT_OR_REPLACE_RE = re.compile(

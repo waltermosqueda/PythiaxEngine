@@ -25,9 +25,22 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import herramientas.aprendizaje_operativo_v11 as base_v11
+from herramientas.legacy_ml_cloud_specs import (
+    REPO_STRATEGIES_SOURCE_PATH,
+    cloud_universe_for_model,
+)
 from titan_system.core.data_loader import get_sector
 from titan_system.core.database import TitanDB
-from titan_system.models.strategies import StrategyV22, StrategyV94, StrategyV102
+from titan_system.models.strategies import (
+    StrategyBrainV11,
+    StrategyBrainV11Opt,
+    StrategyV22,
+    StrategyV37,
+    StrategyV39Full,
+    StrategyV94,
+    StrategyV97,
+    StrategyV102,
+)
 
 
 os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(os.cpu_count() or 1))
@@ -48,6 +61,17 @@ except Exception:
 
 
 HORIZON_RE = re.compile(r"_D(\d+)$")
+CLOUD_BRIDGE_ADAPTERS = {
+    "brain_v11",
+    "brain_v11_optimized",
+    "v22",
+    "v37",
+    "v39",
+    "v39full",
+    "v94",
+    "v97",
+    "v102",
+}
 
 
 @dataclass(frozen=True)
@@ -118,6 +142,8 @@ def normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
 
 def load_module_from_path(model_id: str, source_path: str) -> ModuleType:
     path = Path(source_path)
+    if not path.is_absolute():
+        path = (ROOT / path).resolve()
     if not path.exists():
         raise FileNotFoundError(f"No existe el archivo legacy: {path}")
 
@@ -133,6 +159,8 @@ def load_module_from_path(model_id: str, source_path: str) -> ModuleType:
 
 def parse_source_assignments(source_path: str) -> dict[str, Any]:
     path = Path(source_path)
+    if not path.is_absolute():
+        path = (ROOT / path).resolve()
     if not path.exists():
         return {}
 
@@ -162,11 +190,15 @@ def _source_value(source: Any, attr_name: str) -> Any:
 
 
 def build_runtime_context(config: LegacyMLConfig, learning_path: Path, latest_db_date: str | None) -> dict[str, object]:
+    source_path = Path(config.source_path) if config.source_path else None
+    if source_path is not None and not source_path.is_absolute():
+        source_path = (ROOT / source_path).resolve()
     critical_files = {
-        "source": Path(config.source_path),
         "learning": learning_path.resolve(),
         "auto_actualizar": ROOT / "herramientas" / "auto_actualizar.py",
     }
+    if source_path is not None and source_path.exists():
+        critical_files["source"] = source_path.resolve()
     file_hashes = {
         name: base_v11.file_sha256(path)
         for name, path in critical_files.items()
@@ -176,9 +208,10 @@ def build_runtime_context(config: LegacyMLConfig, learning_path: Path, latest_db
         "|".join(f"{name}:{value}" for name, value in sorted(file_hashes.items())).encode("utf-8")
     ).hexdigest()
     return {
-        "source_path": str(Path(config.source_path)),
+        "source_path": config.source_path,
         "learning_path": str(learning_path.resolve().relative_to(ROOT)),
         "latest_db_date": latest_db_date,
+        "cloud_bridge": config.adapter_kind in CLOUD_BRIDGE_ADAPTERS,
         "python_version": platform.python_version(),
         "platform": platform.platform(),
         "critical_file_hashes": file_hashes,
@@ -237,7 +270,7 @@ class OperationalLearningLegacyML:
         self.report_dir = ROOT / "aprendizaje_operativo" / f"{config.model_id}_reports"
         self.learning_path = ROOT / config.learning_file
         self.source_metadata = parse_source_assignments(config.source_path)
-        self.module = None if config.adapter_kind in {"v22", "v94", "v102"} else load_module_from_path(config.model_id, config.source_path)
+        self.module = None if config.adapter_kind in CLOUD_BRIDGE_ADAPTERS else load_module_from_path(config.model_id, config.source_path)
 
         self.sector_map = self._discover_sector_map()
         self.requested_universe = self._discover_universe()
@@ -261,6 +294,12 @@ class OperationalLearningLegacyML:
         return extract_sector_map_from_module(source)
 
     def _discover_universe(self) -> list[str]:
+        bridge_universe = cloud_universe_for_model(self.config.model_id)
+        if bridge_universe:
+            deduped = list(dict.fromkeys(str(ticker) for ticker in bridge_universe))
+            if "SPY" not in deduped:
+                deduped.insert(0, "SPY")
+            return deduped
         source = self.module if self.module is not None else self.source_metadata
         return extract_universe_from_module(source)
 
@@ -506,20 +545,73 @@ class OperationalLearningLegacyML:
 
     def generate_picks(self, as_of_ts: pd.Timestamp) -> tuple[list[LegacyMLPick], list[str]]:
         try:
-            if self.config.adapter_kind in {"brain_v11", "brain_v11_optimized"}:
-                return self._run_brain_multiclass(as_of_ts)
+            if self.config.adapter_kind == "brain_v11":
+                return self._run_repo_strategy(
+                    as_of_ts,
+                    StrategyBrainV11,
+                    min_rows=max(self.config.min_rows, 215),
+                    signal="BUY",
+                    min_confidence=0.60,
+                )
+            if self.config.adapter_kind == "brain_v11_optimized":
+                return self._run_repo_strategy(
+                    as_of_ts,
+                    StrategyBrainV11Opt,
+                    min_rows=max(self.config.min_rows, 215),
+                    signal="BUY",
+                    min_confidence=0.60,
+                )
             if self.config.adapter_kind == "v37":
-                return self._run_v37(as_of_ts)
-            if self.config.adapter_kind in {"v39", "v39full"}:
-                return self._run_v39_like(as_of_ts)
+                return self._run_repo_strategy(
+                    as_of_ts,
+                    StrategyV37,
+                    min_rows=max(self.config.min_rows, 100),
+                    signal="SURGE",
+                    min_confidence=0.60,
+                )
+            if self.config.adapter_kind == "v39":
+                return self._run_repo_strategy(
+                    as_of_ts,
+                    StrategyV39Full,
+                    min_rows=max(self.config.min_rows, 120),
+                    signal="TOP",
+                )
+            if self.config.adapter_kind == "v39full":
+                return self._run_repo_strategy(
+                    as_of_ts,
+                    StrategyV39Full,
+                    min_rows=max(self.config.min_rows, 120),
+                    signal="TOP",
+                )
             if self.config.adapter_kind == "v97":
-                return self._run_v97(as_of_ts)
+                return self._run_repo_strategy(
+                    as_of_ts,
+                    StrategyV97,
+                    min_rows=max(self.config.min_rows, 200),
+                    signal="SURGE_WINDOW",
+                    min_confidence=0.65,
+                )
             if self.config.adapter_kind == "v22":
-                return self._run_repo_strategy(as_of_ts, StrategyV22, min_rows=max(self.config.min_rows, 252), signal="BUY")
+                return self._run_repo_strategy(
+                    as_of_ts,
+                    StrategyV22,
+                    min_rows=max(self.config.min_rows, 252),
+                    signal="BUY",
+                )
             if self.config.adapter_kind == "v94":
-                return self._run_repo_strategy(as_of_ts, StrategyV94, min_rows=max(self.config.min_rows, 120), signal="BUY")
+                return self._run_repo_strategy(
+                    as_of_ts,
+                    StrategyV94,
+                    min_rows=max(self.config.min_rows, 120),
+                    signal="BUY",
+                )
             if self.config.adapter_kind == "v102":
-                return self._run_repo_strategy(as_of_ts, StrategyV102, min_rows=max(self.config.min_rows, 220), signal="EVENT")
+                return self._run_repo_strategy(
+                    as_of_ts,
+                    StrategyV102,
+                    min_rows=max(self.config.min_rows, 220),
+                    signal="EVENT",
+                )
         except Exception as exc:
             return [], [f"ERROR adapter {self.config.adapter_kind}: {type(exc).__name__}: {exc}"]
         return [], [f"Adapter no soportado: {self.config.adapter_kind}"]
@@ -829,10 +921,11 @@ class OperationalLearningLegacyML:
     def _run_repo_strategy(
         self,
         as_of_ts: pd.Timestamp,
-        strategy_cls: type[StrategyV22] | type[StrategyV94] | type[StrategyV102],
+        strategy_cls: type[StrategyBrainV11] | type[StrategyBrainV11Opt] | type[StrategyV22] | type[StrategyV37] | type[StrategyV39Full] | type[StrategyV94] | type[StrategyV97] | type[StrategyV102],
         *,
         min_rows: int,
         signal: str,
+        min_confidence: float = 0.0,
     ) -> tuple[list[LegacyMLPick], list[str]]:
         histories = self._histories_asof(as_of_ts, min_rows=min_rows)
         if "SPY" not in histories:
@@ -867,8 +960,10 @@ class OperationalLearningLegacyML:
             if str(row.get("direction", "UP")).upper() != "UP":
                 continue
 
-            seen.add(ticker)
             confidence = max(0.05, min(0.99, float(row.get("confidence", 0.0))))
+            if confidence < min_confidence:
+                continue
+            seen.add(ticker)
             score = round(float(row.get("score", confidence * 100.0)), 4)
             picks.append(
                 LegacyMLPick(
@@ -968,6 +1063,19 @@ class OperationalLearningLegacyML:
         }
         path = self.run_dir / f"{snapshot.analyzed_date}.json"
         path.write_text(json.dumps(artifact, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+        self.db.save_model_run_snapshot(
+            model_key=self.config.label,
+            model_name=self.model_name,
+            model_version=self.model_version,
+            role="legacy_ml",
+            analyzed_date=snapshot.analyzed_date,
+            prediction_for=str(artifact["prediction_for"]),
+            freshness=snapshot.freshness,
+            regime_label=snapshot.regime_label,
+            breadth_pct=snapshot.breadth_pct,
+            signal_count=len(snapshot.picks),
+            snapshot_payload=artifact,
+        )
 
     def _window_max_close_return(self, ticker: str, entry_date: str, target_date: str) -> float | None:
         window_df = normalize_ohlcv(self.db.get_prices(ticker, start_date=entry_date, end_date=target_date))

@@ -81,7 +81,8 @@ def test_competition_snapshot_uses_db_fallback_when_snapshots_are_missing(monkey
             "prefix": "INVERTIR_V13",
         }
         monkeypatch.setattr(competition_topn, "monitored_entries", lambda: [custom_entry])
-        monkeypatch.setattr(competition_topn, "load_entry_snapshots", lambda entry: {})
+        monkeypatch.setattr(competition_topn, "load_entry_snapshots", lambda con, entry: {})
+        monkeypatch.setattr(competition_topn, "load_entry_snapshot_rows", lambda con, entry: [])
 
         engine = create_engine(sqlite_path_to_url(db_path), future=True)
         try:
@@ -99,7 +100,7 @@ def test_competition_snapshot_uses_db_fallback_when_snapshots_are_missing(monkey
         row = snapshot["rows"][0]
         recent_row = snapshot["recent"]["league_equalized"][0]
 
-        assert row["selection_source"] == "db_fallback"
+        assert row["selection_source"] == "prediction_db_fallback"
         assert row["db_fallback_days"] == 1
         assert row["pred_days"] == 1
         assert row["latest_picks"] == 2

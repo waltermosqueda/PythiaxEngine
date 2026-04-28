@@ -34,7 +34,8 @@ class LegacyMLRegistryEntry:
 
     @property
     def source_file(self) -> Path:
-        return Path(self.source_path)
+        path = Path(self.source_path)
+        return path if path.is_absolute() else (ROOT / path).resolve()
 
     @property
     def model_name(self) -> str:

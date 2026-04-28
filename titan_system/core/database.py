@@ -41,12 +41,14 @@
 """
 
 import os
+import json
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 import pandas as pd
 import numpy as np
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import DBAPIError, OperationalError
 
 from infra.db.config import get_database_url, get_sqlite_fallback_path
 from infra.db.runtime import adapt_qmark_sql
@@ -163,6 +165,21 @@ class TitanDB:
             if database:
                 self.db_path = str(os.path.abspath(database))
 
+    def _reconnect_runtime_backend(self) -> None:
+        if self.conn:
+            try:
+                self.conn.close()
+            except Exception:
+                pass
+        if self._engine is not None:
+            try:
+                self._engine.dispose()
+            except Exception:
+                pass
+        self._engine = None
+        self.conn = None
+        self._connect_runtime_backend()
+
     # ── Context Manager (para usar con 'with') ──────────────────────────────
 
     def __enter__(self):
@@ -220,7 +237,13 @@ class TitanDB:
             return self._normalize_frame(pd.read_sql_query(query, self.conn, params=params))
 
         adapted_sql, adapted_params = adapt_qmark_sql(query, params)
-        frame = pd.read_sql_query(text(adapted_sql), self.conn._connection, params=adapted_params)
+        try:
+            frame = pd.read_sql_query(text(adapted_sql), self.conn._connection, params=adapted_params)
+        except (OperationalError, DBAPIError):
+            if self.backend_name == "sqlite":
+                raise
+            self._reconnect_runtime_backend()
+            frame = pd.read_sql_query(text(adapted_sql), self.conn._connection, params=adapted_params)
         return self._normalize_frame(frame)
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -453,6 +476,34 @@ class TitanDB:
                 value       TEXT,
                 updated_at  TEXT DEFAULT (datetime('now'))
             )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS model_run_snapshots (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_key      TEXT NOT NULL,
+                model_name     TEXT NOT NULL,
+                model_version  TEXT,
+                role           TEXT,
+                analyzed_date  TEXT NOT NULL,
+                prediction_for TEXT,
+                freshness      TEXT,
+                regime_label   TEXT,
+                breadth_pct    REAL,
+                signal_count   INTEGER DEFAULT 0,
+                snapshot_json  TEXT NOT NULL,
+                created_at     TEXT DEFAULT (datetime('now')),
+
+                UNIQUE(model_key, analyzed_date)
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_model_run_snapshots_model_key
+            ON model_run_snapshots(model_key)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_model_run_snapshots_analyzed_date
+            ON model_run_snapshots(analyzed_date)
         """)
 
         # Guardar cambios
@@ -1047,6 +1098,59 @@ class TitanDB:
         self.conn.commit()
         return len(records)
 
+    def save_model_run_snapshot(
+        self,
+        *,
+        model_key: str,
+        model_name: str,
+        analyzed_date: str,
+        snapshot_payload: Dict[str, Any],
+        model_version: Optional[str] = None,
+        role: Optional[str] = None,
+        prediction_for: Optional[str] = None,
+        freshness: Optional[str] = None,
+        regime_label: Optional[str] = None,
+        breadth_pct: Optional[float] = None,
+        signal_count: Optional[int] = None,
+    ) -> int:
+        snapshot_json = json.dumps(snapshot_payload, ensure_ascii=True, default=str)
+        cursor = self.conn.execute(
+            """
+            INSERT OR REPLACE INTO model_run_snapshots
+                (model_key, model_name, model_version, role, analyzed_date,
+                 prediction_for, freshness, regime_label, breadth_pct,
+                 signal_count, snapshot_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                model_key,
+                model_name,
+                model_version,
+                role,
+                analyzed_date,
+                prediction_for,
+                freshness,
+                regime_label,
+                breadth_pct,
+                int(signal_count or 0),
+                snapshot_json,
+            ),
+        )
+        self.conn.commit()
+        lastrowid = getattr(cursor, "lastrowid", None)
+        if lastrowid:
+            return int(lastrowid)
+
+        row = self.conn.execute(
+            """
+            SELECT id
+            FROM model_run_snapshots
+            WHERE model_key = ? AND analyzed_date = ?
+            """,
+            (model_key, analyzed_date),
+        ).fetchone()
+        return int(row[0]) if row else 0
+
     # ═══════════════════════════════════════════════════════════════════════════
     #  CONSULTAS DE ANÁLISIS (las más interesantes para aprender SQL)
     # ═══════════════════════════════════════════════════════════════════════════
@@ -1276,6 +1380,10 @@ class TitanDB:
                 f"SELECT COUNT(*) FROM {table}"
             ).fetchone()[0]
             stats[f'{table}_count'] = count
+
+        stats['model_run_snapshots_count'] = self.conn.execute(
+            "SELECT COUNT(*) FROM model_run_snapshots"
+        ).fetchone()[0]
 
         # Rango de fechas en precios
         row = self.conn.execute(

@@ -267,6 +267,19 @@ class OperationalLearningObservedAC(base.OperationalLearningV11):
         }
         path = self.run_dir / f"{snapshot.analyzed_date}.json"
         path.write_text(json.dumps(artifact, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+        self.db.save_model_run_snapshot(
+            model_key=f"V{self.config.version}",
+            model_name=self.model_prefix,
+            model_version=self.model_version,
+            role="observado",
+            analyzed_date=snapshot.analyzed_date,
+            prediction_for=str(artifact["prediction_for"]),
+            freshness=snapshot.freshness,
+            regime_label=snapshot.regime_label,
+            breadth_pct=snapshot.breadth_pct,
+            signal_count=len(snapshot.results_a) + len(snapshot.results_c),
+            snapshot_payload=artifact,
+        )
 
     def _save_regime(self, snapshot: ObservedSnapshot, regime_info: dict[str, object]) -> None:
         spy_df = self.prepared["SPY"].loc[: pd.Timestamp(snapshot.analyzed_date)]

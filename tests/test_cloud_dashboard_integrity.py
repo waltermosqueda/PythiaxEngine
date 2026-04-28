@@ -148,9 +148,9 @@ def test_audit_dashboard_integrity_passes_for_db_snapshot_and_site(monkeypatch) 
             {"key": "V12", "label": "V12", "role": "referencia", "prefix": "INVERTIR_V12"},
         ]
         monkeypatch.setattr(dashboard, "resolve_operational_scanner_context", lambda: context)
-        monkeypatch.setattr(dashboard, "latest_json_snapshot", lambda run_dir: None)
         monkeypatch.setattr(competition_topn, "monitored_entries", lambda: monitored)
-        monkeypatch.setattr(competition_topn, "load_entry_snapshots", lambda entry: {})
+        monkeypatch.setattr(competition_topn, "load_entry_snapshots", lambda con, entry: {})
+        monkeypatch.setattr(competition_topn, "load_entry_snapshot_rows", lambda con, entry: [])
         monkeypatch.setattr(integrity_audit, "resolve_operational_scanner_context", lambda: context)
 
         payload = dashboard.build_dashboard_payload(database_url=database_url)
@@ -238,9 +238,9 @@ def test_audit_dashboard_integrity_flags_stale_live_target_dates(monkeypatch) ->
             {"key": "V12", "label": "V12", "role": "referencia", "prefix": "INVERTIR_V12"},
         ]
         monkeypatch.setattr(dashboard, "resolve_operational_scanner_context", lambda: context)
-        monkeypatch.setattr(dashboard, "latest_json_snapshot", lambda run_dir: None)
         monkeypatch.setattr(competition_topn, "monitored_entries", lambda: monitored)
-        monkeypatch.setattr(competition_topn, "load_entry_snapshots", lambda entry: {})
+        monkeypatch.setattr(competition_topn, "load_entry_snapshots", lambda con, entry: {})
+        monkeypatch.setattr(competition_topn, "load_entry_snapshot_rows", lambda con, entry: [])
         monkeypatch.setattr(integrity_audit, "resolve_operational_scanner_context", lambda: context)
 
         payload = dashboard.build_dashboard_payload(database_url=database_url)

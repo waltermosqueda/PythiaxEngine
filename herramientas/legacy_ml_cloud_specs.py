@@ -1,0 +1,79 @@
+from __future__ import annotations
+
+
+REPO_STRATEGIES_SOURCE_PATH = "titan_system/models/strategies.py"
+
+
+LEGACY_ML_CLOUD_UNIVERSES: dict[str, tuple[str, ...]] = {
+    "legacy_ml_v37": (
+        "NVDA", "AMD", "TSLA", "MSTR", "COIN", "PLTR", "META", "NFLX", "SMCI", "ARM", "CRWD",
+        "SPY", "QQQ", "AAPL", "MSFT", "AMZN", "GOOGL", "MELI", "GLOB", "JPM", "NU", "VIST", "YPF",
+    ),
+    "legacy_ml_v39": (
+        "AAPL", "MSFT", "NVDA", "AMD", "INTC", "QCOM", "AVGO", "TXN", "MU", "AMAT",
+        "GOOGL", "META", "AMZN", "NFLX", "TSLA", "CRM", "ORCL", "ADBE", "NOW", "SNOW",
+        "JPM", "BAC", "GS", "MS", "WFC", "C", "BLK", "AXP", "V", "MA",
+        "JNJ", "PFE", "MRK", "ABBV", "LLY", "UNH", "CVS", "ABT", "TMO", "DHR",
+        "XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO", "OXY", "HAL",
+        "WMT", "COST", "TGT", "HD", "LOW", "MCD", "SBUX", "NKE", "DIS", "CMCSA",
+        "CAT", "DE", "BA", "HON", "MMM", "GE", "RTX", "LMT", "NOC", "UPS",
+    ),
+    "legacy_ml_v39full": (
+        "AAPL", "MSFT", "NVDA", "AMD", "INTC", "QCOM", "AVGO", "TXN", "MU", "AMAT", "LRCX", "KLAC", "MRVL", "SMCI", "ARM", "DELL", "HPE", "TSM", "ASML",
+        "GOOGL", "META", "AMZN", "NFLX", "TSLA", "SNAP", "PINS", "ROKU", "TTD", "UBER",
+        "CRM", "ORCL", "ADBE", "NOW", "SNOW", "WDAY", "VEEV", "TEAM", "MDB", "HUBS",
+        "PANW", "CRWD", "DDOG", "NET", "FTNT", "OKTA",
+        "PYPL", "SQ", "COIN", "MSTR", "HOOD", "SOFI", "AFRM", "PLTR", "APP", "RBLX",
+        "CSCO", "IBM", "ACN", "INTU", "SHOP", "SPOT", "TWLO", "ZM", "DOCU", "ENPH",
+        "JPM", "BAC", "GS", "MS", "WFC", "C", "BLK", "AXP", "V", "MA",
+        "SCHW", "COF", "USB", "PNC", "SPGI", "MCO", "CME", "ICE", "TRV", "MET",
+        "PRU", "AFL", "BK", "STT", "MELI", "NU", "BRK-B",
+        "JNJ", "PFE", "MRK", "ABBV", "LLY", "UNH", "CVS", "ABT", "TMO", "DHR",
+        "AMGN", "GILD", "BIIB", "REGN", "VRTX", "MRNA", "BNTX", "MDT", "SYK", "ISRG",
+        "ZTS", "EW", "BDX", "CI", "DXCM", "HUM", "CNC", "MCK", "IQV", "BAX",
+        "XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO", "OXY", "HAL",
+        "BKR", "DVN", "APA", "MRO", "KMI", "WMB", "LNG",
+        "WMT", "COST", "TGT", "HD", "LOW", "MCD", "SBUX", "NKE", "DIS", "CMCSA",
+        "F", "GM", "NIO", "BABA", "JD", "EBAY", "ETSY", "ROST", "TJX", "ABNB",
+        "DASH", "LYFT", "CMG", "HLT", "BKNG", "MAR", "ULTA", "LULU",
+        "KO", "PEP", "PM", "MO", "PG", "CL", "KMB", "MDLZ", "KHC", "GIS", "HSY", "EL",
+        "CAT", "DE", "BA", "HON", "MMM", "GE", "RTX", "LMT", "NOC", "UPS",
+        "FDX", "DAL", "UAL", "AAL", "LUV", "WM", "EMR", "ETN", "ITW", "PH",
+        "ROK", "CARR", "OTIS", "IR", "CTAS",
+        "LIN", "SHW", "FCX", "NEM", "VALE", "DOW", "AA", "NUE", "APD", "DD", "MOS", "ALB", "LYB",
+        "NEE", "DUK", "SO", "D", "EXC", "AEP", "PCG", "EIX",
+        "AMT", "EQIX", "PLD", "CCI", "DLR", "SPG", "O", "VTR",
+        "NVO", "AZN", "SHEL", "BP", "SAP", "TM", "SONY", "HMC", "BIDU", "PBR", "ITUB", "BBD", "XP", "ABEV", "RIO", "BHP", "GOLD",
+    ),
+    "legacy_ml_v97": (
+        "AAL", "AAP", "AAPL", "ABBV", "ABEV", "ABT", "ACN", "ADBE", "ADI", "ADP", "AEG", "AEM", "AGRO", "AIG", "AMAT", "AMD", "AMGN", "AMX", "AMZN", "ANF", "ARCO", "ARM", "ASR", "AVGO", "AVY", "AXP", "AZN", "BA", "BABA", "BAC", "BAK", "BB", "BBD", "BBVA", "BG", "BHP", "BIDU", "BIIB", "BK", "BKNG", "BKR", "BMY", "BP", "BSBR", "C", "CAAP", "CAH", "CAR", "CAT", "CCL", "CDE", "CL", "COIN", "COST", "CRM", "CSCO", "CVS", "CVX", "CX", "DAL", "DD", "DE", "DEO", "DHR", "DIS", "DOCU", "DOW", "E", "EA", "EBAY", "EFX", "EQNR", "ERIC", "ETSY", "FCX", "FDX", "FMX", "FSLR", "GE", "GFI", "GGB", "GILD", "GLOB", "GLW", "GM", "GOLD", "GOOGL", "GPRK", "GRMN", "GS", "GSK", "GT", "HAL", "HD", "HDB", "HL", "HMC", "HMY", "HNHPF", "HOG", "HON", "HPQ", "HSBC", "HSY", "HWM", "IBM", "IBN", "IFF", "INFY", "ING", "INTC", "IP", "ISRG", "ITUB", "JCI", "JD", "JNJ", "JPM", "KB", "KEP", "KGC", "KMB", "KO", "KOF", "LAC", "LAR", "LLY", "LMT", "LND", "LRCX", "LVS", "LYG", "MA", "MCD", "MDLZ", "MDT", "MELI", "META", "MFG", "MMM", "MO", "MRK", "MRNA", "MRVL", "MSFT", "MSI", "MUFG", "MUX", "NEM", "NFLX", "NG", "NGG", "NIO", "NKE", "NMR", "NOK", "NSANY", "NTES", "NU", "NUE", "NVDA", "NVS", "NXE", "OAOFY", "ORANY", "ORCL", "ORLY", "PAAS", "PAC", "PAGS", "PBI", "PBR", "PCAR", "PEP", "PFE", "PG", "PHG", "PINS", "PKX", "PLTR", "PM", "PSO", "PSX", "PYPL", "QCOM", "RACE", "RIO", "RIOT", "ROKU", "ROST", "RTX", "SAN", "SAP", "SBS", "SBUX", "SCCO", "SCHW", "SDA", "SE", "SHEL", "SHOP", "SHPWQ", "SID", "SIEGY", "SLB", "SNA", "SNAP", "SNOW", "SONY", "SPCE", "SPGI", "SPOT", "STLA", "STNE", "SUZ", "SWKS", "SYY", "T", "TCOM", "TEF", "TGT", "TIIAY", "TIMB", "TJX", "TMO", "TMUS", "TRIP", "TRV", "TS", "TSLA", "TSM", "TTE", "TV", "TWLO", "TX", "TXN", "UGP", "UL", "UNH", "UNP", "URBN", "USB", "V", "VALE", "VIST", "VIV", "VOD", "VRSN", "VZ", "WB", "WFC", "WMT", "XOM", "XP", "XRX", "XYZ", "YELP", "YZCAY", "ZM",
+    ),
+    "legacy_ml_brain_v11": (
+        "SPY", "QQQ", "DIA", "IWM", "EEM", "EWZ", "ARKK", "XLE", "XLF", "XLV", "XLI", "XLP", "XLB", "XLU", "XLY", "XLK",
+        "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NFLX", "CRM", "ADBE", "ORCL", "CSCO", "IBM", "SAP", "SONY", "SPOT", "NOW", "INTU", "UBER", "ABNB", "PANW", "SNOW",
+        "NVDA", "AMD", "TSM", "AVGO", "QCOM", "INTC", "ASML", "MU", "TXN", "AMAT", "LRCX", "ADI",
+        "JPM", "BAC", "C", "GS", "MS", "V", "MA", "PYPL", "AXP", "NU", "ITUB", "BBD", "HSBC", "WFC", "BLK", "SCHW",
+        "XOM", "CVX", "PBR", "VIST", "YPF", "BP", "SHEL", "TTE", "SLB", "HAL", "RIG", "APA",
+        "GOLD", "HMY", "VALE", "NEM", "PAAS", "AA", "FCX", "BHP", "RIO", "GFI", "AU",
+        "KO", "PEP", "WMT", "TGT", "COST", "MCD", "SBUX", "DIS", "NKE", "HD", "F", "GM", "TM", "EL", "LULU", "MELI", "BABA", "JD", "PDD",
+        "JNJ", "PFE", "MRK", "LLY", "UNH", "CVS", "AMGN", "GILD", "ABBV", "AZN", "BMY", "BIIB",
+        "GE", "MMM", "CAT", "DE", "HON", "BA", "LMT", "UPS", "FDX", "RTX", "GD",
+        "GLOB", "MSTR", "COIN", "HOOD", "BIDU", "NIO", "SE", "T", "VZ",
+    ),
+    "legacy_ml_brain_v11_optimized": (
+        "SPY", "QQQ", "DIA", "IWM", "EEM", "EWZ", "ARKK", "XLE", "XLF", "XLV", "XLI", "XLP", "XLB", "XLU", "XLY", "XLK",
+        "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NFLX", "CRM", "ADBE", "ORCL", "CSCO", "IBM", "SAP", "SONY", "SPOT", "NOW", "INTU", "UBER", "ABNB", "PANW", "SNOW",
+        "NVDA", "AMD", "TSM", "AVGO", "QCOM", "INTC", "ASML", "MU", "TXN", "AMAT", "LRCX", "ADI",
+        "JPM", "BAC", "GS", "MS", "V", "MA", "PYPL", "AXP", "NU", "ITUB", "WFC", "BLK", "SCHW",
+        "XOM", "CVX", "PBR", "VIST", "SLB", "HAL",
+        "GOLD", "VALE", "NEM", "FCX", "BHP", "RIO",
+        "KO", "PEP", "WMT", "COST", "MCD", "SBUX", "DIS", "NKE", "HD", "MELI", "BABA",
+        "JNJ", "PFE", "MRK", "LLY", "UNH", "AMGN", "ABBV",
+        "GE", "CAT", "HON", "BA", "LMT", "UPS", "RTX",
+        "GLOB", "COIN", "BIDU", "NIO", "T", "VZ",
+    ),
+}
+
+
+def cloud_universe_for_model(model_id: str) -> tuple[str, ...]:
+    return LEGACY_ML_CLOUD_UNIVERSES.get(model_id, ())

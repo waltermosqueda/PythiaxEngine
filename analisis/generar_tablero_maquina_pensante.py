@@ -42,8 +42,14 @@ from herramientas.dashboard_paths import (
 )
 from herramientas.scanner_operativo_context import resolve_operational_scanner_context
 from infra.db import get_database_url, resolve_ci_run_id, resolve_run_attempt, start_pipeline_run
+from infra.db.model_run_snapshots import fetch_latest_model_run_snapshot
 from infra.db.session import create_db_engine
-from infra.db.runtime import RuntimeDB, aggregate_distinct_sql, connect_runtime_db
+from infra.db.runtime import (
+    RuntimeDB,
+    aggregate_distinct_sql,
+    connect_runtime_db,
+    require_cloud_database_runtime,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -190,15 +196,6 @@ def parse_ticker_csv(value: Any) -> list[str]:
 
 def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
-
-
-def latest_json_snapshot(run_dir: Path) -> dict[str, Any] | None:
-    if not run_dir.exists():
-        return None
-    files = sorted(run_dir.glob("*.json"))
-    if not files:
-        return None
-    return read_json(files[-1])
 
 
 def file_sha256(path: Path) -> str:
@@ -483,9 +480,14 @@ def build_integrity_snapshot(db: RuntimeDB, con: RuntimeDB, market_dates: list[s
         """,
     )["d"].iloc[0]
     latest_regime_date_raw = query_df(con, "SELECT MAX(date) AS d FROM regimes")["d"].iloc[0]
+    latest_snapshot_date_raw = query_df(
+        con,
+        "SELECT MAX(analyzed_date) AS d FROM model_run_snapshots",
+    )["d"].iloc[0]
     latest_prediction_date = str(latest_prediction_date_raw) if pd.notna(latest_prediction_date_raw) else None
     latest_outcome_date = str(latest_outcome_date_raw) if pd.notna(latest_outcome_date_raw) else None
     latest_regime_date = str(latest_regime_date_raw) if pd.notna(latest_regime_date_raw) else None
+    latest_snapshot_date = str(latest_snapshot_date_raw) if pd.notna(latest_snapshot_date_raw) else None
     prediction_models = to_int(
         query_df(con, "SELECT COUNT(DISTINCT model_name) AS n FROM predictions")["n"].iloc[0]
     )
@@ -547,9 +549,11 @@ def build_integrity_snapshot(db: RuntimeDB, con: RuntimeDB, market_dates: list[s
         "latest_prediction_date": latest_prediction_date,
         "latest_outcome_date": latest_outcome_date,
         "latest_regime_date": latest_regime_date,
+        "latest_snapshot_date": latest_snapshot_date,
         "predictions_count": db_stats["predictions_count"],
         "outcomes_count": db_stats["outcomes_count"],
         "regimes_count": db_stats["regimes_count"],
+        "model_run_snapshots_count": db_stats["model_run_snapshots_count"],
         "prediction_models": prediction_models,
         "outcome_models": outcome_models,
         "db_size_mb": db_stats.get("db_size_mb"),
@@ -865,6 +869,33 @@ def build_run_snapshot_from_db(
     version: int,
     market_dates: list[str] | None = None,
 ) -> dict[str, Any] | None:
+    snapshot_row = fetch_latest_model_run_snapshot(con, f"V{version}")
+    if snapshot_row is not None:
+        payload = dict(snapshot_row.get("snapshot") or {})
+        if payload:
+            analyzed_date = str(snapshot_row.get("analyzed_date") or payload.get("analyzed_date") or "")
+            model_d = f"INVERTIR_V{version}_D_D10"
+            model_e = f"INVERTIR_V{version}_E_D15"
+            latest_d = build_results_for_model_prediction_date(con, model_d, analyzed_date) if analyzed_date else {"results": [], "target_dates": []}
+            latest_e = build_results_for_model_prediction_date(con, model_e, analyzed_date) if analyzed_date else {"results": [], "target_dates": []}
+            hydrated = dict(payload)
+            hydrated["version"] = version
+            hydrated["source"] = "snapshot_db"
+            hydrated["analyzed_date"] = analyzed_date or payload.get("analyzed_date")
+            hydrated["prediction_for"] = str(snapshot_row.get("prediction_for") or payload.get("prediction_for") or "")
+            hydrated["freshness"] = payload.get("freshness") or snapshot_row.get("freshness")
+            hydrated["regime_label"] = payload.get("regime_label") or snapshot_row.get("regime_label")
+            hydrated["breadth_pct"] = payload.get("breadth_pct")
+            if latest_d["results"]:
+                hydrated["results_d"] = merge_live_results_with_db(payload.get("results_d"), latest_d["results"])
+            else:
+                hydrated.setdefault("results_d", [])
+            if latest_e["results"]:
+                hydrated["results_e"] = merge_live_results_with_db(payload.get("results_e"), latest_e["results"])
+            else:
+                hydrated.setdefault("results_e", [])
+            return hydrated
+
     model_d = f"INVERTIR_V{version}_D_D10"
     model_e = f"INVERTIR_V{version}_E_D15"
     latest_d_any = build_latest_results_for_model(con, model_d)
@@ -888,14 +919,14 @@ def build_run_snapshot_from_db(
 
     return {
         "version": version,
-        "source": "db_fallback",
-        "fallback_reason": "missing_local_run_snapshot",
+        "source": "prediction_db_fallback",
+        "fallback_reason": "missing_postgres_run_snapshot",
         "analyzed_date": analyzed_date,
         "prediction_for": prediction_for,
         "regime_label": resolve_regime_label_from_db(con, analyzed_date, version),
         "breadth_pct": None,
         "memory_context": [],
-        "freshness": "db_fallback",
+        "freshness": "prediction_db_fallback",
         "results_d": latest_d["results"],
         "results_e": latest_e["results"],
     }
@@ -933,34 +964,6 @@ def merge_live_results_with_db(
     return merged
 
 
-def hydrate_run_snapshot_with_db(
-    snapshot: dict[str, Any] | None,
-    db_snapshot: dict[str, Any] | None,
-) -> dict[str, Any] | None:
-    if snapshot is None:
-        return db_snapshot
-    if db_snapshot is None:
-        return snapshot
-
-    snapshot_analyzed_date = snapshot.get("analyzed_date")
-    db_analyzed_date = db_snapshot.get("analyzed_date")
-    if snapshot_analyzed_date and db_analyzed_date and snapshot_analyzed_date != db_analyzed_date:
-        hydrated = dict(db_snapshot)
-        hydrated["stale_snapshot_ignored"] = True
-        hydrated["stale_snapshot_analyzed_date"] = snapshot_analyzed_date
-        return hydrated
-
-    hydrated = dict(snapshot)
-    hydrated["source"] = "snapshot_db_hybrid"
-    hydrated["db_overlay"] = True
-    hydrated["analyzed_date"] = db_snapshot.get("analyzed_date") or snapshot.get("analyzed_date")
-    hydrated["prediction_for"] = db_snapshot.get("prediction_for") or snapshot.get("prediction_for")
-    hydrated["regime_label"] = db_snapshot.get("regime_label") or snapshot.get("regime_label")
-    hydrated["results_d"] = merge_live_results_with_db(snapshot.get("results_d"), db_snapshot.get("results_d"))
-    hydrated["results_e"] = merge_live_results_with_db(snapshot.get("results_e"), db_snapshot.get("results_e"))
-    return hydrated
-
-
 def load_run_snapshot(
     con: RuntimeDB,
     version: int | None,
@@ -968,9 +971,7 @@ def load_run_snapshot(
 ) -> dict[str, Any] | None:
     if version is None:
         return None
-    snapshot = latest_json_snapshot(ROOT / "aprendizaje_operativo" / f"v{version}_runs")
-    db_snapshot = build_run_snapshot_from_db(con, version, market_dates)
-    return hydrate_run_snapshot_with_db(snapshot, db_snapshot)
+    return build_run_snapshot_from_db(con, version, market_dates)
 
 
 def build_active_snapshot(
@@ -1392,6 +1393,14 @@ def freshness_badge(stale_market_days: int | None) -> str:
     return f"<span class='badge badge-stale'>{stale_market_days} ruedas atras</span>"
 
 
+def competition_freshness_date(row: dict[str, Any]) -> Any:
+    return row.get("latest_snapshot_date") or row.get("last_date")
+
+
+def competition_signal_date(row: dict[str, Any]) -> Any:
+    return row.get("last_signal_date") or row.get("last_date")
+
+
 def metric_card(title: str, value: str, subtitle: str, spark: str = "", tone: str = "neutral") -> str:
     return (
         f"<section class='metric-card tone-{tone}'>"
@@ -1443,7 +1452,7 @@ def render_competition_rows(rows: list[dict[str, Any]]) -> str:
         html_rows.append(
             "<tr>"
             f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
-            f"<td>{freshness_badge(row.get('stale_market_days'))}<br><span class='mini'>{fmt_date(row.get('last_date'))}</span></td>"
+            f"<td>{freshness_badge(row.get('stale_market_days'))}<br><span class='mini'>{fmt_date(competition_freshness_date(row))}</span></td>"
             f"<td>{fmt_int(row.get('evaluated'))}<br><span class='mini'>{fmt_int(row.get('pred_days'))} ruedas</span></td>"
             f"<td><div class='bar-track'><div class='bar-fill' style='width:{bar_width}%'></div></div><span class='mini'>{fmt_pct(row.get('accuracy_pct'))}</span></td>"
             f"<td>{fmt_pct(row.get('avg_return_pct'), 3, signed=True)}<br><span class='mini'>conf {fmt_pct(row.get('avg_confidence_pct'))}</span></td>"
@@ -2063,7 +2072,7 @@ def render_recent_rank_rows(rows: list[dict[str, Any]]) -> str:
             "<tr>"
             f"<td><span class='rank-chip'>{fmt_int(row.get('rank'))}</span></td>"
             f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
-            f"<td>{freshness_badge(row.get('stale_market_days'))}<br><span class='mini'>{fmt_date(row.get('last_date'))}</span></td>"
+            f"<td>{freshness_badge(row.get('stale_market_days'))}<br><span class='mini'>{fmt_date(competition_freshness_date(row))}</span></td>"
             f"<td>{fmt_int(window.get('active_days'))}/{fmt_int(window.get('window_days'))}<br><span class='mini'>{fmt_int(window.get('evaluated'))} picks</span></td>"
             f"<td>{fmt_pct(window.get('accuracy_pct'))}<br><span class='mini'>mejor {fmt_pct(window.get('best_day_return_pct'), 2, signed=True)}</span></td>"
             f"<td>{fmt_pct(window.get('avg_return_pct'), 3, signed=True)}<br><span class='mini'>peor {fmt_pct(window.get('worst_day_return_pct'), 2, signed=True)}</span></td>"
@@ -2119,12 +2128,12 @@ def render_focus_cards(rows: list[dict[str, Any]]) -> str:
             "<article class='focus-card'>"
             "<div class='focus-head'>"
             f"<div><div class='focus-name'>{safe(row['version'])}</div><div class='focus-meta'>{role_badge(str(row['role']))} {freshness_badge(row.get('stale_market_days'))}</div></div>"
-            f"<div class='mini'>{fmt_date(row.get('last_date'))}</div>"
+            f"<div class='mini'>{fmt_date(competition_freshness_date(row))}</div>"
             "</div>"
             f"{render_window_block('Muestra igualada', row.get('equalized_recent') or {})}"
             f"{render_window_block('Contexto 30 ruedas', row.get('recent_30') or {})}"
             f"<div class='subtle-box'><div class='window-title'>Proximos activos</div><div class='ticker-cloud'>{latest_ticker_cloud(row.get('latest_tickers', []))}</div>"
-            f"<div class='window-caption'>prediction_date {fmt_date(row.get('last_date'))} -> target {fmt_date(row.get('latest_target_date'))} | universo {fmt_int(row.get('unique_tickers'))}</div></div>"
+            f"<div class='window-caption'>prediction_date {fmt_date(competition_signal_date(row))} -> target {fmt_date(row.get('latest_target_date'))} | universo {fmt_int(row.get('unique_tickers'))}</div></div>"
             f"{spark}"
             "</article>"
         )
@@ -2200,7 +2209,7 @@ def render_full_league_rows(rows: list[dict[str, Any]]) -> str:
         body.append(
             "<tr>"
             f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
-            f"<td>{freshness_badge(row.get('stale_market_days'))}<br><span class='mini'>{fmt_date(row.get('last_date'))}</span></td>"
+            f"<td>{freshness_badge(row.get('stale_market_days'))}<br><span class='mini'>{fmt_date(competition_freshness_date(row))}</span></td>"
             f"<td>{fmt_pct(equalized.get('accuracy_pct'))}<br><span class='mini'>{fmt_pct(equalized.get('avg_return_pct'), 3, signed=True)}</span></td>"
             f"<td>{fmt_int(equalized.get('active_days'))}/{fmt_int(equalized.get('window_days'))}<br><span class='mini'>{fmt_int(equalized.get('evaluated'))} picks</span></td>"
             f"<td>{fmt_pct(thirty.get('accuracy_pct'))}<br><span class='mini'>{fmt_pct(thirty.get('avg_return_pct'), 3, signed=True)}</span></td>"
@@ -2276,7 +2285,7 @@ def render_group_model_cards(rows: list[dict[str, Any]], champion_latest: set[st
             f"<div class='kpi-line'><span>Perdida media errores</span><strong>{fmt_pct(eq.get('avg_return_wrong_pct'), 2, signed=True)}</strong></div>"
             f"<div class='kpi-line'><span>Rango muestra igualada</span><strong>{fmt_date(eq.get('start_date'))} -> {fmt_date(eq.get('end_date'))}</strong></div>"
             f"<div class='kpi-line'><span>Contexto 30 ruedas</span><strong>{fmt_pct(thirty.get('accuracy_pct'))} | {fmt_pct(thirty.get('avg_return_pct'), 3, signed=True)}</strong></div>"
-            f"<div class='kpi-line'><span>Ultima fecha</span><strong>{fmt_date(row.get('last_date'))}</strong></div>"
+            f"<div class='kpi-line'><span>Ultima fecha</span><strong>{fmt_date(competition_freshness_date(row))}</strong></div>"
             f"<div class='kpi-line'><span>Target de picks</span><strong>{fmt_date(row.get('latest_target_date'))}</strong></div>"
             f"<div class='kpi-line'><span>Universo total</span><strong>{fmt_int(row.get('unique_tickers'))}</strong></div>"
             f"<div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>{fmt_pct(overlap) if overlap is not None else '-'}</strong></div>"
@@ -3260,7 +3269,7 @@ def render_index(payload: dict[str, Any]) -> str:
               <div class="mini-title">Referencia {safe(reference_label or '-')}</div>
               <div class="mini-value">{safe(recent_value_text(reference_equalized))}</div>
               <div class="kpi-line"><span>Ultimos activos</span><strong>{fmt_int(reference_family.get('latest_picks'))}</strong></div>
-              <div class="kpi-line"><span>Fecha</span><strong>{fmt_date(reference_family.get('last_date'))}</strong></div>
+              <div class="kpi-line"><span>Fecha</span><strong>{fmt_date(competition_freshness_date(reference_family))}</strong></div>
             </div>
             <div class="mini-card editable-block" data-block-id="mini-control-honestidad" data-block-label="Mini honestidad">
               <div class="mini-title">Honestidad</div>
@@ -3650,6 +3659,7 @@ def build_pipeline_run_metadata(payload: dict[str, Any], written: list[Path], va
 
 
 def generate_dashboard_bundle(variant: str = "all", database_url: str | None = None) -> dict[str, Any]:
+    require_cloud_database_runtime(database_url or get_database_url())
     recorder = start_pipeline_run(
         "dashboard_build",
         database_url=database_url or get_database_url(),

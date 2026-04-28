@@ -193,3 +193,29 @@ class PipelineRun(Base):
         server_default=func.now(),
     )
 
+
+class ModelRunSnapshot(Base):
+    __tablename__ = "model_run_snapshots"
+    __table_args__ = (
+        UniqueConstraint("model_key", "analyzed_date", name="uq_model_run_snapshots_model_key_date"),
+        Index("idx_model_run_snapshots_model_key", "model_key"),
+        Index("idx_model_run_snapshots_analyzed_date", "analyzed_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    model_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    model_version: Mapped[str | None] = mapped_column(String(64))
+    role: Mapped[str | None] = mapped_column(String(32))
+    analyzed_date: Mapped[date] = mapped_column(Date, nullable=False)
+    prediction_for: Mapped[date | None] = mapped_column(Date)
+    freshness: Mapped[str | None] = mapped_column(String(32))
+    regime_label: Mapped[str | None] = mapped_column(String(32))
+    breadth_pct: Mapped[float | None] = mapped_column(Float)
+    signal_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )

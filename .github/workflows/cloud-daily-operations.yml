@@ -23,6 +23,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PYTHIAX_REQUIRE_CLOUD_DB: "1"
       TZ: America/Buenos_Aires
       PYTHIAX_COMMIT_SHA: ${{ github.sha }}
       PYTHIAX_RUN_ID: ${{ github.run_id }}
@@ -54,19 +55,7 @@ jobs:
       - name: Apply schema with Alembic
         run: alembic upgrade head
 
-      - name: Bootstrap runner SQLite from target
-        run: |
-          python -m infra.db.bootstrap_sqlite_from_target \
-            --source-url "$DATABASE_URL" \
-            --target-sqlite-path "$GITHUB_WORKSPACE/titan_system/data/titan.db" \
-            --reset-target \
-            --report-path docs/cloud/reports/target_to_sqlite_bootstrap.json
-
       - name: Run cloud-native pipeline
-        env:
-          DATABASE_URL: sqlite:////${{ github.workspace }}/titan_system/data/titan.db
-          SQLITE_FALLBACK_PATH: ${{ github.workspace }}/titan_system/data/titan.db
-          PYTHIAX_TARGET_DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python herramientas/auto_actualizar.py
 
@@ -124,7 +113,7 @@ jobs:
           path: |
             dashboards/maquina_pensante/
             dist/github-pages/
-            docs/cloud/reports/target_to_sqlite_bootstrap.json
+            docs/cloud/reports/model_snapshot_freshness.json
             docs/cloud/reports/dashboard_integrity_audit.json
 
       - name: Upload Pages artifact

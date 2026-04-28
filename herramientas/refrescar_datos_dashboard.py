@@ -899,7 +899,7 @@ def _apply_snapshot_sections(html: str, snap: dict) -> str:
     gen_ts = snap.get("generated_at") or ""
     build_meta = snap.get("build") or {}
     db_backend = str(build_meta.get("db_backend") or "").lower()
-    source_label = "Postgres/Neon" if db_backend.startswith("postgres") else "SQLite local"
+    source_label = "Postgres/Neon" if db_backend.startswith("postgres") else "runtime no cloud"
     html = _replace_once(
         html,
         r"(Titan Machine Dashboard · generado )[\dT:\-]+(?: · datos desde [^<]+)?",
@@ -1270,6 +1270,10 @@ def _freshness_badge(stale_days: int | None) -> str:
     return f"<span class='badge ba-stale'>{stale_days}d sin señal</span>"
 
 
+def _freshness_date(row: dict) -> object:
+    return row.get("latest_snapshot_date") or row.get("last_date")
+
+
 def _role_badge_liga(role: str) -> str:
     role = (role or "").lower()
     if role == "active":    return "<span class='badge ba-active'>activo</span>"
@@ -1354,7 +1358,7 @@ def build_liga_table(snap: dict) -> str:
         "<thead><tr>"
         "<th>#</th><th>Modelo</th><th>Estado</th>"
         "<th>WR / Ret</th><th title='D\u00edas activos / per\u00edodo competencia \u00b7 picks evaluados'>Comp. \u00b7 Picks</th>"
-        "<th>Picks actuales</th><th>\u00dat. Rueda</th>"
+        "<th>Picks actuales</th><th>\u00dat. rueda eval.</th>"
         "<th title='\u00daltimos 30 d\u00edas de mercado'>30d</th>"
         "<th title='\u00daltimos 60 d\u00edas de mercado'>60d</th>"
         "<th title='\u00daltimos 90 d\u00edas de mercado'>90d</th>"
@@ -1687,7 +1691,7 @@ def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str
         f"<div class='hc-wr'>{d.get('wr_s', '—')}</div>"
         f"<div class='hc-wr-label'>Win Rate &middot; {d.get('eq_d', 0)} ruedas &middot; {d.get('ev', 0)} picks</div>"
         f"<div class='hc-round'>"
-        f"<span class='hc-round-label'>\u00dalt. rueda {d.get('ld', '')}</span>"
+        f"<span class='hc-round-label'>\u00dalt. rueda eval. {d.get('ld', '')}</span>"
         f"<span class='hc-round-val {d.get('lr_css', 'neu')}'>{d.get('lr_s', '—')}</span>"
         f"</div>"
         f"<div class='hc-stats'>"

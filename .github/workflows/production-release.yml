@@ -16,27 +16,14 @@ concurrency:
 jobs:
   production-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 30
     permissions:
       contents: read
       pages: write
       id-token: write
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      TZ: America/Buenos_Aires
-      PYTHIAX_COMMIT_SHA: ${{ github.sha }}
-      PYTHIAX_RUN_ID: ${{ github.run_id }}
-      PYTHIAX_RUN_ATTEMPT: ${{ github.run_attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
-      - name: Validate required secret
-        run: |
-          if [ -z "$DATABASE_URL" ]; then
-            echo "DATABASE_URL secret is missing."
-            exit 1
-          fi
 
       - name: Setup Pages
         if: ${{ inputs.deploy_pages }}
@@ -50,70 +37,46 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-dev.txt
-
-      - name: Apply schema with Alembic
-        run: alembic upgrade head
-
-      - name: Generate target runtime smoke report
-        run: |
-          mkdir -p docs/cloud/reports
           python - <<'PY'
           import json
           from pathlib import Path
 
-          from infra.db.runtime import RuntimeDB
+          snapshot_path = Path("dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json")
+          if not snapshot_path.exists():
+              raise SystemExit(f"Missing dashboard snapshot: {snapshot_path}")
 
-          report_path = Path("docs/cloud/reports/production_release_runtime_smoke.json")
-          with RuntimeDB() as db:
-              payload = {
-                  "backend": db.backend.name,
-                  "database_url": db.backend.database_url,
-                  "prices_count": int(db.scalar("SELECT COUNT(*) FROM prices") or 0),
-                  "predictions_count": int(db.scalar("SELECT COUNT(*) FROM predictions") or 0),
-                  "outcomes_count": int(db.scalar("SELECT COUNT(*) FROM outcomes") or 0),
-                  "model_metrics_count": int(db.scalar("SELECT COUNT(*) FROM model_metrics") or 0),
-                  "regimes_count": int(db.scalar("SELECT COUNT(*) FROM regimes") or 0),
-                  "data_status_count": int(db.scalar("SELECT COUNT(*) FROM data_status") or 0),
-                  "pipeline_runs_count": int(db.scalar("SELECT COUNT(*) FROM pipeline_runs") or 0),
-                  "latest_market_date": db.scalar("SELECT MAX(date) FROM prices"),
-              }
+          payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+          build = payload.get("build") or {}
+          db_backend = str(build.get("db_backend") or "")
+          active = (payload.get("active") or {}).get("active_run") or {}
 
-          report_path.write_text(
-              json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+          if not db_backend.startswith("postgres"):
+              raise SystemExit(
+                  f"Refusing production release for non-cloud dashboard artifacts. db_backend={db_backend!r}"
+              )
+          if active.get("source") != "snapshot_db":
+              raise SystemExit(
+                  f"Refusing production release for fallback artifacts. active_run.source={active.get('source')!r}"
+              )
+
+          Path("docs/cloud/reports").mkdir(parents=True, exist_ok=True)
+          Path("docs/cloud/reports/production_release_runtime_smoke.json").write_text(
+              json.dumps(
+                  {
+                      "db_backend": db_backend,
+                      "active_run_source": active.get("source"),
+                      "generated_at": payload.get("generated_at"),
+                      "latest_market_date": (payload.get("integrity") or {}).get("latest_market_date"),
+                  },
+                  indent=2,
+                  ensure_ascii=False,
+              ) + "\n",
               encoding="utf-8",
           )
-          print(json.dumps(payload, indent=2, ensure_ascii=False))
           PY
-
-      - name: Bootstrap runner SQLite from target
-        run: |
-          python -m infra.db.bootstrap_sqlite_from_target \
-            --source-url "$DATABASE_URL" \
-            --target-sqlite-path "$GITHUB_WORKSPACE/titan_system/data/titan.db" \
-            --reset-target \
-            --report-path docs/cloud/reports/target_to_sqlite_bootstrap.json
-
-      - name: Run integrated cloud pipeline
-        env:
-          DATABASE_URL: sqlite:////${{ github.workspace }}/titan_system/data/titan.db
-          SQLITE_FALLBACK_PATH: ${{ github.workspace }}/titan_system/data/titan.db
-          PYTHIAX_TARGET_DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          python herramientas/auto_actualizar.py --force-pipeline
 
       - name: Stage Pages site
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
-
-      - name: Run integrity audit
-        run: |
-          python -m infra.cloud.audit_dashboard_integrity \
-            --snapshot-path dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json \
-            --dashboard-dir dashboards/maquina_pensante \
-            --site-dir dist/github-pages \
-            --sample-size 5 \
-            --seed 130013 \
-            --report-path docs/cloud/reports/dashboard_integrity_audit.json
 
       - name: Validate staged site
         run: |
@@ -139,8 +102,6 @@ jobs:
             dist/github-pages/
             dist/github-pages/site_bundle_manifest.json
             docs/cloud/reports/production_release_runtime_smoke.json
-            docs/cloud/reports/target_to_sqlite_bootstrap.json
-            docs/cloud/reports/dashboard_integrity_audit.json
 
       - name: Upload Pages artifact
         if: ${{ inputs.deploy_pages }}

@@ -23,6 +23,15 @@ def seed_dashboard_db(db_path: Path) -> None:
     with TitanDB(db_path=str(db_path)) as db:
         con = db.conn
 
+        for idx, market_date in enumerate(["2026-04-18", "2026-04-21", "2026-04-22", "2026-04-23", "2026-04-24"], start=1):
+            con.execute(
+                """
+                INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                ("SPY", market_date, 500.0 + idx, 505.0 + idx, 499.0 + idx, 504.0 + idx, 1000000, 504.0 + idx),
+            )
+
         prediction_rows = [
             (1, "INVERTIR_V13_D_D10", "AAPL", "2026-04-21", "2026-04-22", "UP", 0.94, 84.2, "SEGURO", "Tecnologia"),
             (2, "INVERTIR_V13_D_D10", "MSFT", "2026-04-21", "2026-04-22", "UP", 0.83, 77.5, "SEGURO", "Tecnologia"),
@@ -66,12 +75,11 @@ def seed_dashboard_db(db_path: Path) -> None:
         con.commit()
 
 
-def test_active_snapshot_uses_db_fallback_when_run_json_is_missing(monkeypatch) -> None:
+def test_active_snapshot_uses_prediction_db_fallback_when_postgres_snapshot_is_missing(monkeypatch) -> None:
     tmp_dir = make_workspace_tmp_dir()
     db_path = tmp_dir / "dashboard.db"
     try:
         seed_dashboard_db(db_path)
-        monkeypatch.setattr(dashboard, "latest_json_snapshot", lambda run_dir: None)
         monkeypatch.setattr(
             dashboard,
             "resolve_operational_scanner_context",
@@ -88,8 +96,8 @@ def test_active_snapshot_uses_db_fallback_when_run_json_is_missing(monkeypatch) 
         active_run = payload["active_run"]
 
         assert active_run is not None
-        assert active_run["source"] == "db_fallback"
-        assert active_run["fallback_reason"] == "missing_local_run_snapshot"
+        assert active_run["source"] == "prediction_db_fallback"
+        assert active_run["fallback_reason"] == "missing_postgres_run_snapshot"
         assert active_run["regime_label"] == "SEGURO"
         assert active_run["prediction_for"] == "2026-04-22"
         assert active_run["analyzed_date"] == "2026-04-21"
@@ -104,33 +112,43 @@ def test_active_snapshot_uses_db_fallback_when_run_json_is_missing(monkeypatch) 
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def test_active_snapshot_hydrates_live_results_from_db_even_when_run_json_exists(monkeypatch) -> None:
+def test_active_snapshot_uses_snapshot_db_and_overlays_live_results(monkeypatch) -> None:
     tmp_dir = make_workspace_tmp_dir()
     db_path = tmp_dir / "dashboard.db"
     try:
         seed_dashboard_db(db_path)
-        snapshot = {
-            "version": 13,
-            "source": "snapshot",
-            "analyzed_date": "2026-04-21",
-            "prediction_for": "2026-04-22",
-            "regime_label": "SEGURO",
-            "breadth_pct": 61.5,
-            "memory_context": ["contexto"],
-            "freshness": "AL DIA",
-            "results_d": [
-                {
-                    "ticker": "AAPL",
-                    "signal": "D (Leadership)",
-                    "sector": "Tecnologia",
-                    "score": 84.2,
-                    "priority_score": 84.2,
-                    "note": "snapshot",
-                }
-            ],
-            "results_e": [],
-        }
-        monkeypatch.setattr(dashboard, "latest_json_snapshot", lambda run_dir: snapshot)
+        with TitanDB(db_path=str(db_path)) as db:
+            db.save_model_run_snapshot(
+                model_key="V13",
+                model_name="INVERTIR_V13",
+                analyzed_date="2026-04-21",
+                prediction_for="2026-04-22",
+                freshness="AL DIA",
+                regime_label="SEGURO",
+                breadth_pct=61.5,
+                signal_count=1,
+                snapshot_payload={
+                    "version": 13,
+                    "analyzed_date": "2026-04-21",
+                    "prediction_for": "2026-04-22",
+                    "regime_label": "SEGURO",
+                    "breadth_pct": 61.5,
+                    "memory_context": ["contexto"],
+                    "freshness": "AL DIA",
+                    "results_d": [
+                        {
+                            "ticker": "AAPL",
+                            "signal": "D (Leadership)",
+                            "sector": "Tecnologia",
+                            "score": 84.2,
+                            "priority_score": 84.2,
+                            "note": "snapshot",
+                        }
+                    ],
+                    "results_e": [],
+                },
+            )
+
         monkeypatch.setattr(
             dashboard,
             "resolve_operational_scanner_context",
@@ -147,8 +165,7 @@ def test_active_snapshot_hydrates_live_results_from_db_even_when_run_json_exists
         active_run = payload["active_run"]
 
         assert active_run is not None
-        assert active_run["source"] == "snapshot_db_hybrid"
-        assert active_run["db_overlay"] is True
+        assert active_run["source"] == "snapshot_db"
         assert active_run["breadth_pct"] == 61.5
         assert active_run["memory_context"] == ["contexto"]
         assert [row["ticker"] for row in active_run["results_d"]] == ["AAPL", "MSFT"]
@@ -161,7 +178,7 @@ def test_active_snapshot_hydrates_live_results_from_db_even_when_run_json_exists
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def test_active_snapshot_ignores_stale_snapshot_day_when_db_is_newer(monkeypatch) -> None:
+def test_active_snapshot_uses_latest_prediction_date_when_db_moves_forward(monkeypatch) -> None:
     tmp_dir = make_workspace_tmp_dir()
     db_path = tmp_dir / "dashboard.db"
     try:
@@ -185,23 +202,6 @@ def test_active_snapshot_ignores_stale_snapshot_day_when_db_is_newer(monkeypatch
             )
             db.conn.commit()
 
-        stale_snapshot = {
-            "version": 13,
-            "source": "snapshot",
-            "analyzed_date": "2026-04-21",
-            "prediction_for": "2026-04-22",
-            "regime_label": "SEGURO",
-            "breadth_pct": 61.5,
-            "memory_context": ["contexto viejo"],
-            "freshness": "AL DIA",
-            "results_d": [
-                {"ticker": "AAPL", "signal": "D (Leadership)", "sector": "Tecnologia", "score": 84.2}
-            ],
-            "results_e": [
-                {"ticker": "NVDA", "signal": "E (RS)", "sector": "Tecnologia", "score": 81.0}
-            ],
-        }
-        monkeypatch.setattr(dashboard, "latest_json_snapshot", lambda run_dir: stale_snapshot)
         monkeypatch.setattr(
             dashboard,
             "resolve_operational_scanner_context",
@@ -218,11 +218,9 @@ def test_active_snapshot_ignores_stale_snapshot_day_when_db_is_newer(monkeypatch
         active_run = payload["active_run"]
 
         assert active_run is not None
-        assert active_run["source"] == "db_fallback"
+        assert active_run["source"] == "prediction_db_fallback"
         assert active_run["analyzed_date"] == "2026-04-22"
         assert active_run["prediction_for"] == "2026-04-23"
-        assert active_run["stale_snapshot_ignored"] is True
-        assert active_run["stale_snapshot_analyzed_date"] == "2026-04-21"
         assert [row["ticker"] for row in active_run["results_d"]] == ["AVGO"]
         assert active_run["results_e"] == []
     finally:

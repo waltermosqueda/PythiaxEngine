@@ -138,7 +138,8 @@ def test_build_entry_state_carries_spark_labels(monkeypatch) -> None:
         },
     }
 
-    monkeypatch.setattr(standardized, "load_entry_snapshots", lambda entry: [])
+    monkeypatch.setattr(standardized, "load_entry_snapshots", lambda con, entry: [])
+    monkeypatch.setattr(standardized, "load_entry_snapshot_rows", lambda con, entry: [])
     monkeypatch.setattr(standardized, "_load_operational_row_map", lambda con, entry: {})
     monkeypatch.setattr(
         standardized,
