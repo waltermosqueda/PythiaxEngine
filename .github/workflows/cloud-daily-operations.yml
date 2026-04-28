@@ -7,7 +7,7 @@ on:
     - cron: "25 22 * * 1-5"
 
 concurrency:
-  group: cloud-daily-operations
+  group: pages-production-pipeline
   cancel-in-progress: false
 
 jobs:

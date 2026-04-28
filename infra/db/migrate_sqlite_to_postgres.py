@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict, dataclass
+from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 from time import sleep
@@ -179,6 +180,50 @@ def redact_url(url: str) -> str:
     return f"{scheme}://{username}:***@{host}"
 
 
+def normalize_date_value(value: Any) -> date | Any | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        text_value = value.strip()
+        if not text_value:
+            return None
+        try:
+            return date.fromisoformat(text_value[:10])
+        except ValueError:
+            return value
+    return value
+
+
+def normalize_datetime_value(value: Any) -> datetime | Any | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+    if isinstance(value, str):
+        text_value = value.strip()
+        if not text_value:
+            return None
+        if text_value.endswith("Z"):
+            text_value = text_value[:-1] + "+00:00"
+        try:
+            parsed = datetime.fromisoformat(text_value)
+        except ValueError:
+            try:
+                parsed = pd.Timestamp(text_value).to_pydatetime()
+            except Exception:
+                return value
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    return value
+
+
 def count_rows(engine: Engine, table_name: str) -> int:
     def operation() -> int:
         with engine.connect() as connection:
@@ -241,14 +286,12 @@ def normalize_chunk(table_name: str, chunk: pd.DataFrame) -> pd.DataFrame:
     for column_name in DATE_COLUMNS.get(table_name, ()):
         if column_name not in normalized.columns:
             continue
-        series = pd.to_datetime(normalized[column_name], errors="coerce")
-        normalized[column_name] = series.dt.date.where(series.notna(), None)
+        normalized[column_name] = normalized[column_name].apply(normalize_date_value)
 
     for column_name in DATETIME_COLUMNS.get(table_name, ()):
         if column_name not in normalized.columns:
             continue
-        series = pd.to_datetime(normalized[column_name], errors="coerce", utc=True)
-        normalized[column_name] = series.apply(lambda value: value.to_pydatetime() if pd.notna(value) else None)
+        normalized[column_name] = normalized[column_name].apply(normalize_datetime_value)
 
     for column_name in FLOAT_COLUMNS.get(table_name, ()):
         if column_name not in normalized.columns:
@@ -303,6 +346,25 @@ def resolve_insert_chunk_size(
     return max(1, min(requested_chunk_size, max_rows_per_insert))
 
 
+def build_source_select_sql(source_engine: Engine, table_name: str) -> text:
+    if not source_engine.dialect.name.startswith("postgres"):
+        return text(f"SELECT * FROM {table_name}")
+
+    columns = inspect(source_engine).get_columns(table_name)
+    if not columns:
+        return text(f"SELECT * FROM {table_name}")
+
+    datetime_columns = set(DATETIME_COLUMNS.get(table_name, ()))
+    select_parts: list[str] = []
+    for column in columns:
+        column_name = str(column["name"])
+        if column_name in datetime_columns:
+            select_parts.append(f"{column_name}::text AS {column_name}")
+        else:
+            select_parts.append(column_name)
+    return text(f"SELECT {', '.join(select_parts)} FROM {table_name}")
+
+
 def migrate_table(
     *,
     source_engine: Engine,
@@ -335,7 +397,7 @@ def migrate_table(
             skipped=False,
         )
 
-    query = text(f"SELECT * FROM {table_name}")
+    query = build_source_select_sql(source_engine, table_name)
     with source_engine.connect() as source_connection:
         chunk_iter = pd.read_sql_query(query, source_connection, chunksize=chunk_size)
         for chunk in chunk_iter:

@@ -5,17 +5,15 @@ on:
     branches:
       - main
   workflow_dispatch:
-  schedule:
-    - cron: "37 3 * * 2-6"
 
 concurrency:
-  group: github-pages-publish
+  group: pages-production-pipeline
   cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 180
     permissions:
       contents: read
       pages: write
@@ -25,6 +23,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      TZ: America/Buenos_Aires
       PYTHIAX_COMMIT_SHA: ${{ github.sha }}
       PYTHIAX_RUN_ID: ${{ github.run_id }}
       PYTHIAX_RUN_ATTEMPT: ${{ github.run_attempt }}
@@ -52,8 +51,24 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
-      - name: Build dashboard bundle
-        run: python analisis/generar_tablero_maquina_pensante.py --variant all
+      - name: Apply schema with Alembic
+        run: alembic upgrade head
+
+      - name: Bootstrap runner SQLite from target
+        run: |
+          python -m infra.db.bootstrap_sqlite_from_target \
+            --source-url "$DATABASE_URL" \
+            --target-sqlite-path "$GITHUB_WORKSPACE/titan_system/data/titan.db" \
+            --reset-target \
+            --report-path docs/cloud/reports/target_to_sqlite_bootstrap.json
+
+      - name: Run integrated cloud pipeline
+        env:
+          DATABASE_URL: sqlite:////${{ github.workspace }}/titan_system/data/titan.db
+          SQLITE_FALLBACK_PATH: ${{ github.workspace }}/titan_system/data/titan.db
+          PYTHIAX_TARGET_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python herramientas/auto_actualizar.py --force-pipeline
 
       - name: Stage GitHub Pages site
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
@@ -88,7 +103,9 @@ jobs:
           retention-days: 30
           path: |
             dashboards/maquina_pensante/
+            dist/github-pages/
             dist/github-pages/site_bundle_manifest.json
+            docs/cloud/reports/target_to_sqlite_bootstrap.json
             docs/cloud/reports/dashboard_integrity_audit.json
 
       - name: Upload Pages artifact

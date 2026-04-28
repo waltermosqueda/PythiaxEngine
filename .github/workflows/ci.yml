@@ -67,6 +67,7 @@ jobs:
               print("::error title=pytest::pytest-results.xml was not generated")
               failures.append("missing-junit-report")
 
-          if failures or os.getenv("PYTEST_OUTCOME") != "success":
+          outcome = os.getenv("PYTEST_OUTCOME")
+          if failures or (outcome and outcome != "success"):
               sys.exit(1)
           PY

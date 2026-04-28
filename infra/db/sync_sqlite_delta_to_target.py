@@ -4,6 +4,7 @@ import argparse
 import json
 import sqlite3
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +64,11 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Ruta opcional para escribir un reporte JSON.",
     )
+    parser.add_argument(
+        "--allow-stale-source",
+        action="store_true",
+        help="Permite sincronizar aunque la SQLite fuente tenga menos ruedas que el target.",
+    )
     return parser.parse_args()
 
 
@@ -74,6 +80,23 @@ def _read_scalar_sqlite(source_path: Path, sql: str, params: tuple[Any, ...] = (
 
 def _read_scalar_target(session: Session, sql: str) -> Any:
     return session.execute(text(sql)).scalar()
+
+
+def _parse_date_text(value: Any) -> date | None:
+    if value in (None, ""):
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def _read_source_latest_price_date(source_path: Path) -> date | None:
+    return _parse_date_text(_read_scalar_sqlite(source_path, "SELECT MAX(date) FROM prices"))
+
+
+def _read_target_latest_price_date(session: Session) -> date | None:
+    return _parse_date_text(_read_scalar_target(session, "SELECT MAX(date) FROM prices"))
 
 
 def _iter_source_chunks(
@@ -415,7 +438,13 @@ def sync_regimes(*, source_path: Path, session: Session, chunk_size: int) -> Tab
     )
 
 
-def sync_data_status(*, source_path: Path, session: Session) -> TableSyncResult:
+def sync_data_status(
+    *,
+    source_path: Path,
+    session: Session,
+    source_latest_price_date: date | None,
+    target_latest_price_date: date | None,
+) -> TableSyncResult:
     sql = "SELECT key, value, updated_at FROM data_status ORDER BY key"
     rows = next(
         _iter_source_chunks(
@@ -429,8 +458,39 @@ def sync_data_status(*, source_path: Path, session: Session) -> TableSyncResult:
     )
     target_before = _read_scalar_target(session, "SELECT MAX(updated_at) FROM data_status")
     source_after = _read_scalar_sqlite(source_path, "SELECT MAX(updated_at) FROM data_status")
-    if rows:
-        stmt = pg_insert(DataStatus).values(rows)
+    target_rows = {
+        str(row[0]): {"value": row[1], "updated_at": row[2]}
+        for row in session.execute(text("SELECT key, value, updated_at FROM data_status")).fetchall()
+    }
+
+    rows_to_upsert: list[dict[str, Any]] = []
+    for row in rows:
+        key = str(row["key"])
+        target_row = target_rows.get(key) or {}
+        if key == "latest_prices_date":
+            source_value_date = _parse_date_text(row.get("value"))
+            target_value_date = _parse_date_text(target_row.get("value"))
+            if (
+                source_value_date is not None
+                and target_value_date is not None
+                and source_value_date < target_value_date
+            ):
+                continue
+        elif key == "market_data_updated_at":
+            target_updated_at = target_row.get("updated_at")
+            source_updated_at = row.get("updated_at")
+            if (
+                source_latest_price_date is not None
+                and target_latest_price_date is not None
+                and source_latest_price_date < target_latest_price_date
+                and target_updated_at is not None
+                and (source_updated_at is None or source_updated_at < target_updated_at)
+            ):
+                continue
+        rows_to_upsert.append(row)
+
+    if rows_to_upsert:
+        stmt = pg_insert(DataStatus).values(rows_to_upsert)
         stmt = stmt.on_conflict_do_update(
             index_elements=[DataStatus.key.key],
             set_={
@@ -444,7 +504,7 @@ def sync_data_status(*, source_path: Path, session: Session) -> TableSyncResult:
     return TableSyncResult(
         table_name="data_status",
         source_rows=len(rows),
-        upserted_rows=len(rows),
+        upserted_rows=len(rows_to_upsert),
         source_cursor=str(source_after) if source_after else None,
         target_cursor_before=str(target_before) if target_before else None,
         target_cursor_after=str(target_after) if target_after else None,
@@ -477,6 +537,7 @@ def sync_sqlite_delta_to_target(
     target_url: str,
     chunk_size: int = 1000,
     report_path: Path | None = None,
+    allow_stale_source: bool = False,
 ) -> dict[str, Any]:
     source_path = source_sqlite_path.resolve()
     if not source_path.exists():
@@ -488,13 +549,31 @@ def sync_sqlite_delta_to_target(
 
     try:
         with Session(engine) as session:
+            source_latest_price_date = _read_source_latest_price_date(source_path)
+            target_latest_price_date = _read_target_latest_price_date(session)
+            if (
+                not allow_stale_source
+                and source_latest_price_date is not None
+                and target_latest_price_date is not None
+                and source_latest_price_date < target_latest_price_date
+            ):
+                raise ValueError(
+                    "La SQLite fuente esta mas atrasada que el target. "
+                    f"source={source_latest_price_date.isoformat()} | "
+                    f"target={target_latest_price_date.isoformat()}"
+                )
             results = [
                 sync_prices(source_path=source_path, session=session, chunk_size=chunk_size),
                 sync_predictions(source_path=source_path, session=session, chunk_size=chunk_size),
                 sync_outcomes(source_path=source_path, session=session, chunk_size=chunk_size),
                 sync_model_metrics(source_path=source_path, session=session, chunk_size=chunk_size),
                 sync_regimes(source_path=source_path, session=session, chunk_size=chunk_size),
-                sync_data_status(source_path=source_path, session=session),
+                sync_data_status(
+                    source_path=source_path,
+                    session=session,
+                    source_latest_price_date=source_latest_price_date,
+                    target_latest_price_date=target_latest_price_date,
+                ),
             ]
         payload = build_report(
             source_path=source_path,
@@ -516,6 +595,7 @@ def main() -> int:
         target_url=args.target_url,
         chunk_size=args.chunk_size,
         report_path=args.report_path,
+        allow_stale_source=args.allow_stale_source,
     )
     print(json.dumps(payload, indent=2, ensure_ascii=True))
     return 0
