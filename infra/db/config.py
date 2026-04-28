@@ -48,6 +48,8 @@ def resolve_setting(name: str, *, env_file_values: dict[str, str], default: str)
 
 def normalize_database_url(database_url: str) -> str:
     url = database_url.strip()
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://") :]
     if url.startswith("postgresql://"):
         return "postgresql+psycopg://" + url[len("postgresql://") :]
     return url

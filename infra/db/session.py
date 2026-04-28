@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
 
-from infra.db.config import get_database_url
+from infra.db.config import get_database_url, normalize_database_url
 
 
 def build_engine_kwargs(database_url: str) -> dict[str, object]:
@@ -20,7 +20,7 @@ def build_engine_kwargs(database_url: str) -> dict[str, object]:
 
 
 def create_db_engine(database_url: str | None = None, echo: bool = False) -> Engine:
-    resolved_url = database_url or get_database_url()
+    resolved_url = normalize_database_url(database_url or get_database_url())
     return create_engine(resolved_url, echo=echo, **build_engine_kwargs(resolved_url))
 
 

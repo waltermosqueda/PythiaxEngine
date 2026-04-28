@@ -54,3 +54,10 @@ def test_normalize_database_url_rewrites_plain_postgresql_scheme() -> None:
         normalize_database_url("postgresql://user:pass@host/db")
         == "postgresql+psycopg://user:pass@host/db"
     )
+
+
+def test_normalize_database_url_rewrites_legacy_postgres_scheme() -> None:
+    assert (
+        normalize_database_url("postgres://user:pass@host/db")
+        == "postgresql+psycopg://user:pass@host/db"
+    )
