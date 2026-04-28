@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import contextlib
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -24,7 +25,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import herramientas.aprendizaje_operativo_v11 as base_v11
+from titan_system.core.data_loader import get_sector
 from titan_system.core.database import TitanDB
+from titan_system.models.strategies import StrategyV22, StrategyV94, StrategyV102
 
 
 os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(os.cpu_count() or 1))
@@ -128,6 +131,36 @@ def load_module_from_path(model_id: str, source_path: str) -> ModuleType:
     return module
 
 
+def parse_source_assignments(source_path: str) -> dict[str, Any]:
+    path = Path(source_path)
+    if not path.exists():
+        return {}
+
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"))
+    except SyntaxError:
+        return {}
+
+    assignments: dict[str, Any] = {}
+    for node in tree.body:
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        target = node.targets[0]
+        if not isinstance(target, ast.Name):
+            continue
+        try:
+            assignments[target.id] = ast.literal_eval(node.value)
+        except Exception:
+            continue
+    return assignments
+
+
+def _source_value(source: Any, attr_name: str) -> Any:
+    if isinstance(source, dict):
+        return source.get(attr_name)
+    return getattr(source, attr_name, None)
+
+
 def build_runtime_context(config: LegacyMLConfig, learning_path: Path, latest_db_date: str | None) -> dict[str, object]:
     critical_files = {
         "source": Path(config.source_path),
@@ -153,6 +186,46 @@ def build_runtime_context(config: LegacyMLConfig, learning_path: Path, latest_db
     }
 
 
+def extract_sector_map_from_module(module: Any) -> dict[str, str]:
+    sector_map: dict[str, str] = {}
+    for attr_name in ["ACTIVOS_MERCADO", "ACTIVOS", "activos"]:
+        value = _source_value(module, attr_name)
+        if isinstance(value, dict):
+            sector_map.update({str(key): str(val) for key, val in value.items()})
+    return sector_map
+
+
+def extract_universe_from_module(module: Any) -> list[str]:
+    tickers: list[str] = []
+    for attr_name in [
+        "ACTIVOS_MERCADO",
+        "ACTIVOS",
+        "TICKERS",
+        "activos",
+        "REQUESTED_UNIVERSE",
+        "TRADABLE_UNIVERSE",
+        "ALL_TICKERS",
+        "CONTEXT_TICKERS",
+    ]:
+        value = _source_value(module, attr_name)
+        if isinstance(value, dict):
+            tickers.extend(str(key) for key in value.keys())
+        elif isinstance(value, (list, tuple, set)):
+            tickers.extend(str(item) for item in value)
+
+    requested_universe = _source_value(module, "REQUESTED_UNIVERSE")
+    required_event_tickers = _source_value(module, "REQUIRED_EVENT_TICKERS")
+    if isinstance(requested_universe, (list, tuple, set)):
+        tickers.extend(str(item) for item in requested_universe)
+    if isinstance(required_event_tickers, (list, tuple, set)):
+        tickers.extend(str(item) for item in required_event_tickers)
+
+    deduped = list(dict.fromkeys(tickers))
+    if "SPY" not in deduped:
+        deduped.insert(0, "SPY")
+    return deduped
+
+
 class OperationalLearningLegacyML:
     def __init__(self, db: TitanDB, config: LegacyMLConfig):
         self.db = db
@@ -163,7 +236,8 @@ class OperationalLearningLegacyML:
         self.run_dir = ROOT / "aprendizaje_operativo" / f"{config.model_id}_runs"
         self.report_dir = ROOT / "aprendizaje_operativo" / f"{config.model_id}_reports"
         self.learning_path = ROOT / config.learning_file
-        self.module = load_module_from_path(config.model_id, config.source_path)
+        self.source_metadata = parse_source_assignments(config.source_path)
+        self.module = None if config.adapter_kind in {"v22", "v94", "v102"} else load_module_from_path(config.model_id, config.source_path)
 
         self.sector_map = self._discover_sector_map()
         self.requested_universe = self._discover_universe()
@@ -183,25 +257,12 @@ class OperationalLearningLegacyML:
             self.db_last_write = datetime.strptime(updated_at_text, "%Y-%m-%d %H:%M:%S")
 
     def _discover_sector_map(self) -> dict[str, str]:
-        sector_map: dict[str, str] = {}
-        for attr_name in ["ACTIVOS_MERCADO", "ACTIVOS"]:
-            value = getattr(self.module, attr_name, None)
-            if isinstance(value, dict):
-                sector_map.update({str(key): str(val) for key, val in value.items()})
-        return sector_map
+        source = self.module if self.module is not None else self.source_metadata
+        return extract_sector_map_from_module(source)
 
     def _discover_universe(self) -> list[str]:
-        tickers: list[str] = []
-        for attr_name in ["ACTIVOS_MERCADO", "ACTIVOS", "TICKERS"]:
-            value = getattr(self.module, attr_name, None)
-            if isinstance(value, dict):
-                tickers.extend(str(key) for key in value.keys())
-            elif isinstance(value, list):
-                tickers.extend(str(item) for item in value)
-        deduped = list(dict.fromkeys(tickers))
-        if "SPY" not in deduped:
-            deduped.insert(0, "SPY")
-        return deduped
+        source = self.module if self.module is not None else self.source_metadata
+        return extract_universe_from_module(source)
 
     def _load_histories(self, requested_universe: list[str]) -> dict[str, pd.DataFrame]:
         histories: dict[str, pd.DataFrame] = {}
@@ -247,6 +308,13 @@ class OperationalLearningLegacyML:
         if actual is not None:
             return actual
         return self.projected_business_day_offset(prediction_date, days_forward)
+
+    def _sector_for_ticker(self, ticker: str) -> str:
+        sector = self.sector_map.get(ticker)
+        if sector:
+            return sector
+        fallback = get_sector(ticker)
+        return fallback if fallback else "other"
 
     def extract_horizon(self, model_name: str) -> int | None:
         match = HORIZON_RE.search(model_name)
@@ -447,7 +515,11 @@ class OperationalLearningLegacyML:
             if self.config.adapter_kind == "v97":
                 return self._run_v97(as_of_ts)
             if self.config.adapter_kind == "v22":
-                return self._run_v22(as_of_ts)
+                return self._run_repo_strategy(as_of_ts, StrategyV22, min_rows=max(self.config.min_rows, 252), signal="BUY")
+            if self.config.adapter_kind == "v94":
+                return self._run_repo_strategy(as_of_ts, StrategyV94, min_rows=max(self.config.min_rows, 120), signal="BUY")
+            if self.config.adapter_kind == "v102":
+                return self._run_repo_strategy(as_of_ts, StrategyV102, min_rows=max(self.config.min_rows, 220), signal="EVENT")
         except Exception as exc:
             return [], [f"ERROR adapter {self.config.adapter_kind}: {type(exc).__name__}: {exc}"]
         return [], [f"Adapter no soportado: {self.config.adapter_kind}"]
@@ -754,6 +826,69 @@ class OperationalLearningLegacyML:
             )
         return picks, []
 
+    def _run_repo_strategy(
+        self,
+        as_of_ts: pd.Timestamp,
+        strategy_cls: type[StrategyV22] | type[StrategyV94] | type[StrategyV102],
+        *,
+        min_rows: int,
+        signal: str,
+    ) -> tuple[list[LegacyMLPick], list[str]]:
+        histories = self._histories_asof(as_of_ts, min_rows=min_rows)
+        if "SPY" not in histories:
+            return [], ["SPY faltante para strategy bridge."]
+
+        prices_dict = {
+            ticker: df[["Open", "High", "Low", "Close", "Volume"]].copy()
+            for ticker, df in histories.items()
+        }
+        tickers = list(prices_dict.keys())
+        strategy = strategy_cls(retrain_every=999)
+        raw_picks = strategy(prices_dict, tickers, as_of_ts.date().isoformat())
+        if not raw_picks:
+            return [], []
+
+        ranked = sorted(
+            raw_picks,
+            key=lambda item: (
+                float(item.get("score", 0.0)),
+                float(item.get("confidence", 0.0)),
+                str(item.get("ticker") or ""),
+            ),
+            reverse=True,
+        )
+
+        picks: list[LegacyMLPick] = []
+        seen: set[str] = set()
+        for row in ranked:
+            ticker = str(row.get("ticker") or "").upper()
+            if not ticker or ticker == "SPY" or ticker in seen or ticker not in histories:
+                continue
+            if str(row.get("direction", "UP")).upper() != "UP":
+                continue
+
+            seen.add(ticker)
+            confidence = max(0.05, min(0.99, float(row.get("confidence", 0.0))))
+            score = round(float(row.get("score", confidence * 100.0)), 4)
+            picks.append(
+                LegacyMLPick(
+                    ticker=ticker,
+                    sector=self._sector_for_ticker(ticker),
+                    price=round(float(histories[ticker]["Close"].iloc[-1]), 4),
+                    score=score,
+                    confidence=confidence,
+                    signal=signal,
+                    rank=len(picks) + 1,
+                    meta={
+                        "adapter_kind": self.config.adapter_kind,
+                        "strategy_bridge": strategy_cls.__name__,
+                    },
+                )
+            )
+            if len(picks) >= self.config.max_picks:
+                break
+        return picks, []
+
     def _prediction_rows_from_pick(self, pick: LegacyMLPick, prediction_date: str) -> list[dict[str, Any]]:
         horizon = self.config.native_horizon
         return [
@@ -1008,11 +1143,17 @@ class OperationalLearningLegacyML:
             """,
             (self.model_name,),
         ).fetchone()
+        first_prediction_date = row[2]
+        last_prediction_date = row[3]
+        if hasattr(first_prediction_date, "isoformat"):
+            first_prediction_date = first_prediction_date.isoformat()
+        if hasattr(last_prediction_date, "isoformat"):
+            last_prediction_date = last_prediction_date.isoformat()
         return {
             "predictions_count": int(row[0] or 0),
             "prediction_days": int(row[1] or 0),
-            "first_prediction_date": row[2],
-            "last_prediction_date": row[3],
+            "first_prediction_date": first_prediction_date,
+            "last_prediction_date": last_prediction_date,
         }
 
     def daily_summary_text(self, snapshot: LegacyMLSnapshot) -> str:
@@ -1101,7 +1242,7 @@ def run_backfill(engine: OperationalLearningLegacyML, from_date: str, to_date: s
 
 
 def run_report(engine: OperationalLearningLegacyML, status_only: bool) -> None:
-    print(json.dumps({"model": engine.config.label, **engine.report_status()}, indent=2))
+    print(json.dumps({"model": engine.config.label, **engine.report_status()}, indent=2, default=str))
     if status_only:
         return
     df = engine.report()

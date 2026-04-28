@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-04-16T12:10:00",
+  "updated_at": "2026-04-27T16:35:00",
   "legacy_ml_models": [
     {
       "model_id": "legacy_ml_brain_v11",
@@ -79,6 +79,19 @@
       "native_horizon": 1,
       "evaluation_mode": "close_on_target",
       "notes": "Version full universe del modelo v39."
+    },
+    {
+      "model_id": "legacy_ml_v94",
+      "label": "ML_V94",
+      "model_prefix": "LEGACY_ML_V94",
+      "signal_code": "BUY",
+      "status": "enabled",
+      "role": "legacy_ml_observed",
+      "source_path": "C:\\Users\\wmx_7\\OneDrive\\Escritorio\\Inversiones\\Machine Winners\\ml_trading_v94.py",
+      "runner_script": "herramientas/aprendizaje_operativo_legacy_ml_v94.py",
+      "native_horizon": 5,
+      "evaluation_mode": "close_on_target",
+      "notes": "Bridge cloud-first hacia StrategyV94. Auditoria temporal 2026-04-27: row split contaminado, pero purged_kfold y purged_expanding sostienen edge portable; activado tras seed inicial en Postgres."
     },
     {
       "model_id": "legacy_ml_v97",
