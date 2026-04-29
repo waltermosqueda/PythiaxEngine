@@ -15,7 +15,12 @@ def build_engine_kwargs(database_url: str) -> dict[str, object]:
     }
     if url.get_backend_name().startswith("postgres"):
         kwargs["pool_recycle"] = 300
-        kwargs["connect_args"] = {"connect_timeout": 15}
+        connect_args: dict[str, object] = {"connect_timeout": 15}
+        host = (url.host or "").strip().lower()
+        is_local_host = host in {"", "localhost", "127.0.0.1", "::1"}
+        if not is_local_host and "sslmode" not in url.query:
+            connect_args["sslmode"] = "require"
+        kwargs["connect_args"] = connect_args
     return kwargs
 
 
