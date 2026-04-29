@@ -64,7 +64,7 @@ jobs:
         id: cloud_pipeline
         continue-on-error: true
         run: |
-          python herramientas/auto_actualizar.py --skip-dashboard-refresh
+          python herramientas/auto_actualizar.py --force-pipeline --skip-dashboard-refresh
 
       - name: Report cloud-native pipeline failure
         if: steps.cloud_pipeline.outcome != 'success'
