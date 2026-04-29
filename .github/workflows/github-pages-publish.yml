@@ -61,16 +61,85 @@ jobs:
         run: alembic upgrade head
 
       - name: Run cloud-native pipeline
+        id: cloud_pipeline
+        continue-on-error: true
         run: |
           python herramientas/auto_actualizar.py --skip-dashboard-refresh
 
+      - name: Report cloud-native pipeline failure
+        if: steps.cloud_pipeline.outcome != 'success'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          alert_path = Path("aprendizaje_operativo/alerts/latest_critical_alert.json")
+          if alert_path.exists():
+              payload = json.loads(alert_path.read_text(encoding="utf-8"))
+              code = payload.get("code") or "cloud_pipeline_failed"
+              summary = payload.get("summary") or "Sin resumen"
+              print(f"::error::cloud-native pipeline failed: {code} | {summary}")
+
+          freshness_path = Path("docs/cloud/reports/model_snapshot_freshness.json")
+          if freshness_path.exists():
+              payload = json.loads(freshness_path.read_text(encoding="utf-8"))
+              latest_prices = payload.get("latest_prices_date")
+              latest_prediction = payload.get("latest_prediction_date")
+              missing_models = ", ".join(payload.get("missing_models") or []) or "-"
+              print(
+                  "::error::model snapshot freshness: "
+                  f"latest_prices_date={latest_prices} | latest_prediction_date={latest_prediction} | "
+                  f"missing_models={missing_models}"
+              )
+
+          log_path = Path("bitacora/auto_actualizar.log")
+          if log_path.exists():
+              tail = log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-40:]
+              print("---- auto_actualizar.log tail ----")
+              for line in tail:
+                  print(line)
+          raise SystemExit(1)
+          PY
+
       - name: Build dashboard bundle
+        id: dashboard_bundle
+        continue-on-error: true
         run: python analisis/generar_tablero_maquina_pensante.py --variant all
+
+      - name: Report dashboard build failure
+        if: steps.dashboard_bundle.outcome != 'success'
+        run: |
+          python - <<'PY'
+          from infra.db import RuntimeDB, resolve_ci_run_id
+
+          run_id = resolve_ci_run_id() or ""
+          with RuntimeDB() as db:
+              row = db.row(
+                  """
+                  SELECT run_id, status, error_message
+                  FROM pipeline_runs
+                  WHERE pipeline_name = 'dashboard_build' AND run_id LIKE ?
+                  ORDER BY id DESC
+                  LIMIT 1
+                  """,
+                  (f"dashboard_build-{run_id}%",),
+              )
+          if row:
+              print(
+                  "::error::dashboard build failed: "
+                  f"run_id={row.get('run_id')} | status={row.get('status')} | error={row.get('error_message')}"
+              )
+          else:
+              print("::error::dashboard build failed and no pipeline_runs row was found")
+          raise SystemExit(1)
+          PY
 
       - name: Stage GitHub Pages site
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
 
       - name: Run integrity audit
+        id: integrity_audit
+        continue-on-error: true
         run: |
           python -m infra.cloud.audit_dashboard_integrity \
             --snapshot-path dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json \
@@ -79,6 +148,32 @@ jobs:
             --sample-size 5 \
             --seed 130013 \
             --report-path docs/cloud/reports/dashboard_integrity_audit.json
+
+      - name: Report integrity audit failure
+        if: steps.integrity_audit.outcome != 'success'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report_path = Path("docs/cloud/reports/dashboard_integrity_audit.json")
+          if not report_path.exists():
+              print("::error::integrity audit failed and no report file was generated")
+              raise SystemExit(1)
+
+          payload = json.loads(report_path.read_text(encoding="utf-8"))
+          failures = payload.get("failures") or []
+          if not failures:
+              print("::error::integrity audit failed but report contained no failure details")
+              raise SystemExit(1)
+
+          first = failures[0]
+          print(
+              "::error::integrity audit failed: "
+              f"label={first.get('label')} | actual={first.get('actual')} | expected={first.get('expected')}"
+          )
+          raise SystemExit(1)
+          PY
 
       - name: Validate generated bundle
         run: |
