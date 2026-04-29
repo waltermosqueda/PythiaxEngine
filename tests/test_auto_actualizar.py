@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import shutil
 from datetime import date, datetime
 from pathlib import Path
@@ -44,6 +45,34 @@ def test_ejecutar_paso_opcional_accepts_explicit_timeout(monkeypatch) -> None:
 
     assert ok is True
     assert captured["timeout"] == 1800
+
+
+def test_ejecutar_paso_streams_child_output_live(monkeypatch, capsys) -> None:
+    class FakeProcess:
+        def __init__(self) -> None:
+            self.stdout = io.StringIO("hola stdout\n")
+            self.stderr = io.StringIO("hola stderr\n")
+            self.returncode = 0
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+        def kill(self) -> None:
+            self.returncode = -9
+
+    monkeypatch.setattr(auto_actualizar.subprocess, "Popen", lambda *args, **kwargs: FakeProcess())
+    monkeypatch.setattr(
+        auto_actualizar,
+        "guardar_salida",
+        lambda step_name, fecha_base, text: Path(".cache") / "pytest-auto-actualizar-step.txt",
+    )
+
+    ok = auto_actualizar.ejecutar_paso("scanner", ["python", "fake.py"], date(2026, 4, 24))
+
+    captured = capsys.readouterr()
+    assert ok is True
+    assert "hola stdout" in captured.out
+    assert "hola stderr" in captured.err
 
 
 def test_repair_recent_invalid_ohlcv_rows_uses_parallel_loader_defaults(monkeypatch) -> None:

@@ -26,6 +26,7 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -74,12 +75,21 @@ from infra.db.runtime import (
 from herramientas.legacy_ml_registry import load_enabled_legacy_ml_entries
 from titan_system.core.database import TitanDB
 
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True, write_through=True)
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(line_buffering=True, write_through=True)
+
 logging.basicConfig(
-    filename=LOG_PATH,
     level=logging.INFO,
     format="%(asctime)s  %(message)s",
     datefmt="%Y-%m-%d %H:%M",
-    encoding="utf-8",
+    handlers=[
+        logging.FileHandler(LOG_PATH, encoding="utf-8"),
+        logging.StreamHandler(sys.stdout),
+    ],
+    force=True,
 )
 log = logging.getLogger()
 
@@ -334,35 +344,118 @@ def _timeout_seconds_for_step(step_name: str, optional: bool = False) -> int:
     return DEFAULT_OPTIONAL_TIMEOUT_SECONDS if optional else DEFAULT_REQUIRED_TIMEOUT_SECONDS
 
 
+def _stream_process_pipe(pipe, sink, chunks: list[str]) -> None:
+    try:
+        for line in iter(pipe.readline, ""):
+            if not line:
+                break
+            chunks.append(line)
+            sink.write(line)
+            sink.flush()
+    finally:
+        pipe.close()
+
+
+def _run_command_with_live_output(command: list[str], *, timeout_seconds: int) -> dict[str, object]:
+    process = subprocess.Popen(
+        command,
+        cwd=str(BASE_DIR),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+    )
+
+    stdout_chunks: list[str] = []
+    stderr_chunks: list[str] = []
+    stdout_thread = threading.Thread(
+        target=_stream_process_pipe,
+        args=(process.stdout, sys.stdout, stdout_chunks),
+        daemon=True,
+    )
+    stderr_thread = threading.Thread(
+        target=_stream_process_pipe,
+        args=(process.stderr, sys.stderr, stderr_chunks),
+        daemon=True,
+    )
+    stdout_thread.start()
+    stderr_thread.start()
+
+    timed_out = False
+    try:
+        return_code = process.wait(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        process.kill()
+        return_code = None
+    finally:
+        stdout_thread.join(timeout=5)
+        stderr_thread.join(timeout=5)
+        if return_code is None and process.returncode is not None:
+            return_code = process.returncode
+        if return_code is None:
+            try:
+                return_code = process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                return_code = -9
+
+    return {
+        "returncode": int(return_code),
+        "stdout": "".join(stdout_chunks).strip(),
+        "stderr": "".join(stderr_chunks).strip(),
+        "timed_out": timed_out,
+    }
+
+
+def _build_step_report_text(
+    *,
+    step_name: str,
+    fecha_base: date,
+    command: list[str],
+    timeout_seconds: int,
+    return_code: str | int,
+    stdout: str,
+    stderr: str,
+) -> str:
+    combined = []
+    combined.append(f"Paso: {step_name}")
+    combined.append(f"Fecha base DB: {fecha_base.isoformat()}")
+    combined.append(f"Comando: {' '.join(command)}")
+    combined.append(f"Return code: {return_code}")
+    combined.append(f"Timeout seconds: {timeout_seconds}")
+    combined.append("")
+    combined.append("STDOUT")
+    combined.append(stdout)
+    combined.append("")
+    combined.append("STDERR")
+    combined.append(stderr)
+    return "\n".join(combined).strip() + "\n"
+
+
 def ejecutar_paso(step_name: str, command: list[str], fecha_base: date) -> bool:
     log.info(f"[PIPELINE] Iniciando paso {step_name}: {' '.join(command)}")
     timeout_seconds = _timeout_seconds_for_step(step_name, optional=False)
-    try:
-        result = subprocess.run(
-            command,
-            cwd=str(BASE_DIR),
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-            timeout=timeout_seconds,
+    started_at = time.perf_counter()
+    result = _run_command_with_live_output(command, timeout_seconds=timeout_seconds)
+    elapsed_seconds = time.perf_counter() - started_at
+
+    if result["timed_out"]:
+        report_path = guardar_salida(
+            step_name,
+            fecha_base,
+            _build_step_report_text(
+                step_name=step_name,
+                fecha_base=fecha_base,
+                command=command,
+                timeout_seconds=timeout_seconds,
+                return_code="TIMEOUT",
+                stdout=str(result["stdout"]),
+                stderr=str(result["stderr"]),
+            ),
         )
-    except subprocess.TimeoutExpired as exc:
-        combined = []
-        combined.append(f"Paso: {step_name}")
-        combined.append(f"Fecha base DB: {fecha_base.isoformat()}")
-        combined.append(f"Comando: {' '.join(command)}")
-        combined.append("Return code: TIMEOUT")
-        combined.append(f"Timeout seconds: {timeout_seconds}")
-        combined.append("")
-        combined.append("STDOUT")
-        combined.append((exc.stdout or "").strip())
-        combined.append("")
-        combined.append("STDERR")
-        combined.append((exc.stderr or "").strip())
-        report_path = guardar_salida(step_name, fecha_base, "\n".join(combined).strip() + "\n")
         log.error(f"[PIPELINE] Paso {step_name} expiro tras {timeout_seconds}s. Ver {report_path}")
         emit_critical_alert(
             code=f"pipeline_step_timeout_{step_name}",
@@ -377,24 +470,24 @@ def ejecutar_paso(step_name: str, command: list[str], fecha_base: date) -> bool:
         print(f"  [ERROR] Paso {step_name} expiro tras {timeout_seconds}s. Ver {report_path}")
         return False
 
-    combined = []
-    combined.append(f"Paso: {step_name}")
-    combined.append(f"Fecha base DB: {fecha_base.isoformat()}")
-    combined.append(f"Comando: {' '.join(command)}")
-    combined.append(f"Return code: {result.returncode}")
-    combined.append(f"Timeout seconds: {timeout_seconds}")
-    combined.append("")
-    combined.append("STDOUT")
-    combined.append(result.stdout.strip())
-    combined.append("")
-    combined.append("STDERR")
-    combined.append(result.stderr.strip())
-    report_path = guardar_salida(step_name, fecha_base, "\n".join(combined).strip() + "\n")
+    report_path = guardar_salida(
+        step_name,
+        fecha_base,
+        _build_step_report_text(
+            step_name=step_name,
+            fecha_base=fecha_base,
+            command=command,
+            timeout_seconds=timeout_seconds,
+            return_code=int(result["returncode"]),
+            stdout=str(result["stdout"]),
+            stderr=str(result["stderr"]),
+        ),
+    )
 
-    if result.returncode != 0:
+    if int(result["returncode"]) != 0:
         log.error(f"[PIPELINE] Paso {step_name} fallo. Ver {report_path}")
-        if result.stderr.strip():
-            log.error(result.stderr.strip())
+        if str(result["stderr"]):
+            log.error(str(result["stderr"]))
         emit_critical_alert(
             code=f"pipeline_step_failed_{step_name}",
             summary=f"Fallo el paso {step_name} del pipeline diario.",
@@ -402,14 +495,14 @@ def ejecutar_paso(step_name: str, command: list[str], fecha_base: date) -> bool:
                 "fecha_base": fecha_base.isoformat(),
                 "command": command,
                 "report_path": str(report_path),
-                "return_code": result.returncode,
+                "return_code": int(result["returncode"]),
             },
         )
         print(f"  [ERROR] Paso {step_name} fallo. Ver {report_path}")
         return False
 
-    log.info(f"[PIPELINE] Paso {step_name} OK. Reporte: {report_path}")
-    print(f"  Paso {step_name}: OK")
+    log.info(f"[PIPELINE] Paso {step_name} OK en {elapsed_seconds:.1f}s. Reporte: {report_path}")
+    print(f"  Paso {step_name}: OK ({elapsed_seconds:.1f}s)")
     print(f"  Reporte {step_name}: {report_path}")
     return True
 
@@ -720,8 +813,24 @@ def ensure_minimum_dashboard_history(
     *,
     min_market_days: int = MIN_DASHBOARD_HISTORY_DAYS,
 ) -> bool:
+    log.info(
+        "[PIPELINE] Verificando cobertura historica minima del dashboard para %s (%s ruedas).",
+        fecha_base.isoformat(),
+        min_market_days,
+    )
     report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
     guardar_reporte_json(DASHBOARD_HISTORY_REPORT, report)
+    missing_snapshot_history = list(report.get("missing_snapshot_history") or [])
+    history_summary = (
+        f"history_complete={bool(report.get('history_complete'))} | "
+        f"window_days={int(report.get('window_days') or 0)} | "
+        f"predictions_recent={int(report.get('predictions_recent') or 0)} | "
+        f"outcomes_recent={int(report.get('outcomes_recent') or 0)} | "
+        f"regimes_recent={int(report.get('regimes_recent') or 0)} | "
+        f"missing_snapshots={','.join(missing_snapshot_history) or '-'}"
+    )
+    log.info("[PIPELINE] Cobertura historica actual | %s", history_summary)
+    print(f"  Cobertura historica dashboard: {history_summary}")
     if dashboard_history_is_current(report, min_market_days=min_market_days):
         return True
 
@@ -735,7 +844,6 @@ def ensure_minimum_dashboard_history(
         print("  [ERROR] No se pudo resolver la ventana historica minima del dashboard.")
         return False
 
-    missing_snapshot_history = list(report.get("missing_snapshot_history") or [])
     summary = (
         "Cobertura historica insuficiente en cloud; se ejecuta bootstrap de dashboard "
         f"desde {start_date} hasta {fecha_base.isoformat()}."
