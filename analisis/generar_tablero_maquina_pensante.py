@@ -884,7 +884,11 @@ def build_run_snapshot_from_db(
             hydrated["analyzed_date"] = analyzed_date or payload.get("analyzed_date")
             hydrated["prediction_for"] = str(snapshot_row.get("prediction_for") or payload.get("prediction_for") or "")
             hydrated["freshness"] = payload.get("freshness") or snapshot_row.get("freshness")
-            hydrated["regime_label"] = payload.get("regime_label") or snapshot_row.get("regime_label")
+            hydrated["regime_label"] = (
+              payload.get("regime_label")
+              or snapshot_row.get("regime_label")
+              or resolve_regime_label_from_db(con, hydrated["analyzed_date"], version)
+            )
             hydrated["breadth_pct"] = payload.get("breadth_pct")
             if latest_d["results"]:
                 hydrated["results_d"] = merge_live_results_with_db(payload.get("results_d"), latest_d["results"])
