@@ -65,7 +65,7 @@ jobs:
           PY
 
       - name: Upload smoke report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cloud-postgres-smoke-report
           path: docs/cloud/reports/cloud_postgres_smoke.json
