@@ -312,8 +312,16 @@ def test_ejecutar_pipeline_diario_can_skip_dashboard_refresh_tail(monkeypatch) -
 
     monkeypatch.setattr(auto_actualizar, "resolve_operational_scanner_context", lambda: operational)
     monkeypatch.setattr(auto_actualizar, "build_learning_steps", lambda command_name: [])
-    monkeypatch.setattr(auto_actualizar, "build_observed_steps", lambda command_name: [])
-    monkeypatch.setattr(auto_actualizar, "build_legacy_ml_steps", lambda command_name: [])
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_observed_steps",
+        lambda command_name: [("observado_v12", Path("observado_v12.py"))],
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_legacy_ml_steps",
+        lambda command_name: [("legacy_ml_v39full", Path("legacy_ml_v39full.py"))],
+    )
     monkeypatch.setattr(auto_actualizar, "ejecutar_paso", lambda step_name, command, fecha_base: True)
     monkeypatch.setattr(
         auto_actualizar,
@@ -462,7 +470,7 @@ def test_ejecutar_pipeline_diario_treats_observed_and_legacy_steps_as_optional(m
     ok = auto_actualizar.ejecutar_pipeline_diario(
         date(2026, 4, 24),
         datetime(2026, 4, 24, 22, 0),
-        skip_dashboard_refresh=True,
+        skip_dashboard_refresh=False,
     )
 
     assert ok is True
@@ -470,12 +478,15 @@ def test_ejecutar_pipeline_diario_treats_observed_and_legacy_steps_as_optional(m
         "validacion",
         "scanner",
         "gestor",
+        "dashboard_maquina",
+        "dashboard_integrity",
     ]
     assert calls["optional"] == [
         "observado_v12",
         "resumen_observado_v12",
         "legacy_ml_v39full",
         "resumen_legacy_ml_v39full",
+        "auditoria_centinela",
     ]
     assert calls["validate"] == 1
 

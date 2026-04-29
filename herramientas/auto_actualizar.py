@@ -838,6 +838,19 @@ def ejecutar_pipeline_diario(
         if not resumen_ok:
             return False
 
+    # Repetimos el sync despues de observados/legacy para que el refresh final
+    # capture tambien ese material en Postgres antes de publicar el dashboard.
+
+    # Segundo refresh para incorporar tambien lo que hayan agregado los modelos
+    # observados/legacy si llegaron a completarse en esta misma corrida.
+
+    if not validate_model_snapshot_freshness(fecha_base):
+        return False
+
+    if skip_dashboard_refresh:
+        log_dashboard_refresh_deferred(fecha_base)
+        return True
+
     # Antes del dashboard core, alineamos Postgres cloud con la SQLite local
     # para que el bundle visible y GitHub Pages salgan del mismo corte operativo.
 
@@ -896,19 +909,6 @@ def ejecutar_pipeline_diario(
         )
         if not ok:
             log.warning("[PIPELINE] Resumen legacy ML opcional no bloqueante: %s", step_name)
-
-    # Repetimos el sync despues de observados/legacy para que el refresh final
-    # capture tambien ese material en Postgres antes de publicar el dashboard.
-
-    # Segundo refresh para incorporar tambien lo que hayan agregado los modelos
-    # observados/legacy si llegaron a completarse en esta misma corrida.
-
-    if not validate_model_snapshot_freshness(fecha_base):
-        return False
-
-    if skip_dashboard_refresh:
-        log_dashboard_refresh_deferred(fecha_base)
-        return True
 
     # Refresco de datos dinamicos en la plantilla canonica C1 Pro (heatmap + liga)
 
