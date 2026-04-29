@@ -211,6 +211,50 @@ def test_monitored_snapshots_already_current_requires_full_coverage_and_matching
     assert auto_actualizar.monitored_snapshots_already_current(date(2026, 4, 24)) is False
 
 
+def test_model_snapshot_coverage_is_current_ignores_optional_missing_models() -> None:
+    report = {
+        "missing_models": ["ML_V39FULL"],
+        "required_missing_models": [],
+        "optional_missing_models": ["ML_V39FULL"],
+        "latest_prices_date": "2026-04-24",
+        "latest_prediction_date": "2026-04-24",
+    }
+
+    assert auto_actualizar.model_snapshot_coverage_is_current(report, date(2026, 4, 24)) is True
+
+
+def test_validate_model_snapshot_freshness_allows_optional_missing_models(monkeypatch) -> None:
+    alerts = {"count": 0}
+
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_model_snapshot_freshness_report",
+        lambda fecha_base: {
+            "missing_models": ["ML_V39FULL"],
+            "required_missing_models": [],
+            "optional_missing_models": ["ML_V39FULL"],
+            "latest_prices_date": fecha_base.isoformat(),
+            "latest_prediction_date": fecha_base.isoformat(),
+            "models": [],
+        },
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "guardar_reporte_json",
+        lambda path, payload: Path(".cache") / "pytest-model-freshness.json",
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "emit_critical_alert",
+        lambda *args, **kwargs: alerts.__setitem__("count", alerts["count"] + 1),
+    )
+
+    ok = auto_actualizar.validate_model_snapshot_freshness(date(2026, 4, 24))
+
+    assert ok is True
+    assert alerts["count"] == 0
+
+
 def test_auditar_integridad_dashboard_runs_required_step(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
@@ -361,6 +405,79 @@ def test_ejecutar_pipeline_diario_skip_dashboard_refresh_still_blocks_on_missing
         "audit": 0,
         "optional": 0,
     }
+
+
+def test_ejecutar_pipeline_diario_treats_observed_and_legacy_steps_as_optional(monkeypatch) -> None:
+    operational = SimpleNamespace(
+        active_scanner=Path("scanner_activo.py"),
+        active_learning=Path("aprendizaje_v13.py"),
+        active_version="V13",
+        observed_versions=[12],
+        observed_learning_chain=[Path("observado_v12.py")],
+    )
+    calls: dict[str, list[str] | int] = {
+        "required": [],
+        "optional": [],
+        "validate": 0,
+    }
+
+    monkeypatch.setattr(auto_actualizar, "resolve_operational_scanner_context", lambda: operational)
+    monkeypatch.setattr(auto_actualizar, "build_learning_steps", lambda command_name: [])
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_observed_steps",
+        lambda command_name: [
+            (
+                "observado_v12" if command_name == "run" else "resumen_observado_v12",
+                Path("observado_v12.py"),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_legacy_ml_steps",
+        lambda command_name: [
+            (
+                "legacy_ml_v39full" if command_name == "run" else "resumen_legacy_ml_v39full",
+                Path("legacy_ml_v39full.py"),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ejecutar_paso",
+        lambda step_name, command, fecha_base: calls["required"].append(step_name) or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ejecutar_paso_opcional",
+        lambda step_name, command, fecha_base, timeout_seconds=None: calls["optional"].append(step_name) or False,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "validate_model_snapshot_freshness",
+        lambda fecha_base: calls.__setitem__("validate", int(calls["validate"]) + 1) or True,
+    )
+
+    ok = auto_actualizar.ejecutar_pipeline_diario(
+        date(2026, 4, 24),
+        datetime(2026, 4, 24, 22, 0),
+        skip_dashboard_refresh=True,
+    )
+
+    assert ok is True
+    assert calls["required"] == [
+        "validacion",
+        "scanner",
+        "gestor",
+    ]
+    assert calls["optional"] == [
+        "observado_v12",
+        "resumen_observado_v12",
+        "legacy_ml_v39full",
+        "resumen_legacy_ml_v39full",
+    ]
+    assert calls["validate"] == 1
 
 
 def test_main_skip_dashboard_refresh_still_runs_pipeline_when_snapshots_look_current(monkeypatch) -> None:

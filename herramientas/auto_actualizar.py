@@ -481,6 +481,7 @@ def build_prediction_freshness_details(con, entry: dict[str, str]) -> dict[str, 
 def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]:
     expected_entries = expected_monitored_snapshot_entries()
     expected_labels = [entry["label"] for entry in expected_entries]
+    required_roles = {"activo", "referencia", "base"}
 
     with connect_runtime_db() as con:
         snapshot_rows = fetch_model_run_snapshots(
@@ -499,18 +500,25 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
     row_by_label = {str(row.get("model_key")): row for row in snapshot_rows}
     models: list[dict[str, object]] = []
     missing_models: list[str] = []
+    required_missing_models: list[str] = []
+    optional_missing_models: list[str] = []
     zero_signal_models: list[str] = []
 
     for entry in expected_entries:
         label = entry["label"]
+        role = str(entry["role"])
         row = row_by_label.get(label)
         prediction_details = prediction_details_by_label.get(label, {})
         if row is None:
             missing_models.append(label)
+            if role in required_roles:
+                required_missing_models.append(label)
+            else:
+                optional_missing_models.append(label)
             models.append(
                 {
                     "label": label,
-                    "role": entry["role"],
+                    "role": role,
                     "status": "missing_snapshot",
                     "analyzed_date": None,
                     "prediction_for": None,
@@ -529,7 +537,7 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
         models.append(
             {
                 "label": label,
-                "role": entry["role"],
+                "role": role,
                 "status": "ok_zero_signal" if signal_count == 0 else "ok",
                 "analyzed_date": row.get("analyzed_date"),
                 "prediction_for": row.get("prediction_for"),
@@ -551,6 +559,8 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
         "snapshot_rows_found": len(snapshot_rows),
         "fresh_models": len(expected_entries) - len(missing_models),
         "missing_models": missing_models,
+        "required_missing_models": required_missing_models,
+        "optional_missing_models": optional_missing_models,
         "zero_signal_models": zero_signal_models,
         "latest_prices_date": str(latest_prices_date) if latest_prices_date else None,
         "latest_prediction_date": str(latest_prediction_date) if latest_prediction_date else None,
@@ -561,27 +571,40 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
 def validate_model_snapshot_freshness(fecha_base: date) -> bool:
     report = build_model_snapshot_freshness_report(fecha_base)
     report_path = guardar_reporte_json(MODEL_FRESHNESS_REPORT, report)
-    missing_models = list(report.get("missing_models") or [])
+    required_missing_models = list(
+        report.get("required_missing_models")
+        if report.get("required_missing_models") is not None
+        else report.get("missing_models") or []
+    )
+    optional_missing_models = list(report.get("optional_missing_models") or [])
 
-    if not missing_models:
-        print(f"  Cobertura de snapshots monitoreados: OK ({report_path})")
+    if not required_missing_models:
+        if optional_missing_models:
+            optional_summary = (
+                "Faltan snapshots opcionales en Postgres para modelos observados/legacy: "
+                + ", ".join(optional_missing_models)
+            )
+            print(f"  [WARN] {optional_summary}. Ver {report_path}")
+            log.warning("[PIPELINE] %s", optional_summary)
+        print(f"  Cobertura de snapshots requeridos: OK ({report_path})")
         log.info(
-            "[PIPELINE] Cobertura de snapshots OK para %s. Reporte: %s",
+            "[PIPELINE] Cobertura de snapshots requeridos OK para %s. Reporte: %s",
             fecha_base.isoformat(),
             report_path,
         )
         return True
 
     summary = (
-        "Faltan snapshots diarios en Postgres para modelos monitoreados: "
-        + ", ".join(missing_models)
+        "Faltan snapshots diarios requeridos en Postgres para modelos monitoreados: "
+        + ", ".join(required_missing_models)
     )
     emit_critical_alert(
         code="missing_model_run_snapshots",
         summary=summary,
         details={
             "fecha_base": fecha_base.isoformat(),
-            "missing_models": missing_models,
+            "missing_models": required_missing_models,
+            "optional_missing_models": optional_missing_models,
             "report_path": str(report_path),
         },
     )
@@ -592,7 +615,12 @@ def validate_model_snapshot_freshness(fecha_base: date) -> bool:
 
 def model_snapshot_coverage_is_current(report: dict[str, object], fecha_base: date) -> bool:
     fecha_iso = fecha_base.isoformat()
-    if list(report.get("missing_models") or []):
+    required_missing_models = list(
+        report.get("required_missing_models")
+        if report.get("required_missing_models") is not None
+        else report.get("missing_models") or []
+    )
+    if required_missing_models:
         return False
     if report.get("latest_prices_date") != fecha_iso:
         return False
@@ -834,40 +862,40 @@ def ejecutar_pipeline_diario(
         return False
 
     for step_name, script_path in build_observed_steps("run"):
-        ok = ejecutar_paso(
+        ok = ejecutar_paso_opcional(
             step_name,
             [sys.executable, str(script_path), "run", "--date", fecha_base.isoformat()],
             fecha_base,
         )
         if not ok:
-            return False
+            log.warning("[PIPELINE] Paso observado opcional no bloqueante: %s", step_name)
 
     for step_name, script_path in build_observed_steps("daily-summary"):
-        ok = ejecutar_paso(
+        ok = ejecutar_paso_opcional(
             step_name,
             [sys.executable, str(script_path), "daily-summary", "--date", fecha_base.isoformat()],
             fecha_base,
         )
         if not ok:
-            return False
+            log.warning("[PIPELINE] Resumen observado opcional no bloqueante: %s", step_name)
 
     for step_name, script_path in build_legacy_ml_steps("run"):
-        ok = ejecutar_paso(
+        ok = ejecutar_paso_opcional(
             step_name,
             [sys.executable, str(script_path), "run", "--date", fecha_base.isoformat()],
             fecha_base,
         )
         if not ok:
-            return False
+            log.warning("[PIPELINE] Paso legacy ML opcional no bloqueante: %s", step_name)
 
     for step_name, script_path in build_legacy_ml_steps("daily-summary"):
-        ok = ejecutar_paso(
+        ok = ejecutar_paso_opcional(
             step_name,
             [sys.executable, str(script_path), "daily-summary", "--date", fecha_base.isoformat()],
             fecha_base,
         )
         if not ok:
-            return False
+            log.warning("[PIPELINE] Resumen legacy ML opcional no bloqueante: %s", step_name)
 
     # Repetimos el sync despues de observados/legacy para que el refresh final
     # capture tambien ese material en Postgres antes de publicar el dashboard.
