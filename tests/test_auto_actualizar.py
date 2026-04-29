@@ -367,6 +367,7 @@ def test_main_skip_dashboard_refresh_still_runs_pipeline_when_snapshots_look_cur
     latest_after = date(2026, 4, 24)
     pipeline_call: dict[str, object] = {}
     publication_called = {"value": False}
+    repaired_invalid_call: dict[str, date] = {}
     repaired_bounds_call: dict[str, str] = {}
 
     class FakeTitanDB:
@@ -402,6 +403,11 @@ def test_main_skip_dashboard_refresh_still_runs_pipeline_when_snapshots_look_cur
         lambda now, faltantes, force_pipeline=False: True,
     )
     monkeypatch.setattr(auto_actualizar, "TitanDB", FakeTitanDB)
+    monkeypatch.setattr(
+        auto_actualizar,
+        "repair_recent_invalid_ohlcv_rows",
+        lambda fecha_base: repaired_invalid_call.__setitem__("fecha_base", fecha_base) or 1,
+    )
     monkeypatch.setattr(auto_actualizar, "monitored_snapshots_already_current", lambda fecha_base: True)
     monkeypatch.setattr(
         auto_actualizar,
@@ -428,6 +434,7 @@ def test_main_skip_dashboard_refresh_still_runs_pipeline_when_snapshots_look_cur
     assert pipeline_call["fecha_base"] == latest_after
     assert pipeline_call["skip_dashboard_refresh"] is True
     assert isinstance(pipeline_call["now"], datetime)
+    assert repaired_invalid_call == {"fecha_base": latest_after}
     assert repaired_bounds_call == {
         "start_date": "2026-03-10",
         "end_date": "2026-04-24",

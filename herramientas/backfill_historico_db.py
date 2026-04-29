@@ -87,6 +87,7 @@ def main() -> int:
             max_retries=args.retries,
         )
         results = loader.download_all(force_full=True, end_date=target_date.isoformat())
+        refresh_stats = loader.refresh_invalid_recent_rows(end_date=target_date.isoformat())
         repaired_rows = db.repair_ohlcv_bounds(start_date=repair_start, end_date=target_date.isoformat())
 
         stats_after = db.db_stats()
@@ -110,6 +111,17 @@ def main() -> int:
     print(f"  Al dia / sin cambios       : {results.get('skipped', 0)}")
     print(f"  Sin datos                  : {results.get('empty', 0)}")
     print(f"  Fallidos                   : {results.get('failed', 0)}")
+    invalid_rows = int(refresh_stats.get('invalid_rows', 0) or 0)
+    remaining_invalid_rows = int(refresh_stats.get('remaining_invalid_rows', 0) or 0)
+    if invalid_rows:
+        resolved_invalid_rows = max(0, invalid_rows - remaining_invalid_rows)
+        print(f"  Filas OHLCV severas reconsultadas: {resolved_invalid_rows}/{invalid_rows}")
+        if remaining_invalid_rows:
+            print(f"  Filas OHLCV severas restantes    : {remaining_invalid_rows}")
+            for detail in (refresh_stats.get('remaining_details') or [])[:8]:
+                print(f"    - {detail}")
+        for detail in (refresh_stats.get('errors') or [])[:8]:
+            print(f"    - refetch {detail}")
     print(f"  Filas OHLCV reparadas      : {repaired_rows}")
 
     if results.get("empty_details"):

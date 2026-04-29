@@ -9,6 +9,7 @@ import pandas as pd
 from infra.db.config import DEFAULT_SQLITE_PATH, get_sqlite_fallback_path
 from infra.db.runtime import RuntimeDB, adapt_qmark_sql, aggregate_distinct_sql
 from infra.db.sqlite_compat import connect_sqlite, get_sqlite_db_path
+from titan_system.core.data_loader import DataLoader
 from titan_system.core.database import TitanDB
 
 
@@ -237,5 +238,71 @@ def test_titandb_sqlalchemy_compat_supports_legacy_queries_and_pandas(monkeypatc
         assert status["latest_prices_date"] == "2026-04-21"
         assert predictions.iloc[0]["ticker"] == "AAPL"
         assert round(float(raw_df.iloc[0]["confidence"]), 2) == 0.81
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_data_loader_refresh_recent_invalid_rows_redownloads_bad_latest_bar(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    db_path = tmp_dir / "db" / "invalid-refresh.db"
+    try:
+        monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
+        monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
+
+        with TitanDB() as db:
+            db.conn.execute(
+                """
+                INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                ("VIX", "2026-04-28", 0.0, 17.83, 0.0, 17.83, 0, 17.83),
+            )
+            db.conn.commit()
+
+            loader = DataLoader(db, years_history=2, max_workers=1)
+            captured: dict[str, str] = {}
+
+            def fake_download_one(ticker, force_full=False, latest_date=None, end_date=None):
+                captured["ticker"] = ticker
+                captured["latest_date"] = latest_date
+                captured["end_date"] = end_date
+                refreshed = pd.DataFrame(
+                    [
+                        {
+                            "Open": 18.30,
+                            "High": 19.43,
+                            "Low": 17.78,
+                            "Close": 17.83,
+                            "Volume": 0,
+                            "Adj Close": 17.83,
+                        }
+                    ],
+                    index=[pd.Timestamp("2026-04-28")],
+                )
+                return ticker, refreshed, "ok", None
+
+            monkeypatch.setattr(loader, "_download_one", fake_download_one)
+
+            refresh_stats = loader.refresh_recent_invalid_rows(end_date="2026-04-28")
+            row = db.conn.execute(
+                "SELECT open, high, low, close, volume FROM prices WHERE ticker = ? AND date = ?",
+                ("VIX", "2026-04-28"),
+            ).fetchone()
+
+        assert captured == {
+            "ticker": "VIX",
+            "latest_date": "2026-04-27",
+            "end_date": "2026-04-28",
+        }
+        assert refresh_stats["invalid_rows"] == 1
+        assert refresh_stats["refetched_rows"] == 1
+        assert refresh_stats["refreshed_tickers"] == ["VIX"]
+        assert refresh_stats["remaining_rows"] == 0
+        assert refresh_stats["remaining_tickers"] == []
+        assert round(float(row[0]), 2) == 18.30
+        assert round(float(row[1]), 2) == 19.43
+        assert round(float(row[2]), 2) == 17.78
+        assert round(float(row[3]), 2) == 17.83
+        assert int(row[4]) == 0
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)

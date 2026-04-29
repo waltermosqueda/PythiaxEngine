@@ -100,6 +100,7 @@ def main() -> int:
 
         loader = DataLoader(db, years_history=2, max_workers=10)
         results = loader.update_daily(end_date=target_date.isoformat())
+        refresh_stats = loader.refresh_invalid_recent_rows(end_date=target_date.isoformat())
         repair_start = (target_date - timedelta(days=45)).isoformat()
         repaired_rows = db.repair_ohlcv_bounds(start_date=repair_start, end_date=target_date.isoformat())
 
@@ -111,6 +112,18 @@ def main() -> int:
         print(f"  Tamano:    {stats.get('db_size_mb', 0):.1f} MB")
 
         print(f"\n  Filas nuevas agregadas: {results.get('total_rows', 0):,}")
+        invalid_rows = int(refresh_stats.get('invalid_rows', 0) or 0)
+        remaining_invalid_rows = int(refresh_stats.get('remaining_invalid_rows', 0) or 0)
+        if invalid_rows:
+            resolved_invalid_rows = max(0, invalid_rows - remaining_invalid_rows)
+            print(f"  Filas OHLCV severas reconsultadas: {resolved_invalid_rows}/{invalid_rows}")
+            if remaining_invalid_rows:
+                remaining_details = refresh_stats.get('remaining_details') or []
+                print(f"  [ALERTA] Persisten filas OHLCV severas: {remaining_invalid_rows}")
+                for detail in remaining_details[:5]:
+                    print(f"    - {detail}")
+            for detail in (refresh_stats.get('errors') or [])[:5]:
+                print(f"  [WARN] Refetch OHLCV severo: {detail}")
         if repaired_rows:
             print(f"  Filas OHLCV reparadas: {repaired_rows}")
         if results.get('empty', 0) > 0:

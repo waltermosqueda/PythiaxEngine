@@ -65,6 +65,7 @@ BOGUS_PROXY_MARKERS = ("127.0.0.1:9", "localhost:9")
 DOWNLOAD_SYMBOL_ALIASES = {
     "VIX": "^VIX",
 }
+RECENT_INVALID_LOOKBACK_DAYS = 15
 
 
 def _neutralize_bogus_proxy_env() -> list[str]:
@@ -440,6 +441,36 @@ class DataLoader:
         except Exception as e:
             return (ticker, None, 'error', str(e)[:80])
 
+    def find_recent_invalid_rows(
+        self,
+        end_date: str,
+        lookback_days: int = RECENT_INVALID_LOOKBACK_DAYS,
+    ) -> pd.DataFrame:
+        """Devuelve filas recientes con OHLCV severamente invalido."""
+        end_day = datetime.strptime(end_date, '%Y-%m-%d').date()
+        start_date = (end_day - timedelta(days=lookback_days)).isoformat()
+        invalid_rows = self.db.execute_raw(
+            """
+            SELECT ticker, date, open, high, low, close, volume
+            FROM prices
+            WHERE date >= ?
+              AND date <= ?
+              AND (
+                    open <= 0
+                 OR high <= 0
+                 OR low <= 0
+                 OR close <= 0
+                 OR volume < 0
+                 OR high < low
+              )
+            ORDER BY ticker ASC, date ASC
+            """,
+            (start_date, end_date),
+        )
+        if not invalid_rows.empty:
+            invalid_rows['date'] = pd.to_datetime(invalid_rows['date']).dt.date
+        return invalid_rows
+
     def update_daily(self, end_date: Optional[str] = None) -> Dict[str, int]:
         """
         Actualización diaria rápida.
@@ -453,6 +484,75 @@ class DataLoader:
         """
         print(f"\n  {BOLD}{C}ACTUALIZACION DIARIA{RST}")
         return self.download_all(force_full=False, end_date=end_date)
+
+    def refresh_recent_invalid_rows(self, end_date: str, lookback_days: int = 15) -> Dict[str, object]:
+        """
+        Reconsulta tickers con OHLCV severamente invalido en una ventana reciente.
+
+        El update incremental no vuelve a pedir una rueda ya presente en la DB.
+        Si un proveedor devolvio una barra corrupta para el ultimo cierre, ese
+        dato puede quedar pegado indefinidamente hasta que se fuerce un refetch
+        puntual desde la fecha afectada.
+        """
+        invalid = self.find_recent_invalid_rows(end_date=end_date, lookback_days=lookback_days)
+        if invalid.empty:
+            return {
+                'invalid_rows': 0,
+                'affected_tickers': [],
+                'refetched_rows': 0,
+                'refreshed_tickers': [],
+                'remaining_rows': 0,
+                'remaining_tickers': [],
+                'remaining_details': [],
+                'errors': [],
+            }
+
+        affected_tickers = sorted({str(ticker) for ticker in invalid['ticker'].tolist()})
+        refetched_rows = 0
+        refreshed_tickers: list[str] = []
+        errors: list[str] = []
+
+        for ticker in affected_tickers:
+            ticker_rows = invalid.loc[invalid['ticker'] == ticker]
+            earliest_bad_date = ticker_rows['date'].min()
+            latest_before = (earliest_bad_date - timedelta(days=1)).isoformat()
+            ticker_result, df, status_code, detail = self._download_one(
+                ticker,
+                force_full=False,
+                latest_date=latest_before,
+                end_date=end_date,
+            )
+            if status_code == 'ok' and df is not None and not df.empty:
+                saved_rows = int(self.db.save_prices(df, ticker_result) or 0)
+                refetched_rows += saved_rows
+                refreshed_tickers.append(ticker)
+            else:
+                errors.append(f"{ticker}: {detail or status_code}")
+
+        remaining = self.find_recent_invalid_rows(end_date=end_date, lookback_days=lookback_days)
+        remaining_tickers = (
+            sorted({str(ticker) for ticker in remaining['ticker'].tolist()})
+            if not remaining.empty
+            else []
+        )
+        remaining_details = [
+            (
+                f"{row.ticker} {row.date.isoformat()} | "
+                f"O={row.open:.4f} H={row.high:.4f} L={row.low:.4f} "
+                f"C={row.close:.4f} V={int(row.volume)}"
+            )
+            for row in remaining.head(12).itertuples(index=False)
+        ]
+        return {
+            'invalid_rows': int(len(invalid)),
+            'affected_tickers': affected_tickers,
+            'refetched_rows': refetched_rows,
+            'refreshed_tickers': refreshed_tickers,
+            'remaining_rows': int(len(remaining)),
+            'remaining_tickers': remaining_tickers,
+            'remaining_details': remaining_details,
+            'errors': errors,
+        }
 
     def get_prices_df(self, tickers: Optional[List[str]] = None,
                       start_date: Optional[str] = None,

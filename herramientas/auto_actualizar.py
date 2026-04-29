@@ -251,6 +251,40 @@ def repair_recent_ohlcv_bounds(fecha_base: date) -> int:
     return repaired_rows
 
 
+def repair_recent_invalid_ohlcv_rows(fecha_base: date) -> int:
+    from titan_system.core.data_loader import DataLoader
+
+    with TitanDB() as db:
+        loader = DataLoader(db, years_history=2, max_workers=1)
+        refresh_stats = loader.refresh_recent_invalid_rows(end_date=fecha_base.isoformat())
+
+    invalid_rows = int(refresh_stats.get("invalid_rows", 0) or 0)
+    remaining_rows = int(refresh_stats.get("remaining_rows", 0) or 0)
+    resolved_rows = max(0, invalid_rows - remaining_rows)
+    if invalid_rows:
+        affected_tickers = ", ".join(refresh_stats.get("affected_tickers") or []) or "-"
+        refreshed_tickers = ", ".join(refresh_stats.get("refreshed_tickers") or []) or "-"
+        log.info(
+            "[PIPELINE] Refetch OHLCV severo: detectadas=%s | resueltas=%s | restantes=%s | afectados=%s | refrescados=%s",
+            invalid_rows,
+            resolved_rows,
+            remaining_rows,
+            affected_tickers,
+            refreshed_tickers,
+        )
+        print(f"  Filas OHLCV severas reconsultadas: {resolved_rows}/{invalid_rows}")
+        if remaining_rows:
+            remaining_tickers = ", ".join(refresh_stats.get("remaining_tickers") or []) or "-"
+            print(
+                "  [ALERTA] Persisten filas OHLCV severas: "
+                f"{remaining_rows} ({remaining_tickers})"
+            )
+        for detail in (refresh_stats.get("errors") or [])[:5]:
+            log.warning("[PIPELINE] Refetch OHLCV severo sin resolver: %s", detail)
+            print(f"  [WARN] Refetch OHLCV severo: {detail}")
+    return resolved_rows
+
+
 def _timeout_seconds_for_step(step_name: str, optional: bool = False) -> int:
     if step_name == "validacion":
         return 10 * 60
@@ -978,6 +1012,7 @@ def main() -> int:
                 db.save_market_data_update(latest_after.isoformat())
                 log.info(f"[PIPELINE] Metadata de mercado reconciliada para {latest_after}")
 
+        repair_recent_invalid_ohlcv_rows(latest_after)
         repair_recent_ohlcv_bounds(latest_after)
 
         if latest_after < target_date:
@@ -1035,6 +1070,7 @@ def main() -> int:
             with TitanDB() as db:
                 loader = DataLoader(db, years_history=2, max_workers=10)
                 results = loader.update_daily(end_date=target_date.isoformat())
+                refresh_stats = loader.refresh_recent_invalid_rows(end_date=target_date.isoformat())
                 repair_start = (target_date - timedelta(days=45)).isoformat()
                 repaired_rows = db.repair_ohlcv_bounds(
                     start_date=repair_start,
@@ -1047,9 +1083,33 @@ def main() -> int:
             log.info(
                 f"Actualizacion OK - {filas:,} filas nuevas, {errores} errores, {sin_datos} sin datos."
             )
+            invalid_rows = int(refresh_stats.get("invalid_rows", 0) or 0)
+            remaining_invalid_rows = int(refresh_stats.get("remaining_rows", 0) or 0)
+            if invalid_rows:
+                resolved_invalid_rows = max(0, invalid_rows - remaining_invalid_rows)
+                log.info(
+                    "Refetch OHLCV severo post-update: detectadas=%s | resueltas=%s | restantes=%s",
+                    invalid_rows,
+                    resolved_invalid_rows,
+                    remaining_invalid_rows,
+                )
             if repaired_rows:
                 log.info(f"Reparacion OHLCV conservadora aplicada a {repaired_rows} filas recientes.")
             print(f"  Actualizacion completada: {filas:,} filas nuevas.")
+            if invalid_rows:
+                resolved_invalid_rows = max(0, invalid_rows - remaining_invalid_rows)
+                print(
+                    "  Filas OHLCV severas reconsultadas: "
+                    f"{resolved_invalid_rows}/{invalid_rows}"
+                )
+                if remaining_invalid_rows:
+                    remaining_tickers = ", ".join(refresh_stats.get("remaining_tickers") or []) or "-"
+                    print(
+                        "  [ALERTA] Persisten filas OHLCV severas: "
+                        f"{remaining_invalid_rows} ({remaining_tickers})"
+                    )
+                for detail in (refresh_stats.get("errors") or [])[:5]:
+                    print(f"  [WARN] Refetch OHLCV severo: {detail}")
             if repaired_rows:
                 print(f"  Filas OHLCV reparadas: {repaired_rows}")
             if errores:
