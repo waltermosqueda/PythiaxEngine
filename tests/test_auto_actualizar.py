@@ -92,8 +92,13 @@ def test_build_model_snapshot_freshness_report_detects_missing_models(monkeypatc
             auto_actualizar,
             "monitored_entries",
             lambda: [
-                {"label": "V13", "role": "activo"},
-                {"label": "ML_V97", "role": "legacy_ml"},
+                {"label": "V13", "role": "activo", "prefix": "INVERTIR_V13"},
+                {
+                    "label": "ML_V97",
+                    "role": "legacy_ml",
+                    "prefix": "LEGACY_ML_V97_SURGE_D3",
+                    "exact_model_name": True,
+                },
             ],
         )
 
@@ -122,6 +127,60 @@ def test_build_model_snapshot_freshness_report_detects_missing_models(monkeypatc
         assert report["fresh_models"] == 1
         assert report["missing_models"] == ["ML_V97"]
         assert report["latest_prices_date"] == "2026-04-24"
+        by_label = {row["label"]: row for row in report["models"]}
+        assert by_label["V13"]["prediction_days"] == 0
+        assert by_label["V13"]["latest_prediction_date"] is None
+        assert by_label["ML_V97"]["status"] == "missing_snapshot"
+        assert by_label["ML_V97"]["total_prediction_rows"] == 0
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_build_model_snapshot_freshness_report_exposes_prediction_coverage_for_missing_snapshot(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    db_path = tmp_dir / "freshness-predictions.db"
+    try:
+        monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
+        monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
+        monkeypatch.setattr(
+            auto_actualizar,
+            "monitored_entries",
+            lambda: [
+                {"label": "V13", "role": "activo", "prefix": "INVERTIR_V13"},
+            ],
+        )
+
+        with TitanDB() as db:
+            db.conn.execute(
+                """
+                INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                ("SPY", "2026-04-24", 500.0, 505.0, 499.0, 504.0, 1000000, 504.0),
+            )
+            db.save_prediction(
+                model_name="INVERTIR_V13_D_D10",
+                model_version="v13",
+                ticker="AAPL",
+                prediction_date="2026-04-24",
+                target_date="2026-04-25",
+                direction="UP",
+                confidence=0.91,
+                score=82.5,
+                regime="SEGURO",
+                sector="Tech",
+            )
+
+        report = auto_actualizar.build_model_snapshot_freshness_report(date(2026, 4, 24))
+
+        assert report["missing_models"] == ["V13"]
+        model = report["models"][0]
+        assert model["label"] == "V13"
+        assert model["status"] == "missing_snapshot"
+        assert model["latest_prediction_date"] == "2026-04-24"
+        assert model["latest_prediction_rows"] == 1
+        assert model["total_prediction_rows"] == 1
+        assert model["prediction_days"] == 1
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -241,8 +300,64 @@ def test_ejecutar_pipeline_diario_can_skip_dashboard_refresh_tail(monkeypatch) -
 
     assert ok is True
     assert dashboard_calls == {
-        "validate": False,
+        "validate": True,
         "refresh": False,
         "audit": False,
         "optional": False,
+    }
+
+
+def test_ejecutar_pipeline_diario_skip_dashboard_refresh_still_blocks_on_missing_snapshots(monkeypatch) -> None:
+    operational = SimpleNamespace(
+        active_scanner=Path("scanner_activo.py"),
+        active_learning=Path("aprendizaje_v13.py"),
+        active_version="V13",
+        observed_versions=[],
+        observed_learning_chain=[],
+    )
+    dashboard_calls = {
+        "validate": 0,
+        "refresh": 0,
+        "audit": 0,
+        "optional": 0,
+    }
+
+    monkeypatch.setattr(auto_actualizar, "resolve_operational_scanner_context", lambda: operational)
+    monkeypatch.setattr(auto_actualizar, "build_learning_steps", lambda command_name: [])
+    monkeypatch.setattr(auto_actualizar, "build_observed_steps", lambda command_name: [])
+    monkeypatch.setattr(auto_actualizar, "build_legacy_ml_steps", lambda command_name: [])
+    monkeypatch.setattr(auto_actualizar, "ejecutar_paso", lambda step_name, command, fecha_base: True)
+    monkeypatch.setattr(
+        auto_actualizar,
+        "validate_model_snapshot_freshness",
+        lambda fecha_base: dashboard_calls.__setitem__("validate", dashboard_calls["validate"] + 1) or False,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "refrescar_dashboard",
+        lambda fecha_base: dashboard_calls.__setitem__("refresh", dashboard_calls["refresh"] + 1) or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "auditar_integridad_dashboard",
+        lambda fecha_base: dashboard_calls.__setitem__("audit", dashboard_calls["audit"] + 1) or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ejecutar_paso_opcional",
+        lambda *args, **kwargs: dashboard_calls.__setitem__("optional", dashboard_calls["optional"] + 1) or True,
+    )
+
+    ok = auto_actualizar.ejecutar_pipeline_diario(
+        date(2026, 4, 24),
+        datetime(2026, 4, 24, 22, 0),
+        skip_dashboard_refresh=True,
+    )
+
+    assert ok is False
+    assert dashboard_calls == {
+        "validate": 1,
+        "refresh": 0,
+        "audit": 0,
+        "optional": 0,
     }

@@ -379,9 +379,52 @@ def expected_monitored_snapshot_entries() -> list[dict[str, str]]:
             {
                 "label": label,
                 "role": str(entry.get("role") or ""),
+                "prefix": str(entry.get("prefix") or label),
+                "exact_model_name": "1" if bool(entry.get("exact_model_name", False)) else "0",
             }
         )
     return expected
+
+
+def build_prediction_freshness_details(con, entry: dict[str, str]) -> dict[str, object]:
+    exact_model_name = entry.get("exact_model_name") == "1"
+    prefix = str(entry.get("prefix") or entry["label"])
+    operator = "=" if exact_model_name else "LIKE"
+    pattern = prefix if exact_model_name else f"{prefix}_%"
+
+    row = con.execute(
+        f"""
+        SELECT
+            MAX(prediction_date) AS latest_prediction_date,
+            COUNT(*) AS total_prediction_rows,
+            COUNT(DISTINCT prediction_date) AS prediction_days
+        FROM predictions
+        WHERE model_name {operator} ?
+        """,
+        (pattern,),
+    ).fetchone()
+
+    latest_prediction_date = str(row[0]) if row and row[0] else None
+    latest_prediction_rows = 0
+    if latest_prediction_date:
+        latest_prediction_rows = int(
+            con.scalar(
+                f"""
+                SELECT COUNT(*)
+                FROM predictions
+                WHERE model_name {operator} ? AND prediction_date = ?
+                """,
+                (pattern, latest_prediction_date),
+            )
+            or 0
+        )
+
+    return {
+        "latest_prediction_date": latest_prediction_date,
+        "latest_prediction_rows": latest_prediction_rows,
+        "total_prediction_rows": int(row[1] or 0) if row else 0,
+        "prediction_days": int(row[2] or 0) if row else 0,
+    }
 
 
 def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]:
@@ -397,6 +440,10 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
         )
         latest_prices_date = con.scalar("SELECT MAX(date) FROM prices")
         latest_prediction_date = con.scalar("SELECT MAX(prediction_date) FROM predictions")
+        prediction_details_by_label = {
+            entry["label"]: build_prediction_freshness_details(con, entry)
+            for entry in expected_entries
+        }
 
     row_by_label = {str(row.get("model_key")): row for row in snapshot_rows}
     models: list[dict[str, object]] = []
@@ -406,6 +453,7 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
     for entry in expected_entries:
         label = entry["label"]
         row = row_by_label.get(label)
+        prediction_details = prediction_details_by_label.get(label, {})
         if row is None:
             missing_models.append(label)
             models.append(
@@ -416,6 +464,10 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
                     "analyzed_date": None,
                     "prediction_for": None,
                     "signal_count": None,
+                    "latest_prediction_date": prediction_details.get("latest_prediction_date"),
+                    "latest_prediction_rows": prediction_details.get("latest_prediction_rows"),
+                    "total_prediction_rows": prediction_details.get("total_prediction_rows"),
+                    "prediction_days": prediction_details.get("prediction_days"),
                 }
             )
             continue
@@ -433,6 +485,10 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
                 "signal_count": signal_count,
                 "freshness": row.get("freshness"),
                 "regime_label": row.get("regime_label"),
+                "latest_prediction_date": prediction_details.get("latest_prediction_date"),
+                "latest_prediction_rows": prediction_details.get("latest_prediction_rows"),
+                "total_prediction_rows": prediction_details.get("total_prediction_rows"),
+                "prediction_days": prediction_details.get("prediction_days"),
             }
         )
 
@@ -768,13 +824,14 @@ def ejecutar_pipeline_diario(
     # Segundo refresh para incorporar tambien lo que hayan agregado los modelos
     # observados/legacy si llegaron a completarse en esta misma corrida.
 
+    if not validate_model_snapshot_freshness(fecha_base):
+        return False
+
     if skip_dashboard_refresh:
         log_dashboard_refresh_deferred(fecha_base)
         return True
 
     # Refresco de datos dinamicos en la plantilla canonica C1 Pro (heatmap + liga)
-    if not validate_model_snapshot_freshness(fecha_base):
-        return False
 
     if not refrescar_dashboard(fecha_base):
         return False
