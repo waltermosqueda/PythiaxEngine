@@ -200,6 +200,7 @@ jobs:
 
           from infra.cloud.audit_dashboard_integrity import build_expected_active_from_db
           from infra.db import RuntimeDB
+          from herramientas.scanner_operativo_context import resolve_operational_scanner_context
 
           report_path = Path("docs/cloud/reports/dashboard_integrity_audit.json")
           if not report_path.exists():
@@ -240,6 +241,64 @@ jobs:
 
           with RuntimeDB() as db:
               expected_active = build_expected_active_from_db(db)
+              operational = resolve_operational_scanner_context()
+              active_label = f"V{operational.active_version}"
+              active_prefix = f"INVERTIR_V{operational.active_version}"
+              snapshot_row = db.execute(
+                  """
+                  SELECT model_key, analyzed_date, prediction_for, freshness, regime_label, signal_count, snapshot_json
+                  FROM model_run_snapshots
+                  WHERE model_key = ?
+                  ORDER BY analyzed_date DESC
+                  LIMIT 1
+                  """,
+                  (active_label,),
+              ).fetchone()
+
+              if snapshot_row is None:
+                  print(f"::error::active model snapshot row: model_key={active_label} | missing=true")
+              else:
+                  snapshot_payload = {}
+                  snapshot_json = snapshot_row[6]
+                  if snapshot_json:
+                      try:
+                          loaded = json.loads(snapshot_json)
+                      except Exception as exc:
+                          print(f"::error::active model snapshot payload parse error: {exc}")
+                      else:
+                          if isinstance(loaded, dict):
+                              snapshot_payload = loaded
+                  payload_keys = ",".join(sorted(snapshot_payload.keys())[:20]) or "-"
+                  print(
+                      "::error::active model snapshot row: "
+                      f"model_key={snapshot_row[0]} | analyzed_date={snapshot_row[1]!r} | prediction_for={snapshot_row[2]!r} | "
+                      f"freshness={snapshot_row[3]!r} | regime_label={snapshot_row[4]!r} | signal_count={snapshot_row[5]!r} | "
+                      f"snapshot_json_len={len(snapshot_json or '')} | payload_keys={payload_keys}"
+                  )
+
+              for model_name in [f"{active_prefix}_D_D10", f"{active_prefix}_E_D15"]:
+                  latest_prediction_date = db.scalar(
+                      "SELECT MAX(prediction_date) FROM predictions WHERE model_name = ?",
+                      (model_name,),
+                  )
+                  total_prediction_rows = db.scalar(
+                      "SELECT COUNT(*) FROM predictions WHERE model_name = ?",
+                      (model_name,),
+                  )
+                  latest_prediction_rows = 0
+                  if latest_prediction_date:
+                      latest_prediction_rows = int(
+                          db.scalar(
+                              "SELECT COUNT(*) FROM predictions WHERE model_name = ? AND prediction_date = ?",
+                              (model_name, latest_prediction_date),
+                          )
+                          or 0
+                      )
+                  print(
+                      "::error::active model prediction coverage: "
+                      f"model_name={model_name} | latest_prediction_date={latest_prediction_date!r} | "
+                      f"latest_prediction_rows={latest_prediction_rows} | total_prediction_rows={int(total_prediction_rows or 0)}"
+                  )
           print(
               "::error::expected active_run from db: "
               f"regime_label={expected_active.get('regime_label')!r} | analyzed_date={expected_active.get('analyzed_date')!r} | "
