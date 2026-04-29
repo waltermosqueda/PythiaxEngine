@@ -79,6 +79,35 @@ jobs:
               code = payload.get("code") or "cloud_pipeline_failed"
               summary = payload.get("summary") or "Sin resumen"
               print(f"::error::cloud-native pipeline failed: {code} | {summary}")
+            details = payload.get("details") or {}
+            if details:
+              details_json = json.dumps(details, ensure_ascii=False, sort_keys=True)
+              print(f"::error::cloud-native pipeline details: {details_json[:1500]}")
+
+            report_path_str = details.get("report_path") if isinstance(details, dict) else None
+            if report_path_str:
+              report_path = Path(report_path_str)
+              if report_path.exists():
+                lines = [line.strip() for line in report_path.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
+                interesting = [
+                  line
+                  for line in lines
+                  if any(
+                    marker in line
+                    for marker in (
+                      "FAIL",
+                      "Frescura global",
+                      "Universo operativo",
+                      "Cobertura ultimo cierre",
+                      "Actualizar antes de correr aprendizaje o scanner",
+                      "SPY no tiene la ultima fecha global",
+                      "Faltan",
+                    )
+                  )
+                ]
+                excerpt = " | ".join((interesting[:6] or lines[-12:]))
+                if excerpt:
+                  print(f"::error::cloud-native pipeline report excerpt: {excerpt[:1800]}")
 
           freshness_path = Path("docs/cloud/reports/model_snapshot_freshness.json")
           if freshness_path.exists():
