@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from typing import Any
 
 from sqlalchemy.engine import make_url
@@ -41,6 +42,14 @@ def validate_database_url(raw_database_url: str | None) -> dict[str, Any]:
             "Reemplazalo por la password real de la DB."
         )
 
+    authority_match = re.match(r"^[a-z0-9+]+://([^/?#]+)", raw_value, flags=re.IGNORECASE)
+    authority = authority_match.group(1) if authority_match else ""
+    if authority.count("@") > 1:
+        raise ValueError(
+            "DATABASE_URL parece tener una password con caracteres especiales sin escape. "
+            "Si tu password contiene `@`, `:`, `/`, `?`, `#`, `%` o `&`, debes URL-encodearla antes de guardarla en el secret."
+        )
+
     normalized_url = normalize_database_url(raw_value)
     parsed = make_url(normalized_url)
     backend = parsed.get_backend_name()
@@ -52,6 +61,11 @@ def validate_database_url(raw_database_url: str | None) -> dict[str, Any]:
     if not parsed.username:
         raise ValueError("DATABASE_URL no tiene usuario.")
     if not parsed.password:
+        if authority and ":" in authority and "@" in authority:
+            raise ValueError(
+                "DATABASE_URL no tiene password valida. Si pegaste la password real y contiene caracteres especiales "
+                "como `@`, `:`, `/`, `?`, `#`, `%` o `&`, debes URL-encodearla antes de guardarla en el secret."
+            )
         raise ValueError("DATABASE_URL no tiene password.")
     if not parsed.host:
         raise ValueError("DATABASE_URL no tiene host.")
