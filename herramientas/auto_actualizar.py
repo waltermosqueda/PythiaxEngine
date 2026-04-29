@@ -1061,13 +1061,12 @@ def main() -> int:
         if monitored_snapshots_already_current(latest_after):
             if skip_dashboard_refresh:
                 log.info(
-                    "[PIPELINE] Snapshot coverage al dia. Se mantiene la corrida de aprendizaje y se difiere solo el refresh del dashboard."
+                    "[PIPELINE] Snapshot coverage al dia. Se omite el recomputo cloud y el workflow continua con el build/publicacion."
                 )
-                return 0 if ejecutar_pipeline_diario(
-                    latest_after,
-                    now,
-                    skip_dashboard_refresh=True,
-                ) else 1
+                print(
+                    "  Snapshots requeridos al dia. Se omite recomputo cloud y el workflow continua con el build/publicacion.\n"
+                )
+                return 0
             return 0 if ejecutar_publicacion_liviana(latest_after) else 1
 
         return 0 if ejecutar_pipeline_diario(

@@ -491,7 +491,7 @@ def test_ejecutar_pipeline_diario_treats_observed_and_legacy_steps_as_optional(m
     assert calls["validate"] == 1
 
 
-def test_main_skip_dashboard_refresh_still_runs_pipeline_when_snapshots_look_current(monkeypatch) -> None:
+def test_main_skip_dashboard_refresh_short_circuits_pipeline_when_snapshots_look_current(monkeypatch) -> None:
     latest_after = date(2026, 4, 24)
     pipeline_call: dict[str, object] = {}
     publication_called = {"value": False}
@@ -559,9 +559,7 @@ def test_main_skip_dashboard_refresh_still_runs_pipeline_when_snapshots_look_cur
 
     assert rc == 0
     assert publication_called["value"] is False
-    assert pipeline_call["fecha_base"] == latest_after
-    assert pipeline_call["skip_dashboard_refresh"] is True
-    assert isinstance(pipeline_call["now"], datetime)
+    assert pipeline_call == {}
     assert repaired_invalid_call == {"fecha_base": latest_after}
     assert repaired_bounds_call == {
         "start_date": "2026-03-10",
