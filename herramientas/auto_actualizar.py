@@ -19,6 +19,8 @@ Nota:
   pertenece a `PythiaxEngine` y debe priorizar siempre el flujo cloud-first.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -66,6 +68,7 @@ from infra.db.runtime import (
     cloud_runtime_required as shared_cloud_runtime_required,
     connect_runtime_db,
     require_cloud_database_runtime as shared_require_cloud_database_runtime,
+    RuntimeDB,
     runtime_backend_name as shared_runtime_backend_name,
 )
 from herramientas.legacy_ml_registry import load_enabled_legacy_ml_entries
