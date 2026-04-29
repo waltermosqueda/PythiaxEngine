@@ -16,6 +16,7 @@ from analisis.generar_tablero_maquina_pensante import (
     rewrite_dashboard_variant_hrefs,
     resolve_regime_label_from_db,
 )
+from herramientas.competencia_modelos import is_required_monitored_role
 from herramientas.dashboard_paths import C1_PRO_BUNDLE_HTML, C1_PRO_TEMPLATE_HTML, EXECUTIVE_HTML, INDEX_HTML, LAB_HTML, SNAPSHOT_PATH
 from herramientas.refrescar_datos_dashboard import render_dashboard_html
 from herramientas.scanner_operativo_context import resolve_operational_scanner_context
@@ -384,6 +385,7 @@ def verify_competition_invariants(
     for version in sorted(set(published_map) & set(expected_map)):
         row = published_map[version]
         expected_row = expected_map[version]
+        role = str(row.get("role") or expected_row.get("role") or "")
 
         record_check(
             checks,
@@ -399,6 +401,8 @@ def verify_competition_invariants(
             actual=int(row.get("latest_snapshot_signal_count") or 0),
             expected=int(expected_row.get("latest_snapshot_signal_count") or 0),
         )
+        if not is_required_monitored_role(role):
+            continue
         record_check(
             checks,
             failures,

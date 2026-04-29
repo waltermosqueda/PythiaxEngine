@@ -483,3 +483,87 @@ def test_audit_dashboard_integrity_flags_stale_competition_snapshots(monkeypatch
         )
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_audit_dashboard_integrity_allows_optional_competition_snapshot_gaps(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    db_path = tmp_dir / "dashboard.db"
+    dashboard_dir = tmp_dir / "dashboard"
+    site_dir = tmp_dir / "site"
+    template_path = tmp_dir / C1_PRO_TEMPLATE_HTML.name
+    dashboard_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        market_dates = business_days(date(2026, 3, 2), 35)
+        seed_dashboard_db(db_path, market_dates)
+        database_url = sqlite_path_to_url(db_path)
+
+        context = OperationalScannerContext(
+            active_entry_id="v13",
+            active_version=13,
+            active_scanner=Path("SCANNER/invertir_v13.py"),
+            reference_version=12,
+            reference_scanner=Path("SCANNER/invertir_v12.py"),
+            base_learning=Path("herramientas/aprendizaje_operativo_v11.py"),
+            reference_learning=Path("herramientas/aprendizaje_operativo_v12.py"),
+            active_learning=Path("herramientas/aprendizaje_operativo_v13.py"),
+            learning_chain=(
+                Path("herramientas/aprendizaje_operativo_v11.py"),
+                Path("herramientas/aprendizaje_operativo_v12.py"),
+                Path("herramientas/aprendizaje_operativo_v13.py"),
+            ),
+            observed_versions=(),
+            observed_scanners=(),
+            observed_learning_chain=(),
+        )
+        monitored = [
+            {"key": "V13", "label": "V13", "role": "activo", "prefix": "INVERTIR_V13"},
+            {"key": "V12", "label": "V12", "role": "referencia", "prefix": "INVERTIR_V12"},
+            {
+                "key": "ML_V39FULL",
+                "label": "ML_V39FULL",
+                "role": "legacy_ml",
+                "prefix": "legacy_ml_v39full",
+                "exact_model_name": True,
+            },
+        ]
+        seed_model_run_snapshots(db_path, monitored[:2], market_dates[-1])
+        monkeypatch.setattr(dashboard, "resolve_operational_scanner_context", lambda: context)
+        monkeypatch.setattr(competition_topn, "monitored_entries", lambda: monitored)
+        monkeypatch.setattr(integrity_audit, "resolve_operational_scanner_context", lambda: context)
+        monkeypatch.setattr(integrity_audit, "C1_PRO_TEMPLATE_HTML", template_path)
+
+        payload = dashboard.build_dashboard_payload(database_url=database_url)
+        snapshot_path = dashboard_dir / SNAPSHOT_PATH.name
+        snapshot_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+        (dashboard_dir / INDEX_HTML.name).write_text(dashboard.render_index(payload), encoding="utf-8")
+        (dashboard_dir / EXECUTIVE_HTML.name).write_text(dashboard.render_executive(payload), encoding="utf-8")
+        (dashboard_dir / LAB_HTML.name).write_text(dashboard.render_lab(payload), encoding="utf-8")
+        write_human_dashboard_artifacts(payload, dashboard_dir, template_path)
+        (dashboard_dir / MANIFEST_PATH.name).write_text(
+            json.dumps(
+                {
+                    "generated_at": payload["generated_at"],
+                    "artifact_count": 5,
+                    "build": payload["build"],
+                    "artifacts": [],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        stage_dashboard_site(dashboard_dir, site_dir)
+
+        report = integrity_audit.audit_dashboard_integrity(
+            database_url=database_url,
+            snapshot_path=snapshot_path,
+            dashboard_dir=dashboard_dir,
+            site_dir=site_dir,
+            sample_size=3,
+            seed=7,
+            report_path=tmp_dir / "dashboard_integrity_audit.json",
+        )
+
+        assert report["checks_failed"] == 0
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)

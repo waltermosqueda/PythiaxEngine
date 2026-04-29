@@ -54,7 +54,7 @@ from herramientas.scanner_operativo_context import (
     learning_version_from_path,
     resolve_operational_scanner_context,
 )
-from herramientas.competencia_modelos import monitored_entries
+from herramientas.competencia_modelos import is_required_monitored_role, monitored_entries
 from infra.db.config import get_database_url
 from infra.db.model_run_snapshots import fetch_model_run_snapshots
 from infra.db.runtime import (
@@ -481,7 +481,6 @@ def build_prediction_freshness_details(con, entry: dict[str, str]) -> dict[str, 
 def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]:
     expected_entries = expected_monitored_snapshot_entries()
     expected_labels = [entry["label"] for entry in expected_entries]
-    required_roles = {"activo", "referencia", "base"}
 
     with connect_runtime_db() as con:
         snapshot_rows = fetch_model_run_snapshots(
@@ -511,7 +510,7 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
         prediction_details = prediction_details_by_label.get(label, {})
         if row is None:
             missing_models.append(label)
-            if role in required_roles:
+            if is_required_monitored_role(role):
                 required_missing_models.append(label)
             else:
                 optional_missing_models.append(label)

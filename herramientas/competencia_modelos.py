@@ -25,6 +25,13 @@ from herramientas.legacy_ml_registry import load_enabled_legacy_ml_entries
 from infra.db.runtime import RuntimeDB, connect_runtime_db
 
 
+REQUIRED_MONITORED_ROLES = frozenset({"activo", "referencia", "base"})
+
+
+def is_required_monitored_role(role: str) -> bool:
+    return role in REQUIRED_MONITORED_ROLES
+
+
 def monitored_entries() -> list[dict[str, object]]:
     operational = resolve_operational_scanner_context()
     entries: list[dict[str, object]] = []
