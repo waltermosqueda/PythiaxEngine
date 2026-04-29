@@ -263,24 +263,31 @@ def repair_recent_invalid_ohlcv_rows(fecha_base: date) -> int:
     from titan_system.core.data_loader import DataLoader
 
     with TitanDB() as db:
-        loader = DataLoader(db, years_history=2, max_workers=1)
+        loader = DataLoader(db, years_history=2)
         refresh_stats = loader.refresh_recent_invalid_rows(end_date=fecha_base.isoformat())
 
     invalid_rows = int(refresh_stats.get("invalid_rows", 0) or 0)
     remaining_rows = int(refresh_stats.get("remaining_rows", 0) or 0)
     resolved_rows = max(0, invalid_rows - remaining_rows)
+    workers_used = int(refresh_stats.get("workers_used", 0) or 0)
+    elapsed_seconds = float(refresh_stats.get("elapsed_seconds", 0.0) or 0.0)
     if invalid_rows:
         affected_tickers = ", ".join(refresh_stats.get("affected_tickers") or []) or "-"
         refreshed_tickers = ", ".join(refresh_stats.get("refreshed_tickers") or []) or "-"
         log.info(
-            "[PIPELINE] Refetch OHLCV severo: detectadas=%s | resueltas=%s | restantes=%s | afectados=%s | refrescados=%s",
+            "[PIPELINE] Refetch OHLCV severo: detectadas=%s | resueltas=%s | restantes=%s | workers=%s | elapsed=%.2fs | afectados=%s | refrescados=%s",
             invalid_rows,
             resolved_rows,
             remaining_rows,
+            workers_used,
+            elapsed_seconds,
             affected_tickers,
             refreshed_tickers,
         )
-        print(f"  Filas OHLCV severas reconsultadas: {resolved_rows}/{invalid_rows}")
+        print(
+            "  Filas OHLCV severas reconsultadas: "
+            f"{resolved_rows}/{invalid_rows} (workers={workers_used}, {elapsed_seconds:.1f}s)"
+        )
         if remaining_rows:
             remaining_tickers = ", ".join(refresh_stats.get("remaining_tickers") or []) or "-"
             print(

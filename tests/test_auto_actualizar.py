@@ -46,6 +46,46 @@ def test_ejecutar_paso_opcional_accepts_explicit_timeout(monkeypatch) -> None:
     assert captured["timeout"] == 1800
 
 
+def test_repair_recent_invalid_ohlcv_rows_uses_parallel_loader_defaults(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    db_path = tmp_dir / "repair-invalid-ohlcv.db"
+    captured: dict[str, object] = {}
+
+    class FakeLoader:
+        def __init__(self, db, years_history=2, max_workers=10, max_retries=3, retry_sleep=0.75):
+            captured["years_history"] = years_history
+            captured["max_workers"] = max_workers
+
+        def refresh_recent_invalid_rows(self, end_date: str, lookback_days: int = 15):
+            captured["end_date"] = end_date
+            return {
+                "invalid_rows": 0,
+                "affected_tickers": [],
+                "refetched_rows": 0,
+                "refreshed_tickers": [],
+                "remaining_rows": 0,
+                "remaining_tickers": [],
+                "remaining_details": [],
+                "errors": [],
+                "workers_used": captured["max_workers"],
+                "elapsed_seconds": 0.01,
+            }
+
+    try:
+        monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
+        monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
+        monkeypatch.setattr("titan_system.core.data_loader.DataLoader", FakeLoader)
+
+        resolved_rows = auto_actualizar.repair_recent_invalid_ohlcv_rows(date(2026, 4, 24))
+
+        assert resolved_rows == 0
+        assert captured["years_history"] == 2
+        assert captured["max_workers"] == 10
+        assert captured["end_date"] == "2026-04-24"
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
 def test_get_ultima_fecha_db_reads_active_runtime_backend(monkeypatch) -> None:
     tmp_dir = make_workspace_tmp_dir()
     db_path = tmp_dir / "runtime-cloud.db"

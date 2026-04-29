@@ -591,6 +591,7 @@ class DataLoader:
         dato puede quedar pegado indefinidamente hasta que se fuerce un refetch
         puntual desde la fecha afectada.
         """
+        refresh_started = time.perf_counter()
         invalid = self.find_recent_invalid_rows(end_date=end_date, lookback_days=lookback_days)
         if invalid.empty:
             return {
@@ -602,29 +603,50 @@ class DataLoader:
                 'remaining_tickers': [],
                 'remaining_details': [],
                 'errors': [],
+                'workers_used': 0,
+                'elapsed_seconds': 0.0,
             }
 
         affected_tickers = sorted({str(ticker) for ticker in invalid['ticker'].tolist()})
+        latest_before_by_ticker = {
+            str(ticker): (earliest_bad_date - timedelta(days=1)).isoformat()
+            for ticker, earliest_bad_date in invalid.groupby('ticker')['date'].min().items()
+        }
+        worker_count = max(1, min(self.max_workers, len(affected_tickers)))
         refetched_rows = 0
         refreshed_tickers: list[str] = []
         errors: list[str] = []
 
-        for ticker in affected_tickers:
-            ticker_rows = invalid.loc[invalid['ticker'] == ticker]
-            earliest_bad_date = ticker_rows['date'].min()
-            latest_before = (earliest_bad_date - timedelta(days=1)).isoformat()
-            ticker_result, df, status_code, detail = self._download_one(
-                ticker,
-                force_full=False,
-                latest_date=latest_before,
-                end_date=end_date,
-            )
-            if status_code == 'ok' and df is not None and not df.empty:
-                saved_rows = int(self.db.save_prices(df, ticker_result) or 0)
-                refetched_rows += saved_rows
-                refreshed_tickers.append(ticker)
-            else:
-                errors.append(f"{ticker}: {detail or status_code}")
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            future_to_ticker = {
+                executor.submit(
+                    self._download_one,
+                    ticker,
+                    False,
+                    latest_before_by_ticker[ticker],
+                    end_date,
+                ): ticker
+                for ticker in affected_tickers
+            }
+
+            for future in as_completed(future_to_ticker):
+                ticker = future_to_ticker[future]
+                try:
+                    ticker_result, df, status_code, detail = future.result()
+                except Exception as exc:
+                    detail_text = str(exc).strip() or exc.__class__.__name__
+                    errors.append(f"{ticker}: {detail_text[:120]}")
+                    continue
+
+                if status_code == 'ok' and df is not None and not df.empty:
+                    saved_rows = int(self.db.save_prices(df, ticker_result) or 0)
+                    refetched_rows += saved_rows
+                    refreshed_tickers.append(ticker)
+                else:
+                    errors.append(f"{ticker}: {detail or status_code}")
+
+        refreshed_tickers.sort()
+        errors.sort()
 
         remaining = self.find_recent_invalid_rows(end_date=end_date, lookback_days=lookback_days)
         remaining_tickers = (
@@ -640,6 +662,7 @@ class DataLoader:
             )
             for row in remaining.head(12).itertuples(index=False)
         ]
+        elapsed_seconds = round(time.perf_counter() - refresh_started, 2)
         return {
             'invalid_rows': int(len(invalid)),
             'affected_tickers': affected_tickers,
@@ -649,6 +672,8 @@ class DataLoader:
             'remaining_tickers': remaining_tickers,
             'remaining_details': remaining_details,
             'errors': errors,
+            'workers_used': worker_count,
+            'elapsed_seconds': elapsed_seconds,
         }
 
     def get_prices_df(self, tickers: Optional[List[str]] = None,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 from uuid import uuid4
 
@@ -331,6 +332,73 @@ def test_data_loader_refresh_recent_invalid_rows_redownloads_bad_latest_bar(monk
         assert round(float(row[2]), 2) == 17.78
         assert round(float(row[3]), 2) == 17.83
         assert int(row[4]) == 0
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_data_loader_refresh_recent_invalid_rows_parallelizes_refetch_across_tickers(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    db_path = tmp_dir / "db" / "invalid-refresh-parallel.db"
+    try:
+        monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
+        monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
+
+        with TitanDB() as db:
+            db.conn.executemany(
+                """
+                INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    ("AAPL", "2026-04-28", 0.0, 101.0, 0.0, 100.0, 1000, 100.0),
+                    ("MSFT", "2026-04-28", 0.0, 201.0, 0.0, 200.0, 2000, 200.0),
+                ],
+            )
+            db.conn.commit()
+
+            loader = DataLoader(db, years_history=2, max_workers=2)
+            barrier = threading.Barrier(2, timeout=1)
+            started: list[str] = []
+
+            def fake_download_one(ticker, force_full=False, latest_date=None, end_date=None):
+                started.append(ticker)
+                barrier.wait()
+                base_price = 110.0 if ticker == "AAPL" else 210.0
+                refreshed = pd.DataFrame(
+                    [
+                        {
+                            "Open": base_price,
+                            "High": base_price + 1.0,
+                            "Low": base_price - 1.0,
+                            "Close": base_price + 0.5,
+                            "Volume": 1000,
+                            "Adj Close": base_price + 0.5,
+                        }
+                    ],
+                    index=[pd.Timestamp("2026-04-28")],
+                )
+                return ticker, refreshed, "ok", None
+
+            monkeypatch.setattr(loader, "_download_one", fake_download_one)
+
+            refresh_stats = loader.refresh_recent_invalid_rows(end_date="2026-04-28")
+            rows = db.conn.execute(
+                "SELECT ticker, open, close FROM prices WHERE date = ? ORDER BY ticker",
+                ("2026-04-28",),
+            ).fetchall()
+
+        assert sorted(started) == ["AAPL", "MSFT"]
+        assert refresh_stats["invalid_rows"] == 2
+        assert refresh_stats["refetched_rows"] == 2
+        assert refresh_stats["refreshed_tickers"] == ["AAPL", "MSFT"]
+        assert refresh_stats["remaining_rows"] == 0
+        assert refresh_stats["remaining_tickers"] == []
+        assert refresh_stats["errors"] == []
+        assert refresh_stats["workers_used"] == 2
+        assert refresh_stats["elapsed_seconds"] >= 0
+        assert [row[0] for row in rows] == ["AAPL", "MSFT"]
+        assert round(float(rows[0][1]), 2) == 110.0
+        assert round(float(rows[1][1]), 2) == 210.0
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
