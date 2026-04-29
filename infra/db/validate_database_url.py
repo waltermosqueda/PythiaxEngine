@@ -11,24 +11,38 @@ from sqlalchemy.engine import make_url
 from infra.db.config import normalize_database_url
 
 
-def _provider_hints(host: str) -> list[str]:
+def _provider_hints(host: str, port: int | None, *, github_actions: bool) -> list[str]:
     host = host.strip().lower()
     hints: list[str] = []
     if "pooler.supabase.com" in host:
-        hints.append(
-            "El host parece ser un pooler de Supabase. Para este repo usa `Direct connection`, no pooler."
-        )
-    if host.endswith(".supabase.co") and not host.startswith("db."):
+        if port == 6543:
+            hints.append(
+                "El host parece ser el `Transaction pooler` de Supabase (puerto 6543). "
+                "Para este repo usa `Session pooler` (puerto 5432), porque GitHub Actions y Alembic necesitan una conexion persistente compatible con IPv4."
+            )
+    elif host.endswith(".supabase.co") and not host.startswith("db."):
         hints.append(
             "El host parece un `Project URL` de Supabase. Usa el `Direct connection string`, cuyo host suele empezar con `db.`."
+        )
+    elif github_actions and host.startswith("db.") and host.endswith(".supabase.co"):
+        hints.append(
+            "El host parece ser el `Direct connection` de Supabase. Ese endpoint usa IPv6 por defecto y suele fallar en GitHub Actions con `Network is unreachable`. "
+            "Para este repo en CI usa el `Session pooler` (host `aws-0-...pooler.supabase.com`, puerto 5432) o el add-on IPv4 de Supabase."
         )
     return hints
 
 
-def validate_database_url(raw_database_url: str | None) -> dict[str, Any]:
+def validate_database_url(
+    raw_database_url: str | None,
+    *,
+    github_actions: bool | None = None,
+) -> dict[str, Any]:
     raw_value = (raw_database_url or "").strip()
     if not raw_value:
         raise ValueError("DATABASE_URL esta vacio.")
+
+    if github_actions is None:
+        github_actions = (os.getenv("GITHUB_ACTIONS") or "").strip().lower() == "true"
 
     upper_value = raw_value.upper()
     if raw_value.startswith(("http://", "https://")):
@@ -72,7 +86,7 @@ def validate_database_url(raw_database_url: str | None) -> dict[str, Any]:
     if not parsed.database:
         raise ValueError("DATABASE_URL no tiene nombre de base.")
 
-    hints = _provider_hints(parsed.host)
+    hints = _provider_hints(parsed.host, parsed.port, github_actions=github_actions)
     if hints:
         raise ValueError(" ".join(hints))
 

@@ -114,10 +114,37 @@ def test_validate_database_url_rejects_unencoded_special_chars_in_password() -> 
         raise AssertionError("Se esperaba ValueError para password con caracteres especiales sin encoding.")
 
 
-def test_validate_database_url_rejects_supabase_pooler_host() -> None:
+def test_validate_database_url_accepts_supabase_session_pooler() -> None:
+    payload = validate_database_url(
+        "postgresql://postgres.projectref:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require",
+        github_actions=True,
+    )
+
+    assert payload["host"] == "aws-0-us-east-1.pooler.supabase.com"
+    assert payload["port"] == 5432
+    assert payload["sslmode"] == "require"
+
+
+def test_validate_database_url_rejects_supabase_transaction_pooler() -> None:
     try:
-        validate_database_url("postgresql://postgres:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres")
+        validate_database_url(
+            "postgresql://postgres.projectref:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require",
+            github_actions=True,
+        )
     except ValueError as exc:
-        assert "Direct connection" in str(exc)
+        assert "Session pooler" in str(exc)
     else:
-        raise AssertionError("Se esperaba ValueError para pooler de Supabase.")
+        raise AssertionError("Se esperaba ValueError para transaction pooler de Supabase.")
+
+
+def test_validate_database_url_rejects_supabase_direct_host_in_github_actions() -> None:
+    try:
+        validate_database_url(
+            "postgresql://postgres:secret@db.project-ref.supabase.co:5432/postgres?sslmode=require",
+            github_actions=True,
+        )
+    except ValueError as exc:
+        assert "GitHub Actions" in str(exc)
+        assert "Session pooler" in str(exc)
+    else:
+        raise AssertionError("Se esperaba ValueError para direct connection de Supabase en GitHub Actions.")

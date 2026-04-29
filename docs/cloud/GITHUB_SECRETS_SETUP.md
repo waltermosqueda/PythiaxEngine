@@ -9,7 +9,9 @@ cloud en `Supabase` y dejar listo el camino hacia `R2` y `Cloudflare Pages`.
 
 - `DATABASE_URL`
   - Debe apuntar a tu base `Supabase Postgres`.
-  - Usar la conexion `Direct connection`, no el pooler transaccional.
+  - Para GitHub Actions usa `Session pooler` de Supabase, no `Direct connection`.
+  - `Direct connection` usa IPv6 por defecto y en GitHub Actions suele fallar con `Network is unreachable`.
+  - No usar `Transaction pooler` (`:6543`) para este repo porque `alembic upgrade head` y los clientes persistentes necesitan `Session pooler` (`:5432`).
   - Debe incluir `sslmode=require` si Supabase no lo agrega automaticamente.
   - Este secreto ya habilita:
     - `alembic upgrade head`
@@ -31,11 +33,13 @@ Crear la cuenta/proyecto en `Supabase` y copiar el `DATABASE_URL`.
 5. Definir una password fuerte para la base y guardarla.
 6. Esperar a que el proyecto termine de aprovisionarse.
 7. Ir a `Project Settings > Database > Connection string > URI`.
-8. Elegir `Direct connection`.
+8. Elegir `Session pooler`.
 9. Copiar la URL completa y reemplazar `[YOUR-PASSWORD]` por tu password real si Supabase la deja templada.
-10. Confirmar que la URL termine incluyendo `?sslmode=require` o agregarlo manualmente.
-11. En GitHub, abrir `Settings > Secrets and variables > Actions`.
-12. Crear o actualizar el secret `DATABASE_URL` con esa URL.
+10. Confirmar que el host termine en `pooler.supabase.com` y que el puerto sea `5432`.
+11. Confirmar que la URL termine incluyendo `?sslmode=require` o agregarlo manualmente.
+12. El usuario puede venir como `postgres.<project-ref>`; eso es normal en `Session pooler`.
+13. En GitHub, abrir `Settings > Secrets and variables > Actions`.
+14. Crear o actualizar el secret `DATABASE_URL` con esa URL.
 
 ## Secretos recomendados para la siguiente fase
 
@@ -67,6 +71,8 @@ Alternativa local mas simple:
 1. Crear un archivo `.env` en la raiz del repo.
 2. Copiar ahi tu `DATABASE_URL` real.
 3. Correr el mismo comando sin exportar nada en PowerShell.
+
+Si tu PC tambien esta en una red sin IPv6, usa el mismo `Session pooler` localmente para evitar el mismo fallo.
 
 5. Volver a correr `Cloud Postgres Smoke` para validar conteos.
 6. Habilitar `Settings > Pages > Source: GitHub Actions`.
