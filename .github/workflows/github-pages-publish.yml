@@ -185,6 +185,9 @@ jobs:
           import json
           from pathlib import Path
 
+          from infra.cloud.audit_dashboard_integrity import build_expected_active_from_db
+          from infra.db import RuntimeDB
+
           report_path = Path("docs/cloud/reports/dashboard_integrity_audit.json")
           if not report_path.exists():
               print("::error::integrity audit failed and no report file was generated")
@@ -201,6 +204,34 @@ jobs:
               "::error::integrity audit failed: "
               f"label={first.get('label')} | actual={first.get('actual')} | expected={first.get('expected')}"
           )
+
+            snapshot_path = Path("dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json")
+            if snapshot_path.exists():
+              snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+              active_run = ((snapshot.get("active") or {}).get("active_run") or {})
+              print(
+                "::error::generated snapshot active_run: "
+                f"regime_label={active_run.get('regime_label')!r} | analyzed_date={active_run.get('analyzed_date')!r} | "
+                f"prediction_for={active_run.get('prediction_for')!r} | source={active_run.get('source')!r}"
+              )
+
+            staged_snapshot_path = Path("dist/github-pages/tablero_maquina_pensante_snapshot.json")
+            if staged_snapshot_path.exists():
+              staged_snapshot = json.loads(staged_snapshot_path.read_text(encoding="utf-8"))
+              staged_active_run = ((staged_snapshot.get("active") or {}).get("active_run") or {})
+              print(
+                "::error::staged snapshot active_run: "
+                f"regime_label={staged_active_run.get('regime_label')!r} | analyzed_date={staged_active_run.get('analyzed_date')!r} | "
+                f"prediction_for={staged_active_run.get('prediction_for')!r} | source={staged_active_run.get('source')!r}"
+              )
+
+            with RuntimeDB() as db:
+              expected_active = build_expected_active_from_db(db)
+            print(
+              "::error::expected active_run from db: "
+              f"regime_label={expected_active.get('regime_label')!r} | analyzed_date={expected_active.get('analyzed_date')!r} | "
+              f"prediction_for={expected_active.get('prediction_for')!r}"
+            )
           raise SystemExit(1)
           PY
 
