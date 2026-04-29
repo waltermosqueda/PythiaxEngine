@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path
 from uuid import uuid4
 
@@ -330,5 +331,38 @@ def test_data_loader_refresh_recent_invalid_rows_redownloads_bad_latest_bar(monk
         assert round(float(row[2]), 2) == 17.78
         assert round(float(row[3]), 2) == 17.83
         assert int(row[4]) == 0
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_data_loader_download_one_fails_fast_when_history_call_hangs(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    db_path = tmp_dir / "db" / "download-timeout.db"
+    try:
+        monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
+        monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
+
+        with TitanDB() as db:
+            loader = DataLoader(db, years_history=2, max_workers=1, max_retries=2, retry_sleep=0)
+            timeout_values: list[float] = []
+
+            def fake_run(*args, **kwargs):
+                timeout_values.append(kwargs["timeout"])
+                raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs["timeout"])
+
+            monkeypatch.setattr("titan_system.core.data_loader.subprocess.run", fake_run)
+
+            ticker, df, status, detail = loader._download_one(
+                "XLE",
+                force_full=False,
+                latest_date=None,
+                end_date="2026-04-29",
+            )
+
+        assert ticker == "XLE"
+        assert df is None
+        assert status == "error"
+        assert "timeout duro" in (detail or "")
+        assert timeout_values == [45, 45]
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)

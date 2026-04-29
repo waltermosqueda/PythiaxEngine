@@ -33,9 +33,13 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
 
-import time
-import sys
+import json
 import os
+import subprocess
+import sys
+import textwrap
+import time
+from io import StringIO
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -66,6 +70,49 @@ DOWNLOAD_SYMBOL_ALIASES = {
     "VIX": "^VIX",
 }
 RECENT_INVALID_LOOKBACK_DAYS = 15
+HISTORY_FETCH_HARD_TIMEOUT_SECONDS = 45
+
+
+YFINANCE_HISTORY_FETCH_SCRIPT = textwrap.dedent(
+    """
+    import json
+    import sys
+    from pathlib import Path
+
+    import yfinance as yf
+    import yfinance.cache as yf_cache
+
+    cache_dir = Path(sys.argv[1])
+    request_symbol = sys.argv[2]
+    start_date = sys.argv[3]
+    end_date = sys.argv[4] or None
+
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    yf.set_tz_cache_location(str(cache_dir))
+    yf_cache.set_cache_location(str(cache_dir))
+
+    history_kwargs = {
+        "start": start_date,
+        "auto_adjust": False,
+        "timeout": 30,
+    }
+    if end_date:
+        history_kwargs["end"] = end_date
+
+    df = yf.Ticker(request_symbol).history(**history_kwargs)
+    if df is None or df.empty:
+        print(json.dumps({"status": "empty"}))
+    else:
+        print(
+            json.dumps(
+                {
+                    "status": "ok",
+                    "frame": df.to_json(orient="table", date_format="iso"),
+                }
+            )
+        )
+    """
+).strip()
 
 
 def _neutralize_bogus_proxy_env() -> list[str]:
@@ -87,6 +134,57 @@ YF_CACHE_DIR = Path(__file__).resolve().parents[2] / ".cache" / "yfinance"
 YF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 yf.set_tz_cache_location(str(YF_CACHE_DIR))
 yf_cache.set_cache_location(str(YF_CACHE_DIR))
+
+
+def _download_history_frame_with_timeout(
+    request_symbol: str,
+    history_kwargs: dict,
+    hard_timeout_seconds: int = HISTORY_FETCH_HARD_TIMEOUT_SECONDS,
+) -> Optional[pd.DataFrame]:
+    """Fetch history in a child process so a hung provider call cannot stall the pipeline."""
+    cmd = [
+        sys.executable,
+        "-c",
+        YFINANCE_HISTORY_FETCH_SCRIPT,
+        str(YF_CACHE_DIR),
+        request_symbol,
+        str(history_kwargs["start"]),
+        str(history_kwargs.get("end") or ""),
+    ]
+    try:
+        completed = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=hard_timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise TimeoutError(f"timeout duro tras {hard_timeout_seconds}s") from exc
+
+    stdout = (completed.stdout or "").strip()
+    stderr = (completed.stderr or "").strip()
+    if completed.returncode != 0:
+        detail = stderr or stdout or f"subprocess rc={completed.returncode}"
+        raise RuntimeError(detail.splitlines()[-1][:120])
+    if not stdout:
+        raise RuntimeError("subprocess sin salida")
+
+    try:
+        payload = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        detail = (stdout or stderr)[-120:]
+        raise RuntimeError(f"salida invalida: {detail}") from exc
+
+    if payload.get("status") == "empty":
+        return None
+    if payload.get("status") != "ok":
+        raise RuntimeError(f"estado inesperado: {payload.get('status')}")
+
+    frame_payload = payload.get("frame")
+    if not frame_payload:
+        return None
+    return pd.read_json(StringIO(frame_payload), orient="table")
 
 
 # ── Universo de activos (mismo que TITAN v5) ─────────────────────────────────
@@ -415,8 +513,7 @@ class DataLoader:
             last_error = None
             for attempt in range(1, self.max_retries + 1):
                 try:
-                    tk = yf.Ticker(request_symbol)
-                    df = tk.history(**history_kwargs)
+                    df = _download_history_frame_with_timeout(request_symbol, history_kwargs)
                     time.sleep(0.15)
 
                     if df is None or df.empty:
