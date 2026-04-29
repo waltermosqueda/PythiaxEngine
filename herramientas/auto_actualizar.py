@@ -161,9 +161,9 @@ def get_ultima_fecha_db() -> date | None:
 
     try:
         with TitanDB() as db:
-            row = db.conn.execute("SELECT MAX(date) FROM prices").fetchone()
-        if row and row[0]:
-            latest_value = row[0]
+            frame = db.execute_raw("SELECT MAX(date) AS latest_date FROM prices")
+        if not frame.empty and frame.iloc[0]["latest_date"]:
+            latest_value = frame.iloc[0]["latest_date"]
             if isinstance(latest_value, datetime):
                 return latest_value.date()
             if isinstance(latest_value, date):
@@ -173,6 +173,23 @@ def get_ultima_fecha_db() -> date | None:
         log.error(f"Error leyendo DB: {exc}")
 
     return None
+
+
+def get_price_row_count() -> int | None:
+    """Devuelve la cantidad de filas en prices para distinguir DB vacia de error de lectura."""
+    if runtime_backend_name() == "sqlite" and not runtime_sqlite_path().exists():
+        return 0
+
+    try:
+        with TitanDB() as db:
+            frame = db.execute_raw("SELECT COUNT(*) AS total_rows FROM prices")
+        if frame.empty:
+            return 0
+        total_rows = frame.iloc[0]["total_rows"]
+        return int(total_rows or 0)
+    except Exception as exc:
+        log.error(f"Error contando filas en prices: {exc}")
+        return None
 
 
 def debe_correr_pipeline(ahora: datetime, faltantes: int, force_pipeline: bool = False) -> bool:
@@ -828,28 +845,37 @@ def main() -> int:
         )
         return 1
 
-    ultima = get_ultima_fecha_db()
-    if ultima is None:
-        log.error("No se pudo leer fecha de la DB.")
-        print("[ERROR] No se pudo leer fecha de la DB.")
-        emit_critical_alert(
-            code="db_date_unreadable",
-            summary="No se pudo leer la ultima fecha de la DB.",
-            details=runtime_db_details(),
-        )
-        return 1
-
     target_date = fecha_objetivo_mercado(now)
-    faltantes = dias_bursatiles_faltantes(ultima, target_date)
+    ultima = get_ultima_fecha_db()
+    bootstrap_prices = False
+    if ultima is None:
+        price_rows = get_price_row_count()
+        if price_rows == 0:
+            bootstrap_prices = True
+            log.warning(
+                "[PIPELINE] La DB activa no tiene historial en prices. Se inicia bootstrap cloud hasta %s.",
+                target_date.isoformat(),
+            )
+        else:
+            log.error("No se pudo leer fecha de la DB.")
+            print("[ERROR] No se pudo leer fecha de la DB.")
+            emit_critical_alert(
+                code="db_date_unreadable",
+                summary="No se pudo leer la ultima fecha de la DB.",
+                details=runtime_db_details(),
+            )
+            return 1
+
+    faltantes = 1 if bootstrap_prices else dias_bursatiles_faltantes(ultima, target_date)
 
     log.info(
         f"Ultima fecha en DB: {ultima} | Objetivo: {target_date} | Dias faltantes: {faltantes}"
     )
 
     print("\n  TITAN Auto-Actualizador")
-    print(f"  Ultima fecha DB : {ultima}")
+    print(f"  Ultima fecha DB : {ultima or 'SIN DATOS'}")
     print(f"  Fecha objetivo  : {target_date}")
-    print(f"  Dias faltantes  : {faltantes}")
+    print(f"  Dias faltantes  : {'bootstrap' if bootstrap_prices else faltantes}")
 
     if faltantes == 0:
         log.info("DB al dia - sin accion.")
@@ -905,8 +931,12 @@ def main() -> int:
             skip_dashboard_refresh=skip_dashboard_refresh,
         ) else 1
 
-    print(f"\n  Actualizando {faltantes} dia(s)...\n")
-    log.info(f"Iniciando actualizacion ({faltantes} dias) hasta {target_date}...")
+    if bootstrap_prices:
+        print("\n  DB sin historial de precios. Iniciando bootstrap desde el proveedor de mercado...\n")
+        log.info(f"Iniciando bootstrap historico hasta {target_date}...")
+    else:
+        print(f"\n  Actualizando {faltantes} dia(s)...\n")
+        log.info(f"Iniciando actualizacion ({faltantes} dias) hasta {target_date}...")
 
     from titan_system.core.data_loader import DataLoader
 
@@ -999,7 +1029,7 @@ def main() -> int:
                 market_status.get("latest_prices_date") != latest_after.isoformat()
                 or not market_status.get("market_data_updated_at")
             )
-            if latest_after > ultima or needs_metadata:
+            if ultima is None or latest_after > ultima or needs_metadata:
                 db.save_market_data_update(latest_after.isoformat())
                 log.info(f"[PIPELINE] Metadata de mercado actualizada para {latest_after}")
 
