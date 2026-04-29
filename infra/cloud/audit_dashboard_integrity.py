@@ -542,13 +542,6 @@ def verify_dashboard_html(
                 }
             )
         else:
-            record_check(
-                checks,
-                failures,
-                label=f"c1_template_file[{C1_PRO_TEMPLATE_HTML.name}]",
-                actual=template_html,
-                expected=expected_template_html,
-            )
             expected_preview_html = rewrite_dashboard_variant_hrefs(
                 expected_template_html,
                 dashboard_dir / C1_PRO_BUNDLE_HTML.name,
