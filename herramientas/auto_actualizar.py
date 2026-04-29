@@ -978,8 +978,14 @@ def main() -> int:
 
         if monitored_snapshots_already_current(latest_after):
             if skip_dashboard_refresh:
-                log_dashboard_refresh_deferred(latest_after)
-                return 0
+                log.info(
+                    "[PIPELINE] Snapshot coverage al dia. Se mantiene la corrida de aprendizaje y se difiere solo el refresh del dashboard."
+                )
+                return 0 if ejecutar_pipeline_diario(
+                    latest_after,
+                    now,
+                    skip_dashboard_refresh=True,
+                ) else 1
             return 0 if ejecutar_publicacion_liviana(latest_after) else 1
 
         return 0 if ejecutar_pipeline_diario(

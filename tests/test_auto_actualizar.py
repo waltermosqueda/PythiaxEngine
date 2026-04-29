@@ -361,3 +361,64 @@ def test_ejecutar_pipeline_diario_skip_dashboard_refresh_still_blocks_on_missing
         "audit": 0,
         "optional": 0,
     }
+
+
+def test_main_skip_dashboard_refresh_still_runs_pipeline_when_snapshots_look_current(monkeypatch) -> None:
+    latest_after = date(2026, 4, 24)
+    pipeline_call: dict[str, object] = {}
+    publication_called = {"value": False}
+
+    class FakeTitanDB:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def get_market_data_status(self):
+            return {
+                "latest_prices_date": latest_after.isoformat(),
+                "market_data_updated_at": "2026-04-24T22:00:00",
+            }
+
+        def save_market_data_update(self, _value):
+            raise AssertionError("No deberia reconciliar metadata cuando ya esta al dia.")
+
+    monkeypatch.setattr(auto_actualizar, "require_cloud_database_runtime", lambda: None)
+    monkeypatch.setattr(auto_actualizar, "runtime_backend_name", lambda: "postgres")
+    monkeypatch.setattr(auto_actualizar, "runtime_sqlite_path", lambda: None)
+    monkeypatch.setattr(auto_actualizar, "fecha_objetivo_mercado", lambda now: latest_after)
+    monkeypatch.setattr(auto_actualizar, "get_ultima_fecha_db", lambda: latest_after)
+    monkeypatch.setattr(auto_actualizar, "dias_bursatiles_faltantes", lambda ultima, objetivo: 0)
+    monkeypatch.setattr(
+        auto_actualizar,
+        "debe_correr_pipeline",
+        lambda now, faltantes, force_pipeline=False: True,
+    )
+    monkeypatch.setattr(auto_actualizar, "TitanDB", FakeTitanDB)
+    monkeypatch.setattr(auto_actualizar, "monitored_snapshots_already_current", lambda fecha_base: True)
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ejecutar_pipeline_diario",
+        lambda fecha_base, now, skip_dashboard_refresh=False: pipeline_call.update(
+            {
+                "fecha_base": fecha_base,
+                "now": now,
+                "skip_dashboard_refresh": skip_dashboard_refresh,
+            }
+        ) or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ejecutar_publicacion_liviana",
+        lambda fecha_base: publication_called.__setitem__("value", True) or True,
+    )
+    monkeypatch.setattr(auto_actualizar.sys, "argv", ["auto_actualizar.py", "--skip-dashboard-refresh"])
+
+    rc = auto_actualizar.main()
+
+    assert rc == 0
+    assert publication_called["value"] is False
+    assert pipeline_call["fecha_base"] == latest_after
+    assert pipeline_call["skip_dashboard_refresh"] is True
+    assert isinstance(pipeline_call["now"], datetime)
