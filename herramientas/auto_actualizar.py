@@ -234,6 +234,23 @@ def guardar_reporte_json(path: Path, payload: dict[str, object]) -> Path:
     return path
 
 
+def repair_recent_ohlcv_bounds(fecha_base: date) -> int:
+    repair_start = (fecha_base - timedelta(days=45)).isoformat()
+    with TitanDB() as db:
+        repaired_rows = db.repair_ohlcv_bounds(
+            start_date=repair_start,
+            end_date=fecha_base.isoformat(),
+        )
+    repaired_rows = int(repaired_rows or 0)
+    if repaired_rows:
+        log.info(
+            "[PIPELINE] Reconciliacion OHLCV conservadora aplicada a %s filas recientes antes del pipeline.",
+            repaired_rows,
+        )
+        print(f"  Filas OHLCV reparadas previo al pipeline: {repaired_rows}")
+    return repaired_rows
+
+
 def _timeout_seconds_for_step(step_name: str, optional: bool = False) -> int:
     if step_name == "validacion":
         return 10 * 60
@@ -960,6 +977,9 @@ def main() -> int:
             if needs_metadata:
                 db.save_market_data_update(latest_after.isoformat())
                 log.info(f"[PIPELINE] Metadata de mercado reconciliada para {latest_after}")
+
+        repair_recent_ohlcv_bounds(latest_after)
+
         if latest_after < target_date:
             log.warning(
                 f"[PIPELINE] DB sin alcanzar objetivo. Ultima={latest_after} | objetivo={target_date}. Se omite pipeline."

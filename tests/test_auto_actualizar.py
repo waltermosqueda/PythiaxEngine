@@ -367,6 +367,7 @@ def test_main_skip_dashboard_refresh_still_runs_pipeline_when_snapshots_look_cur
     latest_after = date(2026, 4, 24)
     pipeline_call: dict[str, object] = {}
     publication_called = {"value": False}
+    repaired_bounds_call: dict[str, str] = {}
 
     class FakeTitanDB:
         def __enter__(self):
@@ -383,6 +384,11 @@ def test_main_skip_dashboard_refresh_still_runs_pipeline_when_snapshots_look_cur
 
         def save_market_data_update(self, _value):
             raise AssertionError("No deberia reconciliar metadata cuando ya esta al dia.")
+
+        def repair_ohlcv_bounds(self, *, start_date, end_date):
+            repaired_bounds_call["start_date"] = start_date
+            repaired_bounds_call["end_date"] = end_date
+            return 1
 
     monkeypatch.setattr(auto_actualizar, "require_cloud_database_runtime", lambda: None)
     monkeypatch.setattr(auto_actualizar, "runtime_backend_name", lambda: "postgres")
@@ -422,3 +428,7 @@ def test_main_skip_dashboard_refresh_still_runs_pipeline_when_snapshots_look_cur
     assert pipeline_call["fecha_base"] == latest_after
     assert pipeline_call["skip_dashboard_refresh"] is True
     assert isinstance(pipeline_call["now"], datetime)
+    assert repaired_bounds_call == {
+        "start_date": "2026-03-10",
+        "end_date": "2026-04-24",
+    }
