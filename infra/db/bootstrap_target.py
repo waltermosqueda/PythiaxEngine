@@ -58,7 +58,7 @@ def bootstrap_target_from_sqlite(
     if target_url.startswith("sqlite:") and not allow_sqlite_target:
         raise ValueError(
             "El target es SQLite. Usa --allow-sqlite-target solo para smoke tests locales. "
-            "Para bootstrap real apunta a Neon/Postgres."
+            "Para bootstrap real apunta a un Postgres cloud, por ejemplo Supabase."
         )
 
     run_alembic_upgrade(target_url)

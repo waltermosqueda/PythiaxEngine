@@ -1,10 +1,10 @@
-name: Neon Schema Smoke
+name: Cloud Postgres Smoke
 
 on:
   workflow_dispatch:
 
 jobs:
-  neon-smoke:
+  cloud-postgres-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -42,7 +42,7 @@ jobs:
 
           from infra.db.runtime import RuntimeDB
 
-          report_path = Path("docs/cloud/reports/neon_schema_smoke.json")
+          report_path = Path("docs/cloud/reports/cloud_postgres_smoke.json")
           with RuntimeDB() as db:
               payload = {
                   "backend": db.backend.name,
@@ -64,5 +64,5 @@ jobs:
       - name: Upload smoke report
         uses: actions/upload-artifact@v4
         with:
-          name: neon-schema-smoke-report
-          path: docs/cloud/reports/neon_schema_smoke.json
+          name: cloud-postgres-smoke-report
+          path: docs/cloud/reports/cloud_postgres_smoke.json

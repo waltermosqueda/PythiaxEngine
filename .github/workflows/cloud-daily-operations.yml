@@ -57,7 +57,7 @@ jobs:
 
       - name: Run cloud-native pipeline
         run: |
-          python herramientas/auto_actualizar.py
+          python herramientas/auto_actualizar.py --skip-dashboard-refresh
 
       - name: Decide cloud refresh
         id: refresh
@@ -67,6 +67,10 @@ jobs:
             FORCE_ARGS="--force"
           fi
           python -m infra.cloud.decide_cloud_refresh --github-output "$GITHUB_OUTPUT" $FORCE_ARGS
+
+      - name: Build dashboard bundle
+        if: steps.refresh.outputs.should_refresh == 'true'
+        run: python analisis/generar_tablero_maquina_pensante.py --variant all
 
       - name: Stage GitHub Pages site
         if: steps.refresh.outputs.should_refresh == 'true'
@@ -103,6 +107,7 @@ jobs:
           echo "No cloud refresh needed."
           echo "latest_prices_date=${{ steps.refresh.outputs.latest_prices_date }}"
           echo "last_publish_market_date=${{ steps.refresh.outputs.last_publish_market_date }}"
+          echo "snapshot_newer_than_publish=${{ steps.refresh.outputs.snapshot_newer_than_publish }}"
 
       - name: Upload cloud operations artifact
         if: steps.refresh.outputs.should_refresh == 'true'

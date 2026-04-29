@@ -81,7 +81,8 @@ def require_cloud_database_runtime(database_url: str | None = None) -> None:
     if backend.startswith("postgres"):
         return
     raise RuntimeError(
-        "PYTHIAX_REQUIRE_CLOUD_DB=1 exige ejecutar este entrypoint sobre Neon/Postgres. "
+        "PYTHIAX_REQUIRE_CLOUD_DB=1 exige ejecutar este entrypoint sobre cloud Postgres "
+        "(por ejemplo Supabase). "
         f"Backend actual detectado: {backend}."
     )
 

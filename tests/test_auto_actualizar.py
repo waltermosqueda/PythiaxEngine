@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import shutil
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import herramientas.auto_actualizar as auto_actualizar
@@ -76,7 +77,7 @@ def test_require_cloud_database_runtime_rejects_sqlite_when_flag_enabled(monkeyp
     try:
         auto_actualizar.require_cloud_database_runtime()
     except RuntimeError as exc:
-        assert "Neon/Postgres" in str(exc)
+        assert "cloud Postgres" in str(exc)
     else:
         raise AssertionError("Se esperaba RuntimeError al exigir cloud DB sobre SQLite.")
 
@@ -189,3 +190,59 @@ def test_ejecutar_publicacion_liviana_blocks_when_dashboard_integrity_fails(monk
 
     assert ok is False
     assert optional_called["value"] is False
+
+
+def test_ejecutar_pipeline_diario_can_skip_dashboard_refresh_tail(monkeypatch) -> None:
+    operational = SimpleNamespace(
+        active_scanner=Path("scanner_activo.py"),
+        active_learning=Path("aprendizaje_v13.py"),
+        active_version="V13",
+        observed_versions=[],
+        observed_learning_chain=[],
+    )
+    dashboard_calls = {
+        "validate": False,
+        "refresh": False,
+        "audit": False,
+        "optional": False,
+    }
+
+    monkeypatch.setattr(auto_actualizar, "resolve_operational_scanner_context", lambda: operational)
+    monkeypatch.setattr(auto_actualizar, "build_learning_steps", lambda command_name: [])
+    monkeypatch.setattr(auto_actualizar, "build_observed_steps", lambda command_name: [])
+    monkeypatch.setattr(auto_actualizar, "build_legacy_ml_steps", lambda command_name: [])
+    monkeypatch.setattr(auto_actualizar, "ejecutar_paso", lambda step_name, command, fecha_base: True)
+    monkeypatch.setattr(
+        auto_actualizar,
+        "validate_model_snapshot_freshness",
+        lambda fecha_base: dashboard_calls.__setitem__("validate", True) or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "refrescar_dashboard",
+        lambda fecha_base: dashboard_calls.__setitem__("refresh", True) or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "auditar_integridad_dashboard",
+        lambda fecha_base: dashboard_calls.__setitem__("audit", True) or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ejecutar_paso_opcional",
+        lambda *args, **kwargs: dashboard_calls.__setitem__("optional", True) or True,
+    )
+
+    ok = auto_actualizar.ejecutar_pipeline_diario(
+        date(2026, 4, 24),
+        datetime(2026, 4, 24, 22, 0),
+        skip_dashboard_refresh=True,
+    )
+
+    assert ok is True
+    assert dashboard_calls == {
+        "validate": False,
+        "refresh": False,
+        "audit": False,
+        "optional": False,
+    }

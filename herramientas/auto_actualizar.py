@@ -609,7 +609,20 @@ def ejecutar_publicacion_liviana(fecha_base: date) -> bool:
     return True
 
 
-def ejecutar_pipeline_diario(fecha_base: date, ahora: datetime) -> bool:
+def log_dashboard_refresh_deferred(fecha_base: date) -> None:
+    log.info(
+        "[PIPELINE] Refresh de dashboard diferido para %s. El workflow cloud solo lo ejecutara si detecta publicacion necesaria.",
+        fecha_base.isoformat(),
+    )
+    print("  Refresh de dashboard diferido. El workflow cloud lo ejecutara solo si hace falta publicar.")
+
+
+def ejecutar_pipeline_diario(
+    fecha_base: date,
+    ahora: datetime,
+    *,
+    skip_dashboard_refresh: bool = False,
+) -> bool:
     operational = resolve_operational_scanner_context()
     active_scanner_label = operational.active_scanner.stem
 
@@ -673,8 +686,8 @@ def ejecutar_pipeline_diario(fecha_base: date, ahora: datetime) -> bool:
         if not resumen_ok:
             return False
 
-    # Antes del dashboard core, alineamos Neon/Postgres con la SQLite local para
-    # que el bundle visible y GitHub Pages salgan del mismo corte operativo.
+    # Antes del dashboard core, alineamos Postgres cloud con la SQLite local
+    # para que el bundle visible y GitHub Pages salgan del mismo corte operativo.
 
     # Refrescamos el dashboard core antes de los opcionales lentos para que el
     # tablero operativo y el heatmap queden alineados con la rueda cerrada.
@@ -738,7 +751,11 @@ def ejecutar_pipeline_diario(fecha_base: date, ahora: datetime) -> bool:
     # Segundo refresh para incorporar tambien lo que hayan agregado los modelos
     # observados/legacy si llegaron a completarse en esta misma corrida.
 
-    # Refresco de datos dinámicos en la plantilla canonica C1 Pro (heatmap + liga)
+    if skip_dashboard_refresh:
+        log_dashboard_refresh_deferred(fecha_base)
+        return True
+
+    # Refresco de datos dinamicos en la plantilla canonica C1 Pro (heatmap + liga)
     if not validate_model_snapshot_freshness(fecha_base):
         return False
 
@@ -784,6 +801,7 @@ def emit_critical_alert(code: str, summary: str, details: dict[str, object] | No
 def main() -> int:
     now = datetime.now()
     force_pipeline = "--force-pipeline" in sys.argv
+    skip_dashboard_refresh = "--skip-dashboard-refresh" in sys.argv
     log.info(f"-- Auto-actualizador iniciado ({now:%Y-%m-%d %H:%M}) --")
 
     try:
@@ -876,9 +894,16 @@ def main() -> int:
             return 2
 
         if monitored_snapshots_already_current(latest_after):
+            if skip_dashboard_refresh:
+                log_dashboard_refresh_deferred(latest_after)
+                return 0
             return 0 if ejecutar_publicacion_liviana(latest_after) else 1
 
-        return 0 if ejecutar_pipeline_diario(latest_after, now) else 1
+        return 0 if ejecutar_pipeline_diario(
+            latest_after,
+            now,
+            skip_dashboard_refresh=skip_dashboard_refresh,
+        ) else 1
 
     print(f"\n  Actualizando {faltantes} dia(s)...\n")
     log.info(f"Iniciando actualizacion ({faltantes} dias) hasta {target_date}...")
@@ -978,7 +1003,11 @@ def main() -> int:
                 db.save_market_data_update(latest_after.isoformat())
                 log.info(f"[PIPELINE] Metadata de mercado actualizada para {latest_after}")
 
-        return 0 if ejecutar_pipeline_diario(latest_after, now) else 1
+        return 0 if ejecutar_pipeline_diario(
+            latest_after,
+            now,
+            skip_dashboard_refresh=skip_dashboard_refresh,
+        ) else 1
 
     except Exception as exc:
         log.error(f"Error durante actualizacion: {exc}")

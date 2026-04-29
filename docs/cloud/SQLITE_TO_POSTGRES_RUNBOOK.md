@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Cargar la base historica actual desde `SQLite` hacia `Neon Postgres` de forma
+Cargar la base historica actual desde `SQLite` hacia `Supabase Postgres` de forma
 reproducible, controlada y retomable.
 
 Importante: esta primera carga conviene correrla localmente porque la fuente
@@ -11,13 +11,13 @@ Importante: esta primera carga conviene correrla localmente porque la fuente
 ## Principios
 
 1. `SQLite` sigue siendo la fuente operativa hasta terminar shadow mode.
-2. La primera carga a `Neon` no debe mezclar cambios de negocio.
+2. La primera carga a `Supabase` no debe mezclar cambios de negocio.
 3. Antes de migrar datos se debe crear el schema con `Alembic`.
 4. Cada corrida debe dejar un reporte JSON con conteos por tabla.
 
 ## Precondiciones
 
-- `DATABASE_URL` apuntando a la base `Neon` correcta.
+- `DATABASE_URL` apuntando a la base `Supabase` correcta.
 - Dependencias `cloud` instaladas.
 - Schema creado con:
 
@@ -27,7 +27,7 @@ alembic upgrade head
 
 ## Smoke local opcional
 
-Para validar la herramienta sin tocar Neon:
+Para validar la herramienta sin tocar Supabase:
 
 ```powershell
 python -m infra.db.migrate_sqlite_to_postgres `
@@ -38,19 +38,19 @@ python -m infra.db.migrate_sqlite_to_postgres `
   --report-path ".cache/migration-smoke/report.json"
 ```
 
-## Primera carga a Neon
+## Primera carga a Supabase
 
 ```powershell
 python -m infra.db.bootstrap_target `
   --target-url "$env:DATABASE_URL" `
   --reset-target `
-  --report-path "docs/cloud/reports/sqlite_to_neon_bootstrap.json"
+  --report-path "docs/cloud/reports/sqlite_to_supabase_bootstrap.json"
 ```
 
 ## Recomendacion operativa
 
 - Usar `--ensure-schema` solo para smoke tests locales.
-- En Neon real, preferir el wrapper `bootstrap_target`, que corre `Alembic`
+- En Supabase real, preferir el wrapper `bootstrap_target`, que corre `Alembic`
   antes de la carga de datos.
 - Guardar cada reporte para auditoria y comparacion entre corridas.
 

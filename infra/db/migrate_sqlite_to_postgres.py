@@ -500,7 +500,7 @@ def migrate_sqlite_to_target(
 
 def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Migra datos operativos desde SQLite hacia un target SQLAlchemy, pensado para Neon Postgres.",
+        description="Migra datos operativos desde SQLite hacia un target SQLAlchemy, pensado para Postgres cloud (por ejemplo Supabase).",
     )
     parser.add_argument(
         "--source-sqlite-path",
@@ -590,7 +590,7 @@ def main() -> int:
     if target_url.startswith("sqlite:") and not args.allow_sqlite_target:
         parser.error(
             "El target es SQLite. Usa --allow-sqlite-target solo para smoke tests locales. "
-            "Para produccion, apunta a Neon/Postgres."
+            "Para produccion, apunta a un Postgres cloud, por ejemplo Supabase."
         )
 
     report = migrate_sqlite_to_target(

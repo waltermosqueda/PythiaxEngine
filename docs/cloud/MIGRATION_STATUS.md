@@ -1,11 +1,12 @@
 # Migration Status
 
 - Fecha de inicio: 2026-04-22
-- Estado actual: `FASE 1 COMPLETADA / FASE 2 AVANZADA / NEON BOOTSTRAP COMPLETADO / DASHBOARD POSTGRES VALIDADO / CUTOVER PREFLIGHT OK / CLOUD DAILY OPS READY`
+- Estado actual: `FASE 1 COMPLETADA / FASE 2 AVANZADA / SUPABASE CUTOVER PREP / DASHBOARD POSTGRES VALIDADO / CLOUD DAILY OPS TUNED`
 - Nombre publico del proyecto: `PythiaxEngine`
 - Ruta local historica: `Claude/`
 - Decision boundary: desde ahora `PythiaxEngine` en GitHub es la unica fuente de verdad; `Claude/` queda deprecado como proyecto separado y solo se revisa por emergencias criticas de migracion.
-- Arquitectura objetivo activa: `GitHub + GitHub Actions + Neon Postgres + GitHub Pages`
+- Arquitectura objetivo activa: `GitHub + GitHub Actions + Supabase Postgres + GitHub Pages`
+- Decision 2026-04-28: `Neon` queda descartado por quota free demasiado fragil para este pipeline; el target cloud pasa a `Supabase`.
 - Hosting puente gratis actual: `GitHub Pages`
 - Repo remoto objetivo: `https://github.com/waltermosqueda/PythiaxEngine`
 - Baseline local: commit `071c246`
@@ -140,12 +141,13 @@
 
 ## Lo que falta inmediatamente
 
-1. Confirmar `DATABASE_URL` real en GitHub.
+1. Crear el proyecto en `Supabase` y confirmar su `DATABASE_URL` real en GitHub.
 2. Habilitar `GitHub Pages` via GitHub Actions si todavia no quedo activo.
-3. Correr una primera vez `Cloud Daily Operations` por `workflow_dispatch`.
-4. Verificar la primera publicacion remota y dejar `shadow mode`.
-5. Desacoplar snapshots operativos restantes para que toda la capa visible viva solo de DB.
-6. Si se quiere eliminar tambien la compatibilidad `SQLite`, migrar lecturas/escrituras legacy profundas a `Postgres` nativo.
+3. Correr una primera vez `Cloud Postgres Smoke` por `workflow_dispatch`.
+4. Ejecutar el bootstrap inicial `SQLite -> Supabase`.
+5. Verificar la primera publicacion remota y dejar `shadow mode`.
+6. Desacoplar snapshots operativos restantes para que toda la capa visible viva solo de DB.
+7. Si se quiere eliminar tambien la compatibilidad `SQLite`, migrar lecturas/escrituras legacy profundas a `Postgres` nativo.
 
 ## Bloqueadores conocidos
 
@@ -162,14 +164,14 @@
 - el `active_run` del dashboard ya tiene fallback DB-driven; todavia quedan
   otros artefactos de snapshot local fuera de esa ruta principal
 - el workflow remoto de dashboard depende de `DATABASE_URL`; hasta bootstrapear
-  Neon no puede generar el bundle real desde cloud
+  Supabase no puede generar el bundle real desde cloud
 - el dashboard ya intenta persistir su corrida en `pipeline_runs`; en la SQLite
   historica actual hace `skip` limpio si esa tabla todavia no existe
 - los `run_id` del ledger ya quedan namespaced por pipeline e intento para no
   chocar entre `dashboard_build` y `github_pages_publish`
 - la publicacion por `GitHub Pages` tambien depende de `DATABASE_URL` y de
   habilitar `Settings > Pages > Source: GitHub Actions`
-- el `cutover_preflight` sigue dependiendo de crear la base en Neon y cargar
+- el `cutover_preflight` sigue dependiendo de crear la base en Supabase y cargar
   `DATABASE_URL`, porque esos pasos viven fuera del repo
 - no hay `gh` CLI instalado en esta PC, asi que la activacion remota se apoya
   en la web de GitHub y en workflows ya dejados listos dentro del repo

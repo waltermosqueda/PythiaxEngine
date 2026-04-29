@@ -917,7 +917,7 @@ def _apply_snapshot_sections(html: str, snap: dict) -> str:
     gen_ts = snap.get("generated_at") or ""
     build_meta = snap.get("build") or {}
     db_backend = str(build_meta.get("db_backend") or "").lower()
-    source_label = "Postgres/Neon" if db_backend.startswith("postgres") else "runtime no cloud"
+    source_label = "Postgres/Supabase" if db_backend.startswith("postgres") else "runtime no cloud"
     html = _replace_once(
         html,
         r"(Titan Machine Dashboard · generado )[\dT:\-]+(?: · datos desde [^<]+)?",

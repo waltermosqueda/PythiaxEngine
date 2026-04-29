@@ -9,7 +9,7 @@ encendida, usando `GitHub Pages` como hosting puente de costo cero.
 
 La arquitectura objetivo de mas largo plazo sigue siendo:
 
-- `GitHub + GitHub Actions + Neon Postgres + Cloudflare Pages + R2`
+- `GitHub + GitHub Actions + Supabase Postgres + Cloudflare Pages + R2`
 
 Pero para una fase gratis, simple y presentable en entrevista, `GitHub Pages`
 permite publicar el dashboard estatico desde Actions sin agregar secretos de
@@ -19,8 +19,8 @@ hosting ni costos extra.
 
 - archivo: `.github/workflows/github-pages-publish.yml`
 - disparadores:
+  - `push` a `main` cuando el cambio toca codigo/pipeline relevante
   - `workflow_dispatch`
-  - `schedule`: `37 03 * * 2-6` UTC
 - secreto requerido:
   - `DATABASE_URL`
 
@@ -34,7 +34,7 @@ hosting ni costos extra.
 
 El workflow:
 
-1. genera el dashboard desde `Neon/Postgres`
+1. genera el dashboard desde `Supabase/Postgres`
 2. arma un site bundle para Pages
 3. publica ese bundle
 

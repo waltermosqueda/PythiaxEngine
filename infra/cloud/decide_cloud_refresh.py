@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import json
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,17 @@ from sqlalchemy import inspect, text
 
 from infra.db.config import get_database_url
 from infra.db.session import create_db_engine
+
+
+def coerce_datetime(value: Any) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    text_value = str(value).strip()
+    if not text_value:
+        return None
+    return datetime.fromisoformat(text_value.replace("Z", "+00:00"))
 
 
 def parse_args() -> argparse.Namespace:
@@ -41,11 +53,12 @@ def decide_cloud_refresh(*, database_url: str | None = None, force: bool = False
 
             last_publish_market_date = None
             last_publish_run_id = None
+            last_publish_finished_at = None
             if inspector.has_table("pipeline_runs"):
                 row = connection.execute(
                     text(
                         """
-                        SELECT latest_prices_date, run_id
+                        SELECT latest_prices_date, run_id, finished_at
                         FROM pipeline_runs
                         WHERE pipeline_name = 'github_pages_publish' AND status = 'SUCCESS'
                         ORDER BY finished_at DESC NULLS LAST, created_at DESC
@@ -56,11 +69,36 @@ def decide_cloud_refresh(*, database_url: str | None = None, force: bool = False
                 if row is not None:
                     last_publish_market_date = str(row[0]) if row[0] is not None else None
                     last_publish_run_id = row[1]
+                    last_publish_finished_at = coerce_datetime(row[2])
+
+            latest_snapshot_created_at = None
+            if inspector.has_table("model_run_snapshots") and latest_prices_date is not None:
+                latest_snapshot_created_at = coerce_datetime(
+                    connection.execute(
+                        text(
+                            """
+                            SELECT MAX(created_at)
+                            FROM model_run_snapshots
+                            WHERE analyzed_date = :analyzed_date
+                            """
+                        ),
+                        {"analyzed_date": str(latest_prices_date)},
+                    ).scalar()
+                )
 
         latest_prices_text = str(latest_prices_date) if latest_prices_date is not None else None
+        last_publish_finished_text = last_publish_finished_at.isoformat() if last_publish_finished_at is not None else None
+        latest_snapshot_created_text = (
+            latest_snapshot_created_at.isoformat() if latest_snapshot_created_at is not None else None
+        )
+        snapshot_newer_than_publish = bool(latest_snapshot_created_at) and (
+            last_publish_finished_at is None or latest_snapshot_created_at > last_publish_finished_at
+        )
         should_refresh = bool(force)
         if not should_refresh:
             should_refresh = bool(latest_prices_text) and latest_prices_text != last_publish_market_date
+        if not should_refresh:
+            should_refresh = snapshot_newer_than_publish
 
         return {
             "backend": backend,
@@ -68,6 +106,9 @@ def decide_cloud_refresh(*, database_url: str | None = None, force: bool = False
             "latest_prices_date": latest_prices_text,
             "last_publish_market_date": last_publish_market_date,
             "last_publish_run_id": last_publish_run_id,
+            "last_publish_finished_at": last_publish_finished_text,
+            "latest_snapshot_created_at": latest_snapshot_created_text,
+            "snapshot_newer_than_publish": snapshot_newer_than_publish,
             "should_refresh": should_refresh,
         }
     finally:

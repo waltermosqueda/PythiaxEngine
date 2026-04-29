@@ -15,7 +15,7 @@ Archivos clave:
 - `ROADMAP_FREE_TIER.md`: roadmap por fases y criterios de corte.
 - `MIGRATION_STATUS.md`: estado vivo de la migracion, proximos pasos y rollback.
 - `SCHEMA_INVENTORY.md`: inventario del schema actual y objetivo Postgres.
-- `SQLITE_TO_POSTGRES_RUNBOOK.md`: procedimiento controlado para cargar Neon desde SQLite.
+- `SQLITE_TO_POSTGRES_RUNBOOK.md`: procedimiento controlado para cargar Supabase desde SQLite.
 - `CLOUD_DAILY_OPERATIONS.md`: flujo diario cloud-first sobre GitHub Actions.
 - `GITHUB_SECRETS_SETUP.md`: secretos y orden recomendado para activar workflows cloud.
 - `DASHBOARD_BUILD_AUTOMATION.md`: build remoto auditable del dashboard.

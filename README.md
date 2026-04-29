@@ -5,7 +5,7 @@ generacion de predicciones operativas y publicacion de dashboards estaticos.
 
 ## Foco operativo
 
-- La unica linea activa de trabajo es `PythiaxEngine` sobre `GitHub + Neon + GitHub Pages`.
+- La unica linea activa de trabajo es `PythiaxEngine` sobre `GitHub + Supabase + GitHub Pages`.
 - La carpeta local `Claude/` es solo el nombre historico del working copy. No debe tratarse como un proyecto separado ni como fuente de verdad alternativa.
 - Cualquier analisis, mejora, correccion o auditoria debe hacerse contra el repo remoto `waltermosqueda/PythiaxEngine` y su pipeline cloud-first.
 - Solo se revisan dependencias locales o proyectos hermanos si aparece una rotura critica de migracion que bloquee la operacion cloud.
@@ -15,7 +15,7 @@ generacion de predicciones operativas y publicacion de dashboards estaticos.
 - `Python 3.12+`
 - `GitHub` para source control y CI/CD
 - `GitHub Actions` para pipeline batch diario
-- `Neon Postgres` como base de datos principal
+- `Supabase Postgres` como base de datos principal
 - `GitHub Pages` como bridge actual para dashboard 24/7
 - `Cloudflare Pages + R2` como target futuro para hosting y artefactos
 - `Docker` para ejecucion reproducible
@@ -25,7 +25,7 @@ generacion de predicciones operativas y publicacion de dashboards estaticos.
 - El proyecto ya esta versionado con `git`.
 - Existe scaffolding inicial de `SQLAlchemy + Alembic`.
 - La migracion cloud esta documentada en [`docs/cloud/`](docs/cloud/README.md).
-- El runtime actual ya puede leer desde `Neon Postgres`.
+- El runtime actual ya puede leer desde `Postgres` cloud via `DATABASE_URL`.
 - GitHub Actions ya puede bootstrapear una `SQLite` efimera desde `Postgres`
   para correr el pipeline diario sin depender de una PC local.
 - El bundle del dashboard ya se puede publicar 24/7 via `GitHub Pages`.
