@@ -6,8 +6,8 @@ from pathlib import Path
 from uuid import uuid4
 
 from herramientas.dashboard_paths import (
-    AURORA_PRO_HTML,
     C1_PRO_BUNDLE_HTML,
+    C1_PRO_TEMPLATE_HTML,
     EXECUTIVE_HTML,
     INDEX_HTML,
     LAB_HTML,
@@ -74,4 +74,4 @@ def test_stage_dashboard_site_creates_pages_ready_bundle() -> None:
 
 def test_dashboard_relative_href_supports_local_and_published_c1_pro() -> None:
     assert dashboard_relative_href(C1_PRO_BUNDLE_HTML, EXECUTIVE_HTML) == EXECUTIVE_HTML.name
-    assert dashboard_relative_href(AURORA_PRO_HTML, EXECUTIVE_HTML) == "../dashboards/maquina_pensante/tablero_maquina_pensante_executive.html"
+    assert dashboard_relative_href(C1_PRO_TEMPLATE_HTML, EXECUTIVE_HTML) == "../dashboards/maquina_pensante/tablero_maquina_pensante_executive.html"

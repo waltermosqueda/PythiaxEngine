@@ -29,8 +29,8 @@ if str(ROOT) not in sys.path:
 from herramientas.competencia_modelos import monitored_entries
 from herramientas.competencia_topn_estandar import build_standardized_competition_snapshot
 from herramientas.dashboard_paths import (
-    AURORA_PRO_HTML,
     C1_PRO_BUNDLE_HTML,
+    C1_PRO_TEMPLATE_HTML,
     DASHBOARD_DIR as OUTPUT_DIR,
     EXECUTIVE_HTML,
     INDEX_HTML,
@@ -262,15 +262,15 @@ def rewrite_dashboard_variant_hrefs(html_text: str, output_path: Path) -> str:
 
 
 def build_c1_pro_outputs() -> list[Path]:
-    if not AURORA_PRO_HTML.exists():
+    if not C1_PRO_TEMPLATE_HTML.exists():
         raise FileNotFoundError(
-            f"No existe la plantilla canonica de C1 Pro en {AURORA_PRO_HTML}. "
+            f"No existe la plantilla canonica de C1 Pro en {C1_PRO_TEMPLATE_HTML}. "
             "Restaurala antes de construir el bundle."
         )
 
     run_c1_pro_refresher()
 
-    local_html = AURORA_PRO_HTML.read_text(encoding="utf-8")
+    local_html = C1_PRO_TEMPLATE_HTML.read_text(encoding="utf-8")
     published_html = rewrite_dashboard_variant_hrefs(local_html, C1_PRO_BUNDLE_HTML)
     C1_PRO_BUNDLE_HTML.write_text(published_html, encoding="utf-8")
     return [C1_PRO_BUNDLE_HTML]
@@ -3649,7 +3649,7 @@ def build_pipeline_run_metadata(payload: dict[str, Any], written: list[Path], va
         "variant": variant,
         "written_files": [path.name for path in written],
         "published_entrypoint": C1_PRO_BUNDLE_HTML.name,
-        "local_c1_pro_path": str(AURORA_PRO_HTML.resolve()),
+        "local_c1_pro_path": str(C1_PRO_TEMPLATE_HTML.resolve()),
         "local_c1_pro_synced": os.getenv("GITHUB_ACTIONS") != "true",
         "active_version": payload.get("operational_context", {}).get("active_version"),
         "reference_version": payload.get("operational_context", {}).get("reference_version"),

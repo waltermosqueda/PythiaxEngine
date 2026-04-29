@@ -1,5 +1,5 @@
 """
-Build preview_c1_pro.html from dashboard_operativo_aurora_pro.html.
+Build preview_c1_pro.html from dashboard_operativo_c1_pro.html.
 v4 – cambios respecto a v3:
   • Ham button: movido al INTERIOR del sidebar (top), no en topbar
   • Collapsed sidebar: iconos monocromáticos (sin colores), ham como primer icono
@@ -30,7 +30,7 @@ from herramientas.dashboard_c1_contract import (
     liga_static_meta,
 )
 from herramientas.dashboard_paths import EXECUTIVE_HTML, INDEX_HTML, LAB_HTML, dashboard_relative_href
-BASE = ROOT / "dashboards" / "maquina_pensante" / "dashboard_operativo_aurora_pro.html"
+BASE = ROOT / "dashboards" / "maquina_pensante" / "dashboard_operativo_c1_pro.html"
 PROD_OUT = ROOT / "analisis" / "preview_c1_pro.html"
 STAGING_DIR = ROOT / "analisis" / "staging"
 DEFAULT_TEST_OUT = STAGING_DIR / "preview_c1_pro_test.html"
@@ -39,7 +39,7 @@ SNAP = ROOT / "dashboards" / "maquina_pensante" / "tablero_maquina_pensante_snap
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Construye C1 Pro desde Aurora Pro. Por defecto escribe a staging/test.",
+    description="Construye C1 Pro desde su base canonica. Por defecto escribe a staging/test.",
     )
     parser.add_argument(
         "--promote",

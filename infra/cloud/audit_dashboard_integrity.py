@@ -13,9 +13,11 @@ from analisis.generar_tablero_maquina_pensante import (
     render_executive,
     render_index,
     render_lab,
+    rewrite_dashboard_variant_hrefs,
     resolve_regime_label_from_db,
 )
-from herramientas.dashboard_paths import C1_PRO_BUNDLE_HTML, EXECUTIVE_HTML, INDEX_HTML, LAB_HTML, SNAPSHOT_PATH
+from herramientas.dashboard_paths import C1_PRO_BUNDLE_HTML, C1_PRO_TEMPLATE_HTML, EXECUTIVE_HTML, INDEX_HTML, LAB_HTML, SNAPSHOT_PATH
+from herramientas.refrescar_datos_dashboard import render_dashboard_html
 from herramientas.scanner_operativo_context import resolve_operational_scanner_context
 from infra.db.config import get_database_url
 from infra.db.migrate_sqlite_to_postgres import redact_url
@@ -132,13 +134,33 @@ def normalize_competition_row(row: dict[str, Any]) -> dict[str, Any]:
         "evaluated": int(row.get("evaluated") or 0),
         "accuracy_pct": normalize_float(row.get("accuracy_pct"), digits=4),
         "avg_return_pct": normalize_float(row.get("avg_return_pct"), digits=4),
+        "latest_snapshot_date": str(row.get("latest_snapshot_date")) if row.get("latest_snapshot_date") else None,
         "latest_target_date": str(row.get("latest_target_date")) if row.get("latest_target_date") else None,
         "latest_picks": int(row.get("latest_picks") or 0),
         "latest_tickers": [str(item) for item in row.get("latest_tickers") or []],
+        "latest_snapshot_signal_count": int(row.get("latest_snapshot_signal_count") or 0),
+        "snapshot_stale_market_days": row.get("snapshot_stale_market_days"),
         "stale_market_days": row.get("stale_market_days"),
         "recent_10": normalize_window(row.get("recent_10") or {}),
+        "recent_15": normalize_window(row.get("recent_15") or {}),
         "recent_30": normalize_window(row.get("recent_30") or {}),
     }
+
+
+def latest_calendar_entry_date(row: dict[str, Any], window_key: str) -> str | None:
+    calendar = ((row.get(window_key) or {}).get("calendar") or [])
+    if not calendar:
+        return None
+    last = calendar[-1] or {}
+    return str(last.get("date")) if last.get("date") else None
+
+
+def latest_calendar_entry_picks(row: dict[str, Any], window_key: str) -> int | None:
+    calendar = ((row.get(window_key) or {}).get("calendar") or [])
+    if not calendar:
+        return None
+    last = calendar[-1] or {}
+    return int(last.get("picks") or 0)
 
 
 def build_expected_active_from_db(db: RuntimeDB) -> dict[str, Any]:
@@ -285,7 +307,25 @@ def verify_active_run_invariants(
     failures: list[dict[str, Any]],
 ) -> None:
     active_run = ((snapshot.get("active") or {}).get("active_run") or {})
+    latest_market_date = str(((snapshot.get("integrity") or {}).get("latest_market_date") or ""))
+    record_check(
+        checks,
+        failures,
+        label="active.active_run.exists",
+        actual=bool(active_run),
+        expected=True,
+    )
+
     analyzed_date = str(active_run.get("analyzed_date") or "")
+    if latest_market_date:
+        record_check(
+            checks,
+            failures,
+            label="active.active_run.latest_market_date",
+            actual=analyzed_date or None,
+            expected=latest_market_date,
+        )
+
     prediction_for = active_run.get("prediction_for")
     if prediction_for is not None:
         record_check(
@@ -314,6 +354,102 @@ def verify_active_run_invariants(
         actual=stale_targets,
         expected=[],
     )
+
+
+def verify_competition_invariants(
+    snapshot: dict[str, Any],
+    expected_payload: dict[str, Any],
+    checks: list[dict[str, Any]],
+    failures: list[dict[str, Any]],
+) -> None:
+    published_rows = snapshot.get("competition") or []
+    expected_rows = expected_payload.get("competition") or []
+    published_map = {str(row.get("version")): row for row in published_rows}
+    expected_map = {str(row.get("version")): row for row in expected_rows}
+
+    published_versions = sorted(published_map)
+    expected_versions = sorted(expected_map)
+    record_check(
+        checks,
+        failures,
+        label="competition.versions",
+        actual=published_versions,
+        expected=expected_versions,
+    )
+
+    latest_market_date = str(((snapshot.get("integrity") or {}).get("latest_market_date") or ""))
+    if not latest_market_date:
+        return
+
+    for version in sorted(set(published_map) & set(expected_map)):
+        row = published_map[version]
+        expected_row = expected_map[version]
+
+        record_check(
+            checks,
+            failures,
+            label=f"competition[{version}].latest_snapshot_date_from_db",
+            actual=row.get("latest_snapshot_date"),
+            expected=expected_row.get("latest_snapshot_date"),
+        )
+        record_check(
+            checks,
+            failures,
+            label=f"competition[{version}].latest_snapshot_signal_count_from_db",
+            actual=int(row.get("latest_snapshot_signal_count") or 0),
+            expected=int(expected_row.get("latest_snapshot_signal_count") or 0),
+        )
+        record_check(
+            checks,
+            failures,
+            label=f"competition[{version}].latest_snapshot_date",
+            actual=row.get("latest_snapshot_date"),
+            expected=latest_market_date,
+        )
+        record_check(
+            checks,
+            failures,
+            label=f"competition[{version}].snapshot_stale_market_days",
+            actual=row.get("snapshot_stale_market_days"),
+            expected=0,
+        )
+        record_check(
+            checks,
+            failures,
+            label=f"competition[{version}].stale_market_days",
+            actual=row.get("stale_market_days"),
+            expected=0,
+        )
+        record_check(
+            checks,
+            failures,
+            label=f"competition[{version}].recent_15.latest_market_date",
+            actual=latest_calendar_entry_date(row, "recent_15"),
+            expected=latest_market_date,
+        )
+        record_check(
+            checks,
+            failures,
+            label=f"competition[{version}].recent_30.latest_market_date",
+            actual=latest_calendar_entry_date(row, "recent_30"),
+            expected=latest_market_date,
+        )
+
+        if row.get("latest_snapshot_date") == latest_market_date and int(row.get("latest_snapshot_signal_count") or 0) == 0:
+            record_check(
+                checks,
+                failures,
+                label=f"competition[{version}].recent_15.zero_signal_picks",
+                actual=latest_calendar_entry_picks(row, "recent_15"),
+                expected=0,
+            )
+            record_check(
+                checks,
+                failures,
+                label=f"competition[{version}].recent_30.zero_signal_picks",
+                actual=latest_calendar_entry_picks(row, "recent_30"),
+                expected=0,
+            )
 
 
 def compare_competition_sample(
@@ -384,6 +520,40 @@ def verify_dashboard_html(
             expected=expected_html,
         )
 
+    expected_preview_html: str | None = None
+    if not C1_PRO_TEMPLATE_HTML.exists():
+        failures.append(
+            {
+                "label": f"c1_template_file[{C1_PRO_TEMPLATE_HTML.name}]",
+                "actual": "missing",
+                "expected": "exists",
+            }
+        )
+    else:
+        template_html = C1_PRO_TEMPLATE_HTML.read_text(encoding="utf-8")
+        try:
+            expected_template_html = render_dashboard_html(template_html, snapshot, verbose=False)
+        except ValueError as exc:
+            failures.append(
+                {
+                    "label": f"c1_template_file[{C1_PRO_TEMPLATE_HTML.name}]",
+                    "actual": "unrenderable",
+                    "expected": str(exc),
+                }
+            )
+        else:
+            record_check(
+                checks,
+                failures,
+                label=f"c1_template_file[{C1_PRO_TEMPLATE_HTML.name}]",
+                actual=template_html,
+                expected=expected_template_html,
+            )
+            expected_preview_html = rewrite_dashboard_variant_hrefs(
+                expected_template_html,
+                dashboard_dir / C1_PRO_BUNDLE_HTML.name,
+            )
+
     preview_path = dashboard_dir / C1_PRO_BUNDLE_HTML.name
     if not preview_path.exists():
         failures.append(
@@ -395,22 +565,13 @@ def verify_dashboard_html(
         )
         return
 
-    preview_html = preview_path.read_text(encoding="utf-8")
-    active_run = (snapshot.get("active") or {}).get("active_run") or {}
-    needles = [
-        str((snapshot.get("integrity") or {}).get("latest_market_date") or ""),
-        str(active_run.get("prediction_for") or ""),
-    ]
-    live_results = (active_run.get("results_d") or []) + (active_run.get("results_e") or [])
-    if live_results:
-        needles.append(str(live_results[0].get("ticker") or ""))
-    for needle in [value for value in needles if value]:
-        record_contains(
+    if expected_preview_html is not None:
+        record_check(
             checks,
             failures,
-            label=f"dashboard_file[{C1_PRO_BUNDLE_HTML.name}] contains {needle}",
-            text=preview_html,
-            needle=needle,
+            label=f"dashboard_file[{C1_PRO_BUNDLE_HTML.name}]",
+            actual=preview_path.read_text(encoding="utf-8"),
+            expected=expected_preview_html,
         )
 
 
@@ -449,6 +610,27 @@ def verify_site_bundle(
         actual=read_json(staged_snapshot_path),
         expected=snapshot,
     )
+
+    entrypoint_path = site_dir / ENTRYPOINT_NAME
+    preview_path = dashboard_dir / C1_PRO_BUNDLE_HTML.name
+    if not entrypoint_path.exists():
+        failures.append({"label": f"site_file[{ENTRYPOINT_NAME}]", "actual": "missing", "expected": "exists"})
+    elif not preview_path.exists():
+        failures.append(
+            {
+                "label": f"dashboard_file[{C1_PRO_BUNDLE_HTML.name}]",
+                "actual": "missing",
+                "expected": "exists for site comparison",
+            }
+        )
+    else:
+        record_check(
+            checks,
+            failures,
+            label=f"site_file[{ENTRYPOINT_NAME}]",
+            actual=entrypoint_path.read_text(encoding="utf-8"),
+            expected=preview_path.read_text(encoding="utf-8"),
+        )
 
     for file_name in [SNAPSHOT_PATH.name, INDEX_HTML.name, EXECUTIVE_HTML.name, LAB_HTML.name, C1_PRO_BUNDLE_HTML.name]:
         site_path = site_dir / file_name
@@ -513,6 +695,7 @@ def audit_dashboard_integrity(
     compare_integrity(snapshot, expected_payload, checks, failures)
     compare_active(snapshot, expected_active, checks, failures)
     verify_active_run_invariants(snapshot, checks, failures)
+    verify_competition_invariants(snapshot, expected_payload, checks, failures)
     sampled_versions = compare_competition_sample(
         snapshot,
         expected_payload,

@@ -8,8 +8,9 @@ from uuid import uuid4
 
 import analisis.generar_tablero_maquina_pensante as dashboard
 import herramientas.competencia_topn_estandar as competition_topn
+import herramientas.refrescar_datos_dashboard as refresher
 import infra.cloud.audit_dashboard_integrity as integrity_audit
-from herramientas.dashboard_paths import C1_PRO_BUNDLE_HTML, EXECUTIVE_HTML, INDEX_HTML, LAB_HTML, MANIFEST_PATH, SNAPSHOT_PATH
+from herramientas.dashboard_paths import C1_PRO_BUNDLE_HTML, C1_PRO_TEMPLATE_HTML, EXECUTIVE_HTML, INDEX_HTML, LAB_HTML, MANIFEST_PATH, SNAPSHOT_PATH
 from herramientas.scanner_operativo_context import OperationalScannerContext
 from infra.db.migrate_sqlite_to_postgres import sqlite_path_to_url
 from infra.publish.dashboard_site import stage_dashboard_site
@@ -114,11 +115,47 @@ def seed_dashboard_db(db_path: Path, market_dates: list[str]) -> None:
         con.commit()
 
 
+def seed_model_run_snapshots(db_path: Path, monitored: list[dict[str, str]], analyzed_date: str) -> None:
+    with TitanDB(db_path=str(db_path)) as db:
+        for entry in monitored:
+            payload = {
+                "analyzed_date": analyzed_date,
+                "prediction_for": analyzed_date,
+                "freshness": "AL DIA",
+                "regime_label": "SEGURO",
+                "breadth_pct": 0.0,
+                "results_d": [],
+                "results_e": [],
+            }
+            db.save_model_run_snapshot(
+                model_key=str(entry["label"]),
+                model_name=str(entry["prefix"]),
+                model_version=str(entry["label"]).lower(),
+                role=str(entry["role"]),
+                analyzed_date=analyzed_date,
+                prediction_for=analyzed_date,
+                freshness="AL DIA",
+                regime_label="SEGURO",
+                breadth_pct=0.0,
+                signal_count=0,
+                snapshot_payload=payload,
+            )
+
+
+def write_human_dashboard_artifacts(payload: dict[str, object], dashboard_dir: Path, template_path: Path) -> None:
+    template_html = C1_PRO_TEMPLATE_HTML.read_text(encoding="utf-8")
+    rendered_html = refresher.render_dashboard_html(template_html, payload, verbose=False)
+    template_path.write_text(rendered_html, encoding="utf-8")
+    published_html = dashboard.rewrite_dashboard_variant_hrefs(rendered_html, dashboard_dir / C1_PRO_BUNDLE_HTML.name)
+    (dashboard_dir / C1_PRO_BUNDLE_HTML.name).write_text(published_html, encoding="utf-8")
+
+
 def test_audit_dashboard_integrity_passes_for_db_snapshot_and_site(monkeypatch) -> None:
     tmp_dir = make_workspace_tmp_dir()
     db_path = tmp_dir / "dashboard.db"
     dashboard_dir = tmp_dir / "dashboard"
     site_dir = tmp_dir / "site"
+    template_path = tmp_dir / C1_PRO_TEMPLATE_HTML.name
     dashboard_dir.mkdir(parents=True, exist_ok=True)
     try:
         market_dates = business_days(date(2026, 3, 2), 35)
@@ -147,11 +184,11 @@ def test_audit_dashboard_integrity_passes_for_db_snapshot_and_site(monkeypatch) 
             {"key": "V13", "label": "V13", "role": "activo", "prefix": "INVERTIR_V13"},
             {"key": "V12", "label": "V12", "role": "referencia", "prefix": "INVERTIR_V12"},
         ]
+        seed_model_run_snapshots(db_path, monitored, market_dates[-1])
         monkeypatch.setattr(dashboard, "resolve_operational_scanner_context", lambda: context)
         monkeypatch.setattr(competition_topn, "monitored_entries", lambda: monitored)
-        monkeypatch.setattr(competition_topn, "load_entry_snapshots", lambda con, entry: {})
-        monkeypatch.setattr(competition_topn, "load_entry_snapshot_rows", lambda con, entry: [])
         monkeypatch.setattr(integrity_audit, "resolve_operational_scanner_context", lambda: context)
+        monkeypatch.setattr(integrity_audit, "C1_PRO_TEMPLATE_HTML", template_path)
 
         payload = dashboard.build_dashboard_payload(database_url=database_url)
         snapshot_path = dashboard_dir / SNAPSHOT_PATH.name
@@ -159,18 +196,7 @@ def test_audit_dashboard_integrity_passes_for_db_snapshot_and_site(monkeypatch) 
         (dashboard_dir / INDEX_HTML.name).write_text(dashboard.render_index(payload), encoding="utf-8")
         (dashboard_dir / EXECUTIVE_HTML.name).write_text(dashboard.render_executive(payload), encoding="utf-8")
         (dashboard_dir / LAB_HTML.name).write_text(dashboard.render_lab(payload), encoding="utf-8")
-
-        active_run = (payload.get("active") or {}).get("active_run") or {}
-        live_results = (active_run.get("results_d") or []) + (active_run.get("results_e") or [])
-        live_ticker = live_results[0]["ticker"] if live_results else "-"
-        preview_html = (
-            "<html><body>"
-            f"market {payload['integrity']['latest_market_date']} "
-            f"target {active_run.get('prediction_for')} "
-            f"ticker {live_ticker}"
-            "</body></html>\n"
-        )
-        (dashboard_dir / C1_PRO_BUNDLE_HTML.name).write_text(preview_html, encoding="utf-8")
+        write_human_dashboard_artifacts(payload, dashboard_dir, template_path)
         (dashboard_dir / MANIFEST_PATH.name).write_text(
             json.dumps(
                 {
@@ -209,6 +235,7 @@ def test_audit_dashboard_integrity_flags_stale_live_target_dates(monkeypatch) ->
     db_path = tmp_dir / "dashboard.db"
     dashboard_dir = tmp_dir / "dashboard"
     site_dir = tmp_dir / "site"
+    template_path = tmp_dir / C1_PRO_TEMPLATE_HTML.name
     dashboard_dir.mkdir(parents=True, exist_ok=True)
     try:
         market_dates = business_days(date(2026, 3, 2), 35)
@@ -237,11 +264,11 @@ def test_audit_dashboard_integrity_flags_stale_live_target_dates(monkeypatch) ->
             {"key": "V13", "label": "V13", "role": "activo", "prefix": "INVERTIR_V13"},
             {"key": "V12", "label": "V12", "role": "referencia", "prefix": "INVERTIR_V12"},
         ]
+        seed_model_run_snapshots(db_path, monitored, market_dates[-1])
         monkeypatch.setattr(dashboard, "resolve_operational_scanner_context", lambda: context)
         monkeypatch.setattr(competition_topn, "monitored_entries", lambda: monitored)
-        monkeypatch.setattr(competition_topn, "load_entry_snapshots", lambda con, entry: {})
-        monkeypatch.setattr(competition_topn, "load_entry_snapshot_rows", lambda con, entry: [])
         monkeypatch.setattr(integrity_audit, "resolve_operational_scanner_context", lambda: context)
+        monkeypatch.setattr(integrity_audit, "C1_PRO_TEMPLATE_HTML", template_path)
 
         payload = dashboard.build_dashboard_payload(database_url=database_url)
         active_run = (payload.get("active") or {}).get("active_run") or {}
@@ -260,7 +287,7 @@ def test_audit_dashboard_integrity_flags_stale_live_target_dates(monkeypatch) ->
         (dashboard_dir / INDEX_HTML.name).write_text(dashboard.render_index(payload), encoding="utf-8")
         (dashboard_dir / EXECUTIVE_HTML.name).write_text(dashboard.render_executive(payload), encoding="utf-8")
         (dashboard_dir / LAB_HTML.name).write_text(dashboard.render_lab(payload), encoding="utf-8")
-        (dashboard_dir / C1_PRO_BUNDLE_HTML.name).write_text("<html><body>test</body></html>\n", encoding="utf-8")
+        write_human_dashboard_artifacts(payload, dashboard_dir, template_path)
         (dashboard_dir / MANIFEST_PATH.name).write_text(
             json.dumps(
                 {
@@ -289,6 +316,169 @@ def test_audit_dashboard_integrity_flags_stale_live_target_dates(monkeypatch) ->
         assert report["checks_failed"] >= 1
         assert any(
             failure["label"] == "active.active_run.target_dates_not_before_analyzed_date"
+            for failure in report["failures"]
+        )
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_audit_dashboard_integrity_flags_site_entrypoint_drift(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    db_path = tmp_dir / "dashboard.db"
+    dashboard_dir = tmp_dir / "dashboard"
+    site_dir = tmp_dir / "site"
+    template_path = tmp_dir / C1_PRO_TEMPLATE_HTML.name
+    dashboard_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        market_dates = business_days(date(2026, 3, 2), 35)
+        seed_dashboard_db(db_path, market_dates)
+        database_url = sqlite_path_to_url(db_path)
+
+        context = OperationalScannerContext(
+            active_entry_id="v13",
+            active_version=13,
+            active_scanner=Path("SCANNER/invertir_v13.py"),
+            reference_version=12,
+            reference_scanner=Path("SCANNER/invertir_v12.py"),
+            base_learning=Path("herramientas/aprendizaje_operativo_v11.py"),
+            reference_learning=Path("herramientas/aprendizaje_operativo_v12.py"),
+            active_learning=Path("herramientas/aprendizaje_operativo_v13.py"),
+            learning_chain=(
+                Path("herramientas/aprendizaje_operativo_v11.py"),
+                Path("herramientas/aprendizaje_operativo_v12.py"),
+                Path("herramientas/aprendizaje_operativo_v13.py"),
+            ),
+            observed_versions=(),
+            observed_scanners=(),
+            observed_learning_chain=(),
+        )
+        monitored = [
+            {"key": "V13", "label": "V13", "role": "activo", "prefix": "INVERTIR_V13"},
+            {"key": "V12", "label": "V12", "role": "referencia", "prefix": "INVERTIR_V12"},
+        ]
+        seed_model_run_snapshots(db_path, monitored, market_dates[-1])
+        monkeypatch.setattr(dashboard, "resolve_operational_scanner_context", lambda: context)
+        monkeypatch.setattr(competition_topn, "monitored_entries", lambda: monitored)
+        monkeypatch.setattr(integrity_audit, "resolve_operational_scanner_context", lambda: context)
+        monkeypatch.setattr(integrity_audit, "C1_PRO_TEMPLATE_HTML", template_path)
+
+        payload = dashboard.build_dashboard_payload(database_url=database_url)
+        snapshot_path = dashboard_dir / SNAPSHOT_PATH.name
+        snapshot_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+        (dashboard_dir / INDEX_HTML.name).write_text(dashboard.render_index(payload), encoding="utf-8")
+        (dashboard_dir / EXECUTIVE_HTML.name).write_text(dashboard.render_executive(payload), encoding="utf-8")
+        (dashboard_dir / LAB_HTML.name).write_text(dashboard.render_lab(payload), encoding="utf-8")
+        write_human_dashboard_artifacts(payload, dashboard_dir, template_path)
+        (dashboard_dir / MANIFEST_PATH.name).write_text(
+            json.dumps(
+                {
+                    "generated_at": payload["generated_at"],
+                    "artifact_count": 5,
+                    "build": payload["build"],
+                    "artifacts": [],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        stage_dashboard_site(dashboard_dir, site_dir)
+        (site_dir / "index.html").write_text("<html><body>stale site</body></html>\n", encoding="utf-8")
+
+        report = integrity_audit.audit_dashboard_integrity(
+            database_url=database_url,
+            snapshot_path=snapshot_path,
+            dashboard_dir=dashboard_dir,
+            site_dir=site_dir,
+            sample_size=2,
+            seed=7,
+            report_path=tmp_dir / "dashboard_integrity_audit.json",
+        )
+
+        assert report["checks_failed"] >= 1
+        assert any(
+            failure["label"] == "site_file[index.html]"
+            for failure in report["failures"]
+        )
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_audit_dashboard_integrity_flags_stale_competition_snapshots(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    db_path = tmp_dir / "dashboard.db"
+    dashboard_dir = tmp_dir / "dashboard"
+    site_dir = tmp_dir / "site"
+    template_path = tmp_dir / C1_PRO_TEMPLATE_HTML.name
+    dashboard_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        market_dates = business_days(date(2026, 3, 2), 35)
+        seed_dashboard_db(db_path, market_dates)
+        database_url = sqlite_path_to_url(db_path)
+
+        context = OperationalScannerContext(
+            active_entry_id="v13",
+            active_version=13,
+            active_scanner=Path("SCANNER/invertir_v13.py"),
+            reference_version=12,
+            reference_scanner=Path("SCANNER/invertir_v12.py"),
+            base_learning=Path("herramientas/aprendizaje_operativo_v11.py"),
+            reference_learning=Path("herramientas/aprendizaje_operativo_v12.py"),
+            active_learning=Path("herramientas/aprendizaje_operativo_v13.py"),
+            learning_chain=(
+                Path("herramientas/aprendizaje_operativo_v11.py"),
+                Path("herramientas/aprendizaje_operativo_v12.py"),
+                Path("herramientas/aprendizaje_operativo_v13.py"),
+            ),
+            observed_versions=(),
+            observed_scanners=(),
+            observed_learning_chain=(),
+        )
+        monitored = [
+            {"key": "V13", "label": "V13", "role": "activo", "prefix": "INVERTIR_V13"},
+            {"key": "V12", "label": "V12", "role": "referencia", "prefix": "INVERTIR_V12"},
+        ]
+        seed_model_run_snapshots(db_path, monitored, market_dates[-2])
+        monkeypatch.setattr(dashboard, "resolve_operational_scanner_context", lambda: context)
+        monkeypatch.setattr(competition_topn, "monitored_entries", lambda: monitored)
+        monkeypatch.setattr(integrity_audit, "resolve_operational_scanner_context", lambda: context)
+        monkeypatch.setattr(integrity_audit, "C1_PRO_TEMPLATE_HTML", template_path)
+
+        payload = dashboard.build_dashboard_payload(database_url=database_url)
+        snapshot_path = dashboard_dir / SNAPSHOT_PATH.name
+        snapshot_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+        (dashboard_dir / INDEX_HTML.name).write_text(dashboard.render_index(payload), encoding="utf-8")
+        (dashboard_dir / EXECUTIVE_HTML.name).write_text(dashboard.render_executive(payload), encoding="utf-8")
+        (dashboard_dir / LAB_HTML.name).write_text(dashboard.render_lab(payload), encoding="utf-8")
+        write_human_dashboard_artifacts(payload, dashboard_dir, template_path)
+        (dashboard_dir / MANIFEST_PATH.name).write_text(
+            json.dumps(
+                {
+                    "generated_at": payload["generated_at"],
+                    "artifact_count": 5,
+                    "build": payload["build"],
+                    "artifacts": [],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        stage_dashboard_site(dashboard_dir, site_dir)
+
+        report = integrity_audit.audit_dashboard_integrity(
+            database_url=database_url,
+            snapshot_path=snapshot_path,
+            dashboard_dir=dashboard_dir,
+            site_dir=site_dir,
+            sample_size=2,
+            seed=7,
+            report_path=tmp_dir / "dashboard_integrity_audit.json",
+        )
+
+        assert report["checks_failed"] >= 1
+        assert any(
+            failure["label"] in {"active.active_run.latest_market_date", "competition[V12].latest_snapshot_date", "competition[V13].latest_snapshot_date"}
             for failure in report["failures"]
         )
     finally:

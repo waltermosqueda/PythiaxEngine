@@ -38,6 +38,7 @@ ALERTS_DIR = BASE_DIR / "aprendizaje_operativo" / "alerts"
 VALIDATE_SCRIPT = BASE_DIR / "herramientas" / "validate_market_data.py"
 GESTOR_SCRIPT = BASE_DIR / "herramientas" / "gestor_posiciones_v11.py"
 AUDIT_SCRIPT = BASE_DIR / "herramientas" / "auditoria_integral_claude.py"
+DASHBOARD_INTEGRITY_SCRIPT = BASE_DIR / "infra" / "cloud" / "audit_dashboard_integrity.py"
 DASHBOARD_SCRIPT = BASE_DIR / "analisis" / "generar_tablero_maquina_pensante.py"
 MODEL_FRESHNESS_REPORT = BASE_DIR / "docs" / "cloud" / "reports" / "model_snapshot_freshness.json"
 MARKET_CLOSE_HOUR = 19
@@ -565,6 +566,22 @@ def refrescar_dashboard(fecha_base: date) -> bool:
     )
 
 
+def auditar_integridad_dashboard(fecha_base: date) -> bool:
+    if not DASHBOARD_INTEGRITY_SCRIPT.exists():
+        emit_critical_alert(
+            code="dashboard_integrity_script_missing",
+            summary="No se encontro la auditoria canonica del dashboard.",
+            details={"dashboard_integrity_script": str(DASHBOARD_INTEGRITY_SCRIPT)},
+        )
+        print(f"  [ERROR] No existe la auditoria canonica del dashboard: {DASHBOARD_INTEGRITY_SCRIPT}")
+        return False
+    return ejecutar_paso(
+        "dashboard_integrity",
+        [sys.executable, str(DASHBOARD_INTEGRITY_SCRIPT)],
+        fecha_base,
+    )
+
+
 def ejecutar_publicacion_liviana(fecha_base: date) -> bool:
     print("\n  Reusando snapshots vigentes; se omite recomputo pesado y se refresca publicacion.\n")
     log.info(
@@ -576,6 +593,9 @@ def ejecutar_publicacion_liviana(fecha_base: date) -> bool:
         return False
 
     if not refrescar_dashboard(fecha_base):
+        return False
+
+    if not auditar_integridad_dashboard(fecha_base):
         return False
 
     auditoria_ok = ejecutar_paso_opcional(
@@ -718,11 +738,14 @@ def ejecutar_pipeline_diario(fecha_base: date, ahora: datetime) -> bool:
     # Segundo refresh para incorporar tambien lo que hayan agregado los modelos
     # observados/legacy si llegaron a completarse en esta misma corrida.
 
-    # Refresco de datos dinámicos en dashboard_operativo_aurora_pro.html (heatmap + liga)
+    # Refresco de datos dinámicos en la plantilla canonica C1 Pro (heatmap + liga)
     if not validate_model_snapshot_freshness(fecha_base):
         return False
 
     if not refrescar_dashboard(fecha_base):
+        return False
+
+    if not auditar_integridad_dashboard(fecha_base):
         return False
 
     auditoria_ok = ejecutar_paso_opcional(

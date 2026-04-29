@@ -50,7 +50,7 @@ from herramientas.competencia_topn_estandar import (
     extract_ranked_snapshot_picks,
     load_entry_snapshots,
 )
-from herramientas.dashboard_paths import AURORA_PRO_HTML, INDEX_HTML as TABLERO_INDEX_PATH, SNAPSHOT_PATH as TABLERO_SNAPSHOT_PATH
+from herramientas.dashboard_paths import C1_PRO_TEMPLATE_HTML, INDEX_HTML as TABLERO_INDEX_PATH, SNAPSHOT_PATH as TABLERO_SNAPSHOT_PATH
 from infra.db.runtime import connect_runtime_db, require_cloud_database_runtime
 
 REPORTS_DIR = ROOT / "analisis" / "auditorias"
@@ -760,10 +760,10 @@ def check_dashboard_freshness() -> AuditResult:
     details = [
         f"snapshot = {relative(TABLERO_SNAPSHOT_PATH) if TABLERO_SNAPSHOT_PATH.exists() else '-'}",
         f"html = {relative(TABLERO_INDEX_PATH) if TABLERO_INDEX_PATH.exists() else '-'}",
-        f"aurora = {relative(AURORA_PRO_HTML) if AURORA_PRO_HTML.exists() else '-'}",
+        f"c1_template = {relative(C1_PRO_TEMPLATE_HTML) if C1_PRO_TEMPLATE_HTML.exists() else '-'}",
     ]
 
-    if not TABLERO_SNAPSHOT_PATH.exists() or not TABLERO_INDEX_PATH.exists() or not AURORA_PRO_HTML.exists():
+    if not TABLERO_SNAPSHOT_PATH.exists() or not TABLERO_INDEX_PATH.exists() or not C1_PRO_TEMPLATE_HTML.exists():
         return AuditResult(
             "Tablero maquina pensante",
             "FAIL",

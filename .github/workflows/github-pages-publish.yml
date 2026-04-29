@@ -21,6 +21,11 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PYTHIAX_COMMIT_SHA: ${{ github.sha }}
+      PYTHIAX_RUN_ID: ${{ github.run_id }}
+      PYTHIAX_RUN_ATTEMPT: ${{ github.run_attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -28,46 +33,47 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Validate required secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret is missing."
+            exit 1
+          fi
+
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      - name: Validate committed cloud dashboard artifacts
+      - name: Install dependencies
         run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
 
-          snapshot_path = Path("dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json")
-          if not snapshot_path.exists():
-              raise SystemExit(f"Missing dashboard snapshot: {snapshot_path}")
-
-          payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
-          build = payload.get("build") or {}
-          db_backend = str(build.get("db_backend") or "")
-          active = (payload.get("active") or {}).get("active_run") or {}
-
-          if not db_backend.startswith("postgres"):
-              raise SystemExit(
-                  f"Refusing to publish non-cloud dashboard artifacts. db_backend={db_backend!r}"
-              )
-          if active.get("source") != "snapshot_db":
-              raise SystemExit(
-                  f"Refusing to publish artifacts built from fallback data. active_run.source={active.get('source')!r}"
-              )
-
-          print(json.dumps({
-              "snapshot": str(snapshot_path),
-              "db_backend": db_backend,
-              "active_run_source": active.get("source"),
-              "generated_at": payload.get("generated_at"),
-              "latest_market_date": (payload.get("integrity") or {}).get("latest_market_date"),
-          }, indent=2, ensure_ascii=False))
-          PY
+      - name: Build dashboard bundle
+        run: python analisis/generar_tablero_maquina_pensante.py --variant all
 
       - name: Stage GitHub Pages site
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
+
+      - name: Run integrity audit
+        run: |
+          python -m infra.cloud.audit_dashboard_integrity \
+            --snapshot-path dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json \
+            --dashboard-dir dashboards/maquina_pensante \
+            --site-dir dist/github-pages \
+            --sample-size 5 \
+            --seed 130013 \
+            --report-path docs/cloud/reports/dashboard_integrity_audit.json
+
+      - name: Validate generated bundle
+        run: |
+          test -f dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
+          test -f dashboards/maquina_pensante/tablero_maquina_pensante.html
+          test -f dashboards/maquina_pensante/tablero_maquina_pensante_executive.html
+          test -f dashboards/maquina_pensante/tablero_maquina_pensante_lab.html
+          test -f dashboards/maquina_pensante/preview_c1_pro.html
+          test -f dashboards/maquina_pensante/tablero_maquina_pensante_artifact_manifest.json
 
       - name: Validate staged site
         run: |
@@ -89,6 +95,7 @@ jobs:
           retention-days: 30
           path: |
             dashboards/maquina_pensante/
+            docs/cloud/reports/dashboard_integrity_audit.json
             dist/github-pages/
             dist/github-pages/site_bundle_manifest.json
 

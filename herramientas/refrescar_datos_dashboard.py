@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Refresca el dashboard Aurora Pro canonico a partir del snapshot JSON.
+Refresca la plantilla canonica C1 Pro a partir del snapshot JSON.
 Se invoca al final del pipeline diario (auto_actualizar.py).
 
 Qué hace:
   - Reemplaza heatmap, liga y cards visibles con datos frescos del snapshot auditado
-  - Mantiene la UI Aurora Pro sin cambios visuales intencionales
+    - Mantiene la UI C1 Pro sin cambios visuales intencionales
   - NO toca estilos, temas, editor ni ningún otro componente de UI
 
 Uso standalone:
@@ -21,7 +21,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 ROOT      = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from herramientas.dashboard_paths import AURORA_PRO_HTML as DASHBOARD, SNAPSHOT_PATH as SNAPSHOT, ensure_dashboard_dir
+from herramientas.dashboard_paths import C1_PRO_TEMPLATE_HTML as DASHBOARD, SNAPSHOT_PATH as SNAPSHOT, ensure_dashboard_dir
 from herramientas.dashboard_c1_contract import (
     MARK_CSS_E,
     MARK_CSS_S,
@@ -84,10 +84,18 @@ HEATMAP_CSS = """
 .hm-meta{font-size:8px;color:inherit;opacity:.78;margin-top:2px;line-height:1.1;display:none}
 .hm-table td:hover .hm-meta{display:block}
 .hm-empty .hm-ret{color:var(--muted);font-weight:400}
+.hm-no-signal{border:1px dashed rgba(255,255,255,0.14)!important;background:rgba(255,255,255,0.03)!important}
+.hm-no-signal .hm-ret{color:var(--muted);font-weight:700}
+.hm-no-signal .hm-meta{display:block;color:var(--muted);opacity:.82}
+.hm-stale-gap{border:1px solid rgba(252,92,125,0.35)!important;background:rgba(252,92,125,0.08)!important}
+.hm-stale-gap .hm-ret{color:#f05070;font-weight:800}
+.hm-stale-gap .hm-meta{display:block;color:#f6a6b4;opacity:.9}
 .hm-pos .hm-ret{color:#1fcc80}
 .hm-neg .hm-ret{color:#f05070}
 body.theme-white .hm-pos .hm-ret{color:#0a8060}
 body.theme-white .hm-neg .hm-ret{color:#c0203a}
+body.theme-white .hm-no-signal{border-color:rgba(10,24,40,0.12)!important;background:rgba(10,24,40,0.03)!important}
+body.theme-white .hm-stale-gap{border-color:rgba(192,32,58,0.28)!important;background:rgba(192,32,58,0.08)!important}
 /* summary row */
 .hm-table tr.hm-summary th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding-top:8px}
 .hm-table tr.hm-summary td{border-radius:6px;font-size:10px;font-weight:700;padding:6px 3px;text-align:center;background:rgba(255,255,255,0.04);border-top:1px solid rgba(255,255,255,0.08)}
@@ -740,11 +748,21 @@ def _render_overlap_table_content(snap: dict) -> str:
     def _cell_bg(v: float) -> str:
         return f"rgba(24,232,200,{round(0.08 + v * 0.55, 2)})"
 
+    def _render_cell(value: object) -> str:
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return "<td class='om-missing'>--</td>"
+        return f"<td style='background:{_cell_bg(numeric)}'>{numeric:.2f}</td>"
+
     header = "<thead><tr><th></th>" + "".join(f"<th>{_esc(lbl)}</th>" for lbl in labels) + "</tr></thead>"
     rows = []
     for i, row_vals in enumerate(matrix):
         lbl = labels[i] if i < len(labels) else str(i)
-        cells = "".join(f"<td style='background:{_cell_bg(float(v))}'>{float(v):.2f}</td>" for v in row_vals)
+        values = list(row_vals) if isinstance(row_vals, (list, tuple)) else []
+        if len(values) < len(labels):
+            values.extend([None] * (len(labels) - len(values)))
+        cells = "".join(_render_cell(value) for value in values[: len(labels)])
         rows.append(f"<tr><th class='om-label'>{_esc(lbl)}</th>{cells}</tr>")
     return header + "<tbody>" + "".join(rows) + "</tbody>"
 
@@ -955,6 +973,7 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str]) ->
         ver  = r.get("version", "")
         role = r.get("role", "")
         icon = "🏆" if role == "activo" else ROLE_ICON.get(role, role[:3].upper())
+        latest_snapshot_date = str(r.get("latest_snapshot_date") or "")
         cmap = {c["date"]: c for c in ((r.get("recent_30") or {}).get("calendar") or [])}
         cells = f"<th class='hm-label'><span class='hm-v'>{_esc(ver)}</span><span class='hm-rl'>{icon}</span></th>"
         for d in dates:
@@ -964,6 +983,24 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str]) ->
             picks = it.get("picks", 0)
             tks   = ", ".join(it.get("tickers") or [])
             is_prov = bool(it.get("is_provisional", False))
+            if ret is None and not picks:
+                if latest_snapshot_date and d <= latest_snapshot_date:
+                    tip_none = _esc(f"{ver} · {d} | 0 picks | snapshot fresco sin señal")
+                    cells += (
+                        f"<td class='hm-no-signal' data-tip='{tip_none}'>"
+                        "<div class='hm-ret'>0p</div>"
+                        "<div class='hm-meta'>sin señal</div>"
+                        "</td>"
+                    )
+                else:
+                    tip_gap = _esc(f"{ver} · {d} | sin snapshot fresco para esta rueda")
+                    cells += (
+                        f"<td class='hm-stale-gap' data-tip='{tip_gap}'>"
+                        "<div class='hm-ret'>!</div>"
+                        "<div class='hm-meta'>stale</div>"
+                        "</td>"
+                    )
+                continue
             if ret is None and picks:
                 tip_cur = _esc(f"{ver} {d} | {picks} picks activos | {tks} | retorno pendiente")
                 cells += (
@@ -1041,7 +1078,12 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str]) ->
                     )
                 else:
                     tip_next = _esc(f"{ver} {pd} | sin picks activos | sin posiciones abiertas")
-                    cells += f"<td class='hm-today hm-today-empty' data-tip='{tip_next}'><div class='hm-ret'>\u2014</div></td>"
+                    cells += (
+                        f"<td class='hm-today hm-today-empty hm-no-signal' data-tip='{tip_next}'>"
+                        "<div class='hm-ret'>0▸</div>"
+                        "<div class='hm-meta'>sin posición</div>"
+                        "</td>"
+                    )
             else:
                 cells += "<td class='hm-pending'><div class='hm-ret'>\u2014</div></td>"
         body_rows += f"<tr>{cells}</tr>"
@@ -1051,14 +1093,21 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str]) ->
     tfoot_cells = "<th class='hm-label'><span class='hm-v'>avg/día</span><span class='hm-rl'>Σ</span></th>"
     # pre-build cmaps for all models once
     all_cmaps = [{c["date"]: c for c in ((r.get("recent_30") or {}).get("calendar") or [])} for r in focus]
+    latest_snapshot_dates = [str(r.get("latest_snapshot_date") or "") for r in focus]
     for d in dates:
         day_rets: list[float] = []
         day_wrs:  list[float] = []
         pending_models = 0
         has_picks = False
-        for cmap_r in all_cmaps:
+        covered_models = 0
+        stale_models = 0
+        for cmap_r, latest_snapshot_date in zip(all_cmaps, latest_snapshot_dates, strict=False):
             it = cmap_r.get(d, {})
             picks = it.get("picks", 0) or 0
+            if latest_snapshot_date and d <= latest_snapshot_date:
+                covered_models += 1
+            elif latest_snapshot_date:
+                stale_models += 1
             if picks > 0:
                 has_picks = True
                 ret = it.get("avg_return_pct")
@@ -1070,7 +1119,20 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str]) ->
                     if acc is not None:
                         day_wrs.append(float(acc))
         if not has_picks:
-            tfoot_cells += "<td class='hm-empty'><div class='hm-ret'>—</div></td>"
+            if covered_models and stale_models == 0:
+                tfoot_cells += (
+                    "<td class='hm-no-signal'>"
+                    "<div class='hm-ret'>0p</div>"
+                    "<div class='hm-meta'>sin señal</div>"
+                    "</td>"
+                )
+            else:
+                tfoot_cells += (
+                    "<td class='hm-stale-gap'>"
+                    "<div class='hm-ret'>!</div>"
+                    "<div class='hm-meta'>stale</div>"
+                    "</td>"
+                )
         elif day_rets:
             avg_ret = sum(day_rets) / len(day_rets)
             avg_wr  = sum(day_wrs)  / len(day_wrs) if day_wrs else None
@@ -1962,21 +2024,25 @@ def _wrap_marker_block(
     marker_s: str,
     marker_e: str,
     label: str,
+    *,
+    verbose: bool = True,
 ) -> tuple[str, bool]:
     html = _strip_marker_pair(html, marker_s, marker_e)
     match = re.search(pattern, html, flags=re.S)
     if not match:
-        print(f"  [markers] WARNING: {label} anchor not found, markers NOT added")
+        if verbose:
+            print(f"  [markers] WARNING: {label} anchor not found, markers NOT added")
         return html, False
     inner = match.group(2).strip("\n")
     replacement = match.group(1) + "\n" + marker_s + "\n" + inner + "\n" + marker_e + "\n" + match.group(3)
     html = html[:match.start()] + replacement + html[match.end():]
-    print(f"  [markers] {label} markers added")
+    if verbose:
+        print(f"  [markers] {label} markers added")
     return html, True
 
 
 # ── add markers (first-time setup) ───────────────────────────────────────────
-def add_markers(html: str) -> str:
+def add_markers(html: str, *, verbose: bool = True) -> str:
     # Heatmap sentinel
     if MARK_HM_S not in html or MARK_HM_E not in html:
         html = _strip_marker_pair(html, MARK_HM_S, MARK_HM_E)
@@ -1990,9 +2056,11 @@ def add_markers(html: str) -> str:
                 hm_e = hm_e + legend_end + len("</div>")
             html = (html[:hm_s] + MARK_HM_S + "\n"
                     + html[hm_s:hm_e] + "\n" + MARK_HM_E + html[hm_e:])
-            print("  [markers] heatmap markers added")
+            if verbose:
+                print("  [markers] heatmap markers added")
         else:
-            print("  [markers] WARNING: hm-table not found, heatmap markers NOT added")
+            if verbose:
+                print("  [markers] WARNING: hm-table not found, heatmap markers NOT added")
 
     # CSS sentinel — place just before the FIRST </style> (main CSS block, not JS strings)
     if MARK_CSS_S not in html or MARK_CSS_E not in html:
@@ -2004,9 +2072,11 @@ def add_markers(html: str) -> str:
             html = (html[:style_end]
                     + MARK_CSS_S + "\n" + MARK_CSS_E + "\n"
                     + html[style_end:])
-            print("  [markers] CSS markers added")
+            if verbose:
+                print("  [markers] CSS markers added")
         else:
-            print("  [markers] WARNING: </style> not found, CSS markers NOT added")
+            if verbose:
+                print("  [markers] WARNING: </style> not found, CSS markers NOT added")
 
     if MARK_HERO_S not in html or MARK_HERO_E not in html:
         html, _ = _wrap_marker_block(
@@ -2015,6 +2085,7 @@ def add_markers(html: str) -> str:
             MARK_HERO_S,
             MARK_HERO_E,
             "hero-row",
+            verbose=verbose,
         )
 
     if MARK_LIGA_S not in html or MARK_LIGA_E not in html:
@@ -2024,9 +2095,49 @@ def add_markers(html: str) -> str:
             MARK_LIGA_S,
             MARK_LIGA_E,
             "liga-table",
+            verbose=verbose,
         )
 
     return html
+
+
+def render_dashboard_html(html: str, snap: dict, *, verbose: bool = False) -> str:
+    """Renderiza la plantilla completa de C1 Pro desde el snapshot sobre un HTML base."""
+    missing_markers = _missing_required_markers(html)
+    if missing_markers:
+        if verbose:
+            print("Markers not found — adding them now...")
+        html = add_markers(html, verbose=verbose)
+        missing_markers = _missing_required_markers(html)
+        if missing_markers:
+            raise ValueError("critical dashboard markers still missing: " + ", ".join(missing_markers))
+
+    # Inject CSS
+    html = inject(html, MARK_CSS_S, MARK_CSS_E, HEATMAP_CSS)
+
+    # Inject heatmap
+    new_hm = build_heatmap(snap)
+    html = inject(html, MARK_HM_S, MARK_HM_E, new_hm)
+
+    # Inject liga principal table (thead + tbody with fresh data + Últ. Rueda column)
+    new_liga = build_liga_table(snap)
+    if new_liga:
+        html = inject(html, MARK_LIGA_S, MARK_LIGA_E, new_liga)
+
+    # ── C1 Pro: inject hero row + predicción viva ──────────────────────────────
+    html = inject(html, MARK_HERO_S, MARK_HERO_E, _build_c1pro_hero_row(snap))
+    if verbose:
+        print("  [c1pro] Hero row injected")
+
+    if MARK_PRED_S in html and MARK_PRED_E in html:
+        html = inject(html, MARK_PRED_S, MARK_PRED_E, _build_pred_viva(snap))
+        if verbose:
+            print("  [c1pro] Predicción Viva injected")
+
+    html = _apply_snapshot_sections(html, snap)
+
+    # Update dates
+    return update_dates(html, snap)
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
@@ -2044,40 +2155,11 @@ def main() -> int:
     with open(DASHBOARD, "r", encoding="utf-8") as f:
         html = f.read()
 
-    # Repair required markers if missing
-    missing_markers = _missing_required_markers(html)
-    if missing_markers:
-        print("Markers not found — adding them now...")
-        html = add_markers(html)
-        missing_markers = _missing_required_markers(html)
-        if missing_markers:
-            print("ERROR: critical dashboard markers still missing:", ", ".join(missing_markers))
-            return 1
-
-    # Inject CSS
-    html = inject(html, MARK_CSS_S, MARK_CSS_E, HEATMAP_CSS)
-
-    # Inject heatmap
-    new_hm = build_heatmap(snap)
-    html = inject(html, MARK_HM_S, MARK_HM_E, new_hm)
-
-    # Inject liga principal table (thead + tbody with fresh data + Últ. Rueda column)
-    new_liga = build_liga_table(snap)
-    if new_liga:
-        html = inject(html, MARK_LIGA_S, MARK_LIGA_E, new_liga)
-
-    # ── C1 Pro: inject hero row + predicción viva ──────────────────────────────
-    html = inject(html, MARK_HERO_S, MARK_HERO_E, _build_c1pro_hero_row(snap))
-    print("  [c1pro] Hero row injected")
-
-    if MARK_PRED_S in html and MARK_PRED_E in html:
-        html = inject(html, MARK_PRED_S, MARK_PRED_E, _build_pred_viva(snap))
-        print("  [c1pro] Predicción Viva injected")
-
-    html = _apply_snapshot_sections(html, snap)
-
-    # Update dates
-    html = update_dates(html, snap)
+    try:
+        html = render_dashboard_html(html, snap, verbose=True)
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return 1
 
     with open(DASHBOARD, "w", encoding="utf-8") as f:
         f.write(html)

@@ -149,3 +149,43 @@ def test_monitored_snapshots_already_current_requires_full_coverage_and_matching
     )
 
     assert auto_actualizar.monitored_snapshots_already_current(date(2026, 4, 24)) is False
+
+
+def test_auditar_integridad_dashboard_runs_required_step(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_ejecutar_paso(step_name, command, fecha_base):
+        captured["step_name"] = step_name
+        captured["command"] = command
+        captured["fecha_base"] = fecha_base
+        return True
+
+    monkeypatch.setattr(auto_actualizar, "ejecutar_paso", fake_ejecutar_paso)
+
+    ok = auto_actualizar.auditar_integridad_dashboard(date(2026, 4, 24))
+
+    assert ok is True
+    assert captured["step_name"] == "dashboard_integrity"
+    assert captured["command"] == [
+        auto_actualizar.sys.executable,
+        str(auto_actualizar.DASHBOARD_INTEGRITY_SCRIPT),
+    ]
+    assert captured["fecha_base"] == date(2026, 4, 24)
+
+
+def test_ejecutar_publicacion_liviana_blocks_when_dashboard_integrity_fails(monkeypatch) -> None:
+    optional_called = {"value": False}
+
+    monkeypatch.setattr(auto_actualizar, "validate_model_snapshot_freshness", lambda fecha_base: True)
+    monkeypatch.setattr(auto_actualizar, "refrescar_dashboard", lambda fecha_base: True)
+    monkeypatch.setattr(auto_actualizar, "auditar_integridad_dashboard", lambda fecha_base: False)
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ejecutar_paso_opcional",
+        lambda *args, **kwargs: optional_called.__setitem__("value", True) or True,
+    )
+
+    ok = auto_actualizar.ejecutar_publicacion_liviana(date(2026, 4, 24))
+
+    assert ok is False
+    assert optional_called["value"] is False

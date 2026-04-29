@@ -13,9 +13,8 @@ EXECUTIVE_HTML = DASHBOARD_DIR / "tablero_maquina_pensante_executive.html"
 LAB_HTML = DASHBOARD_DIR / "tablero_maquina_pensante_lab.html"
 MANIFEST_PATH = DASHBOARD_DIR / "tablero_maquina_pensante_artifact_manifest.json"
 C1_PRO_BUNDLE_HTML = DASHBOARD_DIR / "preview_c1_pro.html"
-AURORA_PRO_HTML = ROOT / "analisis" / "preview_c1_pro.html"
-AURORA_PRO_BACKUP = DASHBOARD_DIR / "dashboard_operativo_aurora_pro.html"
-LEGACY_AURORA_PREVIEW = ROOT / "analisis" / "preview_c1_pro.html"
+C1_PRO_TEMPLATE_HTML = ROOT / "analisis" / "preview_c1_pro.html"
+C1_PRO_TEMPLATE_BACKUP_HTML = DASHBOARD_DIR / "dashboard_operativo_c1_pro.html"
 
 
 def ensure_dashboard_dir() -> Path:

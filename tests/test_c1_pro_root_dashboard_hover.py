@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from herramientas.dashboard_paths import AURORA_PRO_HTML
+from herramientas.dashboard_paths import C1_PRO_TEMPLATE_HTML
 import herramientas.refrescar_datos_dashboard as refresher
 
 
 def test_root_preview_template_has_chart_hover_and_preview_containers() -> None:
-    html = AURORA_PRO_HTML.read_text(encoding="utf-8")
+    html = C1_PRO_TEMPLATE_HTML.read_text(encoding="utf-8")
 
     assert 'id="chartHoverTooltip"' in html
     assert 'id="chartPreviewPanel"' in html
@@ -73,3 +73,44 @@ def test_build_liga_table_exposes_curve_column_and_hover_labels() -> None:
     assert "data-spark-labels=" in html
     assert "data-previewable='1'" in html
     assert "V13 | curva reciente" in html
+
+
+def test_heatmap_variant_a_marks_fresh_zero_signal_days_explicitly() -> None:
+    focus = [
+        {
+            "version": "ML_V94",
+            "role": "legacy_ml",
+            "latest_snapshot_date": "2026-04-28",
+            "recent_30": {
+                "calendar": [
+                    {"date": "2026-04-27", "avg_return_pct": 1.4, "accuracy_pct": 50.0, "picks": 2, "tickers": ["NVDA", "AAPL"]},
+                ]
+            },
+        }
+    ]
+
+    html = refresher._build_variant_a(focus, ["2026-04-27", "2026-04-28"], [])
+
+    assert "0p" in html
+    assert "snapshot fresco sin señal" in html
+    assert "sin señal" in html
+
+
+def test_heatmap_variant_a_marks_stale_snapshot_gaps_explicitly() -> None:
+    focus = [
+        {
+            "version": "ML_V94",
+            "role": "legacy_ml",
+            "latest_snapshot_date": "2026-04-27",
+            "recent_30": {
+                "calendar": [
+                    {"date": "2026-04-27", "avg_return_pct": 1.4, "accuracy_pct": 50.0, "picks": 2, "tickers": ["NVDA", "AAPL"]},
+                ]
+            },
+        }
+    ]
+
+    html = refresher._build_variant_a(focus, ["2026-04-27", "2026-04-28"], [])
+
+    assert "sin snapshot fresco para esta rueda" in html
+    assert "hm-stale-gap" in html

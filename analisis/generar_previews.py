@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Genera 3 variantes visuales del dashboard Aurora para previsualización.
+Genera 3 variantes visuales del dashboard C1 Pro para previsualización.
 Uso: python analisis/generar_previews.py
 Salida:
-  - dashboards/maquina_pensante/dashboard_operativo_aurora_pro.html
+  - analisis/preview_c1_pro.html
   - analisis/preview_c2_dense.html
   - analisis/preview_c3_card.html
 """
@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import analisis.generar_tablero_maquina_pensante as _gen
-from herramientas.dashboard_paths import AURORA_PRO_HTML, ensure_dashboard_dir
+from herramientas.dashboard_paths import C1_PRO_TEMPLATE_HTML, ensure_dashboard_dir
 
 OUTPUT_DIR = ROOT / "analisis"
 
@@ -1401,7 +1401,7 @@ body.edit-mode .editable-text{{cursor:text}}
 }}
 """
 
-# ── Variante C1: Aurora Pro (tipografía Georgia, colores cálidos) ─────────────
+# ── Variante C1: C1 Pro (tipografía Georgia, colores cálidos) ─────────────────
 CSS_C1 = BASE_LAYOUT + """
 :root{{
   --bg:#050810;
@@ -1433,7 +1433,7 @@ CSS_C1 = BASE_LAYOUT + """
 }}
 """
 
-# ── Variante C2: Aurora Dense (compacta, monospace, máxima info) ──────────────
+# ── Variante C2: C2 Dense (compacta, monospace, máxima info) ──────────────────
 CSS_C2 = BASE_LAYOUT + """
 :root{{
   --bg:#06090f;
@@ -1481,7 +1481,7 @@ body{{font-size:12px}}
 .accent-cyan,.accent-gold,.accent-green,.accent-rose{{border-top-width:3px}}
 """
 
-# ── Variante C3: Aurora Card (más espaciada, tarjetas con glow, tipografía grande) ──
+# ── Variante C3: C3 Card (más espaciada, tarjetas con glow, tipografía grande) ─────
 CSS_C3 = BASE_LAYOUT + """
 :root{{
   --bg:#030610;
@@ -1544,9 +1544,9 @@ if __name__ == "__main__":
     ensure_dashboard_dir()
     print("Renderizando variantes...")
     for letter, name, css, path in [
-        ("C1", "Aurora Pro   (Georgia, gradientes cálidos)", CSS_C1, AURORA_PRO_HTML),
-        ("C2", "Aurora Dense (monospace, ultra-compacta)",   CSS_C2, OUTPUT_DIR / "preview_c2_dense.html"),
-        ("C3", "Aurora Card  (espaciada, glows, tipografía grande)", CSS_C3, OUTPUT_DIR / "preview_c3_card.html"),
+        ("C1", "C1 Pro      (Georgia, gradientes cálidos)", CSS_C1, C1_PRO_TEMPLATE_HTML),
+        ("C2", "C2 Dense    (monospace, ultra-compacta)",   CSS_C2, OUTPUT_DIR / "preview_c2_dense.html"),
+        ("C3", "C3 Card     (espaciada, glows, tipografía grande)", CSS_C3, OUTPUT_DIR / "preview_c3_card.html"),
     ]:
         html = render_html(payload, css)
         path.write_text(html, encoding="utf-8")
