@@ -627,6 +627,12 @@ def build_dashboard_history_report(
     end_date = window_dates[-1] if window_dates else None
 
     if not window_dates:
+        required_labels = [
+            entry["label"] for entry in expected_entries if is_required_monitored_role(str(entry.get("role") or ""))
+        ]
+        optional_labels = [
+            entry["label"] for entry in expected_entries if not is_required_monitored_role(str(entry.get("role") or ""))
+        ]
         return {
             "generated_at": datetime.now().isoformat(timespec="seconds"),
             "fecha_base": fecha_base.isoformat(),
@@ -637,6 +643,8 @@ def build_dashboard_history_report(
             "history_complete": False,
             "reason": "market_dates_unavailable",
             "missing_snapshot_history": expected_labels,
+            "required_missing_snapshot_history": required_labels,
+            "optional_missing_snapshot_history": optional_labels,
             "models": [],
         }
 
@@ -686,20 +694,27 @@ def build_dashboard_history_report(
 
     models: list[dict[str, Any]] = []
     missing_snapshot_history: list[str] = []
+    required_missing_snapshot_history: list[str] = []
+    optional_missing_snapshot_history: list[str] = []
     sparse_prediction_history: list[str] = []
     for entry in expected_entries:
         label = entry["label"]
+        role = str(entry.get("role") or "")
         snapshot_days = int(snapshot_days_by_label.get(label, 0) or 0)
         prediction_details = prediction_days_by_label.get(label, {})
         prediction_days = int(prediction_details.get("prediction_days", 0) or 0)
         if snapshot_days < len(window_dates):
             missing_snapshot_history.append(label)
+            if is_required_monitored_role(role):
+                required_missing_snapshot_history.append(label)
+            else:
+                optional_missing_snapshot_history.append(label)
         if prediction_days == 0:
             sparse_prediction_history.append(label)
         models.append(
             {
                 "label": label,
-                "role": entry["role"],
+                "role": role,
                 "snapshot_days": snapshot_days,
                 "snapshot_coverage_pct": round(snapshot_days * 100.0 / len(window_dates), 1),
                 "prediction_days": prediction_days,
@@ -710,7 +725,7 @@ def build_dashboard_history_report(
 
     history_complete = (
         len(window_dates) >= min_market_days
-        and not missing_snapshot_history
+        and not required_missing_snapshot_history
         and predictions_recent > 0
         and outcomes_recent > 0
         and regimes_recent > 0
@@ -728,6 +743,8 @@ def build_dashboard_history_report(
         "outcomes_recent": outcomes_recent,
         "regimes_recent": regimes_recent,
         "missing_snapshot_history": missing_snapshot_history,
+        "required_missing_snapshot_history": required_missing_snapshot_history,
+        "optional_missing_snapshot_history": optional_missing_snapshot_history,
         "sparse_prediction_history": sparse_prediction_history,
         "models": models,
     }
@@ -821,13 +838,16 @@ def ensure_minimum_dashboard_history(
     report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
     guardar_reporte_json(DASHBOARD_HISTORY_REPORT, report)
     missing_snapshot_history = list(report.get("missing_snapshot_history") or [])
+    required_missing_snapshot_history = list(report.get("required_missing_snapshot_history") or [])
+    optional_missing_snapshot_history = list(report.get("optional_missing_snapshot_history") or [])
     history_summary = (
         f"history_complete={bool(report.get('history_complete'))} | "
         f"window_days={int(report.get('window_days') or 0)} | "
         f"predictions_recent={int(report.get('predictions_recent') or 0)} | "
         f"outcomes_recent={int(report.get('outcomes_recent') or 0)} | "
         f"regimes_recent={int(report.get('regimes_recent') or 0)} | "
-        f"missing_snapshots={','.join(missing_snapshot_history) or '-'}"
+        f"required_missing_snapshots={','.join(required_missing_snapshot_history) or '-'} | "
+        f"optional_missing_snapshots={','.join(optional_missing_snapshot_history) or '-'}"
     )
     log.info("[PIPELINE] Cobertura historica actual | %s", history_summary)
     print(f"  Cobertura historica dashboard: {history_summary}")
@@ -848,7 +868,12 @@ def ensure_minimum_dashboard_history(
         "Cobertura historica insuficiente en cloud; se ejecuta bootstrap de dashboard "
         f"desde {start_date} hasta {fecha_base.isoformat()}."
     )
-    log.warning("[PIPELINE] %s Faltan snapshots: %s", summary, ", ".join(missing_snapshot_history) or "-")
+    log.warning(
+        "[PIPELINE] %s Faltan snapshots requeridos: %s | opcionales: %s",
+        summary,
+        ", ".join(required_missing_snapshot_history) or "-",
+        ", ".join(optional_missing_snapshot_history) or "-",
+    )
     print(f"  [WARN] {summary}")
 
     if not backfill_required_history(start_date, fecha_base):
