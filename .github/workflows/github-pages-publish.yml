@@ -117,29 +117,29 @@ jobs:
                       if excerpt:
                           print(f"::error::cloud-native pipeline report excerpt: {excerpt[:1800]}")
 
-                    fecha_base_str = details.get("fecha_base") if isinstance(details, dict) else None
-                    if fecha_base_str:
-                      try:
-                        fecha_base = date.fromisoformat(str(fecha_base_str))
-                      except ValueError:
-                        fecha_base = None
-                      if fecha_base is not None:
-                        with TitanDB() as db:
+              fecha_base_str = details.get("fecha_base") if isinstance(details, dict) else None
+              if fecha_base_str:
+                  try:
+                      fecha_base = date.fromisoformat(str(fecha_base_str))
+                  except ValueError:
+                      fecha_base = None
+                  if fecha_base is not None:
+                      with TitanDB() as db:
                           severe_result = next(
-                            (
-                              result
-                              for result in check_ohlcv_integrity(db, fecha_base)
-                              if result.name == "OHLCV severo"
-                            ),
-                            None,
+                              (
+                                  result
+                                  for result in check_ohlcv_integrity(db, fecha_base)
+                                  if result.name == "OHLCV severo"
+                              ),
+                              None,
                           )
-                        if severe_result is not None:
+                      if severe_result is not None:
                           print(
-                            "::error::cloud-native severe ohlcv summary: "
-                            f"{severe_result.summary}"
+                              "::error::cloud-native severe ohlcv summary: "
+                              f"{severe_result.summary}"
                           )
                           for detail in severe_result.details[:8]:
-                            print(f"::error::cloud-native severe ohlcv detail: {detail}")
+                              print(f"::error::cloud-native severe ohlcv detail: {detail}")
 
           freshness_path = Path("docs/cloud/reports/model_snapshot_freshness.json")
           if freshness_path.exists():
