@@ -46,6 +46,20 @@ def resolve_setting(name: str, *, env_file_values: dict[str, str], default: str)
     return default
 
 
+def setting_is_enabled(
+    name: str,
+    *,
+    env_file_values: dict[str, str],
+    default: bool = False,
+) -> bool:
+    raw_value = resolve_setting(
+        name,
+        env_file_values=env_file_values,
+        default="1" if default else "0",
+    )
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def normalize_database_url(database_url: str) -> str:
     url = database_url.strip()
     if url.startswith("postgres://"):
@@ -66,20 +80,37 @@ def resolve_sqlite_fallback_path(raw_path: str) -> Path:
     return path.resolve()
 
 
-def build_database_settings() -> DatabaseSettings:
-    env_file_values = read_env_file()
-    sqlite_fallback = resolve_sqlite_fallback_path(
+def resolve_configured_sqlite_fallback_path(env_file_values: dict[str, str]) -> Path:
+    return resolve_sqlite_fallback_path(
         resolve_setting(
             "SQLITE_FALLBACK_PATH",
             env_file_values=env_file_values,
             default=str(DEFAULT_SQLITE_PATH),
         )
     )
-    database_url = normalize_database_url(resolve_setting(
+
+
+def build_database_settings() -> DatabaseSettings:
+    env_file_values = read_env_file()
+    sqlite_fallback = resolve_configured_sqlite_fallback_path(env_file_values)
+    configured_database_url = resolve_setting(
         "DATABASE_URL",
         env_file_values=env_file_values,
-        default=f"sqlite:///{sqlite_fallback.as_posix()}",
-    ))
+        default="",
+    )
+    if configured_database_url in {"", None}:
+        if not setting_is_enabled(
+            "PYTHIAX_ENABLE_SQLITE_FALLBACK",
+            env_file_values=env_file_values,
+        ):
+            raise RuntimeError(
+                "DATABASE_URL no configurada. PythiaxEngine ya no cae a SQLite en silencio. "
+                "Configura Supabase/Postgres en DATABASE_URL o habilita "
+                "PYTHIAX_ENABLE_SQLITE_FALLBACK=1 para usar el modo SQLite legacy de forma explicita."
+            )
+        configured_database_url = f"sqlite:///{sqlite_fallback.as_posix()}"
+
+    database_url = normalize_database_url(configured_database_url)
     return DatabaseSettings(
         database_url=database_url,
         sqlite_fallback_path=sqlite_fallback,
@@ -91,4 +122,4 @@ def get_database_url() -> str:
 
 
 def get_sqlite_fallback_path() -> Path:
-    return build_database_settings().sqlite_fallback_path
+    return resolve_configured_sqlite_fallback_path(read_env_file())

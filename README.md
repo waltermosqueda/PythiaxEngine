@@ -26,8 +26,10 @@ generacion de predicciones operativas y publicacion de dashboards estaticos.
 - Existe scaffolding inicial de `SQLAlchemy + Alembic`.
 - La migracion cloud esta documentada en [`docs/cloud/`](docs/cloud/README.md).
 - El runtime actual ya puede leer desde `Postgres` cloud via `DATABASE_URL`.
-- GitHub Actions ya puede bootstrapear una `SQLite` efimera desde `Postgres`
-  para correr el pipeline diario sin depender de una PC local.
+- El runtime operativo ahora debe apuntar a `Supabase Postgres` por `DATABASE_URL`
+  tanto en local como en cloud.
+- `SQLite` queda solo como modo legacy explicito para debugging puntual,
+  nunca como fallback silencioso del runtime principal.
 - El bundle del dashboard ya se puede publicar 24/7 via `GitHub Pages`.
 - El dashboard y el site bundle ya tienen auditoria reproducible DB vs snapshot/site.
 - El motor historico todavia conserva nombres internos como `Claude`,
@@ -37,7 +39,7 @@ generacion de predicciones operativas y publicacion de dashboards estaticos.
 
 1. Desarrollar en ramas cortas y hacer merge a `main`.
 2. Ejecutar CI automatica en cada cambio relevante.
-3. Migrar persistencia desde `SQLite` a `Postgres` con shadow mode.
+3. Mantener `Supabase Postgres` como fuente de verdad en todos los entornos.
 4. Publicar snapshots del dashboard sin depender de una PC encendida.
 5. Mantener trazabilidad con `run_id`, `commit_sha`, backups y auditorias.
 

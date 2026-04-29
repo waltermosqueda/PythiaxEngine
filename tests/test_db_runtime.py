@@ -5,7 +5,9 @@ from pathlib import Path
 from uuid import uuid4
 
 import pandas as pd
+import pytest
 
+import infra.db.config as db_config
 from infra.db.config import DEFAULT_SQLITE_PATH, get_sqlite_fallback_path
 from infra.db.runtime import RuntimeDB, adapt_qmark_sql, aggregate_distinct_sql
 from infra.db.sqlite_compat import connect_sqlite, get_sqlite_db_path
@@ -24,6 +26,30 @@ def test_sqlite_fallback_path_defaults_to_repo_db(monkeypatch) -> None:
 
     assert get_sqlite_fallback_path() == DEFAULT_SQLITE_PATH
     assert get_sqlite_db_path() == DEFAULT_SQLITE_PATH
+
+
+def test_database_url_requires_explicit_configuration_by_default(monkeypatch) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("PYTHIAX_ENABLE_SQLITE_FALLBACK", raising=False)
+    monkeypatch.delenv("SQLITE_FALLBACK_PATH", raising=False)
+    monkeypatch.setattr(db_config, "read_env_file", lambda path=db_config.ENV_FILE_PATH: {})
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL no configurada"):
+        db_config.get_database_url()
+
+
+def test_database_url_can_opt_in_to_sqlite_fallback(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    custom_path = tmp_dir / "runtime" / "fallback.db"
+    try:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.setenv("PYTHIAX_ENABLE_SQLITE_FALLBACK", "1")
+        monkeypatch.setenv("SQLITE_FALLBACK_PATH", str(custom_path))
+        monkeypatch.setattr(db_config, "read_env_file", lambda path=db_config.ENV_FILE_PATH: {})
+
+        assert db_config.get_database_url() == f"sqlite:///{custom_path.resolve().as_posix()}"
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def test_sqlite_fallback_path_respects_env(monkeypatch) -> None:

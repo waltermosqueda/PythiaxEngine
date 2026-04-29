@@ -820,6 +820,18 @@ def ejecutar_pipeline_diario(
     if not scanner_ok:
         return False
 
+    if skip_dashboard_refresh:
+        if not validate_model_snapshot_freshness(fecha_base):
+            return False
+
+        log.info(
+            "[PIPELINE] skip_dashboard_refresh=1: se omiten gestor y resumentes requeridos; el workflow cloud continuara con el build del dashboard."
+        )
+        print(
+            "  Skip dashboard refresh activo: se omiten gestor y resumentes requeridos; el workflow cloud continuara con el build del dashboard."
+        )
+        return True
+
     gestor_ok = ejecutar_paso(
         "gestor",
         [sys.executable, str(GESTOR_SCRIPT), "daily-report"],
@@ -845,10 +857,6 @@ def ejecutar_pipeline_diario(
 
     if not validate_model_snapshot_freshness(fecha_base):
         return False
-
-    if skip_dashboard_refresh:
-        log_dashboard_refresh_deferred(fecha_base)
-        return True
 
     # Antes del dashboard core, alineamos Postgres cloud con la SQLite local
     # para que el bundle visible y GitHub Pages salgan del mismo corte operativo.

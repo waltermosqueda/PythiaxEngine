@@ -9,7 +9,11 @@ from infra.db.config import get_database_url, get_sqlite_fallback_path
 
 
 def get_sqlite_db_path() -> Path:
-    database_url = get_database_url()
+    try:
+        database_url = get_database_url()
+    except RuntimeError:
+        return get_sqlite_fallback_path()
+
     url = make_url(database_url)
     if url.get_backend_name() == "sqlite" and url.database:
         return Path(url.database).expanduser().resolve()

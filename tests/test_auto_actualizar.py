@@ -303,6 +303,7 @@ def test_ejecutar_pipeline_diario_can_skip_dashboard_refresh_tail(monkeypatch) -
         observed_versions=[],
         observed_learning_chain=[],
     )
+    required_steps: list[str] = []
     dashboard_calls = {
         "validate": False,
         "refresh": False,
@@ -322,7 +323,11 @@ def test_ejecutar_pipeline_diario_can_skip_dashboard_refresh_tail(monkeypatch) -
         "build_legacy_ml_steps",
         lambda command_name: [("legacy_ml_v39full", Path("legacy_ml_v39full.py"))],
     )
-    monkeypatch.setattr(auto_actualizar, "ejecutar_paso", lambda step_name, command, fecha_base: True)
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ejecutar_paso",
+        lambda step_name, command, fecha_base: required_steps.append(step_name) or True,
+    )
     monkeypatch.setattr(
         auto_actualizar,
         "validate_model_snapshot_freshness",
@@ -351,6 +356,7 @@ def test_ejecutar_pipeline_diario_can_skip_dashboard_refresh_tail(monkeypatch) -
     )
 
     assert ok is True
+    assert required_steps == ["validacion", "scanner"]
     assert dashboard_calls == {
         "validate": True,
         "refresh": False,
