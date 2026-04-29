@@ -41,12 +41,15 @@ AUDIT_SCRIPT = BASE_DIR / "herramientas" / "auditoria_integral_claude.py"
 DASHBOARD_INTEGRITY_SCRIPT = BASE_DIR / "infra" / "cloud" / "audit_dashboard_integrity.py"
 DASHBOARD_SCRIPT = BASE_DIR / "analisis" / "generar_tablero_maquina_pensante.py"
 MODEL_FRESHNESS_REPORT = BASE_DIR / "docs" / "cloud" / "reports" / "model_snapshot_freshness.json"
+DASHBOARD_HISTORY_REPORT = BASE_DIR / "docs" / "cloud" / "reports" / "dashboard_history_coverage.json"
 MARKET_CLOSE_HOUR = 19
 POST_CLOSE_RETRY_ATTEMPTS = 4
 POST_CLOSE_RETRY_SLEEP_SECONDS = 20 * 60
 DEFAULT_REQUIRED_TIMEOUT_SECONDS = 10 * 60
 DEFAULT_OPTIONAL_TIMEOUT_SECONDS = 15 * 60
 LEGACY_OPTIONAL_TIMEOUT_SECONDS = 30 * 60
+BACKFILL_REQUIRED_TIMEOUT_SECONDS = 45 * 60
+MIN_DASHBOARD_HISTORY_DAYS = 90
 
 sys.path.insert(0, str(BASE_DIR))
 
@@ -288,8 +291,12 @@ def repair_recent_invalid_ohlcv_rows(fecha_base: date) -> int:
 def _timeout_seconds_for_step(step_name: str, optional: bool = False) -> int:
     if step_name == "validacion":
         return 10 * 60
+    if step_name.startswith("backfill_v"):
+        return BACKFILL_REQUIRED_TIMEOUT_SECONDS
     if step_name.startswith("aprendizaje_v"):
         return 15 * 60
+    if step_name.startswith("outcomes_v"):
+        return 10 * 60
     if step_name == "scanner":
         return 10 * 60
     if step_name == "gestor":
@@ -300,6 +307,14 @@ def _timeout_seconds_for_step(step_name: str, optional: bool = False) -> int:
         return 5 * 60
     if step_name == "auditoria_centinela":
         return 15 * 60
+    if step_name.startswith("backfill_legacy_ml_"):
+        return BACKFILL_REQUIRED_TIMEOUT_SECONDS
+    if step_name.startswith("backfill_observado_"):
+        return BACKFILL_REQUIRED_TIMEOUT_SECONDS
+    if step_name.startswith("outcomes_legacy_ml_"):
+        return LEGACY_OPTIONAL_TIMEOUT_SECONDS
+    if step_name.startswith("outcomes_observado_"):
+        return DEFAULT_OPTIONAL_TIMEOUT_SECONDS
     if step_name.startswith("legacy_ml_") or step_name.startswith("resumen_legacy_ml_"):
         return LEGACY_OPTIONAL_TIMEOUT_SECONDS
     if step_name.startswith("observado_") or step_name.startswith("resumen_observado_"):
@@ -392,7 +407,16 @@ def build_learning_steps(command_name: str) -> list[tuple[str, Path]]:
     steps: list[tuple[str, Path]] = []
     for script in operational.learning_chain:
         version = learning_version_from_path(script)
-        step_name = f"aprendizaje_v{version}" if command_name == "run" else f"resumen_v{version}"
+        if command_name == "run":
+            step_name = f"aprendizaje_v{version}"
+        elif command_name == "backfill":
+            step_name = f"backfill_v{version}"
+        elif command_name == "daily-summary":
+            step_name = f"resumen_v{version}"
+        elif command_name == "recompute-outcomes":
+            step_name = f"outcomes_v{version}"
+        else:
+            raise ValueError(f"Comando de aprendizaje no soportado: {command_name}")
         steps.append((step_name, script))
     return steps
 
@@ -402,7 +426,16 @@ def build_observed_steps(command_name: str) -> list[tuple[str, Path]]:
     steps: list[tuple[str, Path]] = []
     for script in operational.observed_learning_chain:
         version = learning_version_from_path(script)
-        step_name = f"observado_v{version}" if command_name == "run" else f"resumen_observado_v{version}"
+        if command_name == "run":
+            step_name = f"observado_v{version}"
+        elif command_name == "backfill":
+            step_name = f"backfill_observado_v{version}"
+        elif command_name == "daily-summary":
+            step_name = f"resumen_observado_v{version}"
+        elif command_name == "recompute-outcomes":
+            step_name = f"outcomes_observado_v{version}"
+        else:
+            raise ValueError(f"Comando observado no soportado: {command_name}")
         steps.append((step_name, script))
     return steps
 
@@ -413,9 +446,355 @@ def build_legacy_ml_steps(command_name: str) -> list[tuple[str, Path]]:
         runner_path = entry.runner_path
         if not runner_path.exists():
             continue
-        step_name = entry.model_id if command_name == "run" else f"resumen_{entry.model_id}"
+        if command_name == "run":
+            step_name = entry.model_id
+        elif command_name == "backfill":
+            step_name = f"backfill_{entry.model_id}"
+        elif command_name == "daily-summary":
+            step_name = f"resumen_{entry.model_id}"
+        elif command_name == "recompute-outcomes":
+            step_name = f"outcomes_{entry.model_id}"
+        else:
+            raise ValueError(f"Comando legacy ML no soportado: {command_name}")
         steps.append((step_name, runner_path))
     return steps
+
+
+def build_learning_command(
+    script_path: Path,
+    command_name: str,
+    fecha_base: date,
+    *,
+    from_date: str | None = None,
+) -> list[str]:
+    if command_name in {"run", "daily-summary"}:
+        return [sys.executable, str(script_path), command_name, "--date", fecha_base.isoformat()]
+    if command_name == "backfill":
+        if not from_date:
+            raise ValueError("from_date es obligatorio para backfill")
+        return [
+            sys.executable,
+            str(script_path),
+            command_name,
+            "--from-date",
+            from_date,
+            "--to-date",
+            fecha_base.isoformat(),
+        ]
+    if command_name == "recompute-outcomes":
+        return [sys.executable, str(script_path), command_name, "--to-date", fecha_base.isoformat()]
+    raise ValueError(f"Comando no soportado: {command_name}")
+
+
+def load_runtime_market_dates(fecha_base: date | None = None) -> list[str]:
+    sql = """
+        SELECT DISTINCT date
+        FROM prices
+        WHERE ticker = 'SPY'
+    """
+    params: tuple[Any, ...] = ()
+    if fecha_base is not None:
+        sql += " AND date <= ?"
+        params = (fecha_base.isoformat(),)
+    sql += " ORDER BY date"
+
+    with connect_runtime_db() as con:
+        rows = con.execute(sql, params).fetchall()
+    return [str(row[0]) for row in rows if row and row[0]]
+
+
+def dashboard_history_window_dates(fecha_base: date, min_market_days: int = MIN_DASHBOARD_HISTORY_DAYS) -> list[str]:
+    market_dates = load_runtime_market_dates(fecha_base)
+    if not market_dates:
+        return []
+    return market_dates[-min_market_days:]
+
+
+def build_dashboard_history_report(
+    fecha_base: date,
+    *,
+    min_market_days: int = MIN_DASHBOARD_HISTORY_DAYS,
+) -> dict[str, Any]:
+    window_dates = dashboard_history_window_dates(fecha_base, min_market_days=min_market_days)
+    expected_entries = expected_monitored_snapshot_entries()
+    expected_labels = [entry["label"] for entry in expected_entries]
+    start_date = window_dates[0] if window_dates else None
+    end_date = window_dates[-1] if window_dates else None
+
+    if not window_dates:
+        return {
+            "generated_at": datetime.now().isoformat(timespec="seconds"),
+            "fecha_base": fecha_base.isoformat(),
+            "required_window_days": min_market_days,
+            "window_days": 0,
+            "start_date": None,
+            "end_date": None,
+            "history_complete": False,
+            "reason": "market_dates_unavailable",
+            "missing_snapshot_history": expected_labels,
+            "models": [],
+        }
+
+    with connect_runtime_db() as con:
+        snapshot_rows = fetch_model_run_snapshots(
+            con,
+            model_keys=expected_labels,
+            analyzed_date_from=start_date,
+            analyzed_date_to=end_date,
+        )
+        predictions_recent = int(
+            con.scalar(
+                "SELECT COUNT(*) FROM predictions WHERE prediction_date >= ? AND prediction_date <= ?",
+                (start_date, end_date),
+            )
+            or 0
+        )
+        outcomes_recent = int(
+            con.scalar(
+                """
+                SELECT COUNT(*)
+                FROM outcomes o
+                JOIN predictions p ON p.id = o.prediction_id
+                WHERE p.target_date >= ? AND p.target_date <= ?
+                """,
+                (start_date, end_date),
+            )
+            or 0
+        )
+        regimes_recent = int(
+            con.scalar(
+                "SELECT COUNT(*) FROM regimes WHERE date >= ? AND date <= ?",
+                (start_date, end_date),
+            )
+            or 0
+        )
+
+        prediction_days_by_label = {
+            entry["label"]: build_prediction_window_coverage(con, entry, start_date, end_date)
+            for entry in expected_entries
+        }
+
+    snapshot_days_by_label: dict[str, int] = {}
+    for row in snapshot_rows:
+        label = str(row.get("model_key") or "")
+        snapshot_days_by_label[label] = snapshot_days_by_label.get(label, 0) + 1
+
+    models: list[dict[str, Any]] = []
+    missing_snapshot_history: list[str] = []
+    sparse_prediction_history: list[str] = []
+    for entry in expected_entries:
+        label = entry["label"]
+        snapshot_days = int(snapshot_days_by_label.get(label, 0) or 0)
+        prediction_details = prediction_days_by_label.get(label, {})
+        prediction_days = int(prediction_details.get("prediction_days", 0) or 0)
+        if snapshot_days < len(window_dates):
+            missing_snapshot_history.append(label)
+        if prediction_days == 0:
+            sparse_prediction_history.append(label)
+        models.append(
+            {
+                "label": label,
+                "role": entry["role"],
+                "snapshot_days": snapshot_days,
+                "snapshot_coverage_pct": round(snapshot_days * 100.0 / len(window_dates), 1),
+                "prediction_days": prediction_days,
+                "prediction_rows": int(prediction_details.get("total_prediction_rows", 0) or 0),
+                "latest_prediction_date": prediction_details.get("latest_prediction_date"),
+            }
+        )
+
+    history_complete = (
+        len(window_dates) >= min_market_days
+        and not missing_snapshot_history
+        and predictions_recent > 0
+        and outcomes_recent > 0
+        and regimes_recent > 0
+    )
+
+    return {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "fecha_base": fecha_base.isoformat(),
+        "required_window_days": min_market_days,
+        "window_days": len(window_dates),
+        "start_date": start_date,
+        "end_date": end_date,
+        "history_complete": history_complete,
+        "predictions_recent": predictions_recent,
+        "outcomes_recent": outcomes_recent,
+        "regimes_recent": regimes_recent,
+        "missing_snapshot_history": missing_snapshot_history,
+        "sparse_prediction_history": sparse_prediction_history,
+        "models": models,
+    }
+
+
+def build_prediction_window_coverage(
+    con: RuntimeDB,
+    entry: dict[str, str],
+    start_date: str,
+    end_date: str,
+) -> dict[str, Any]:
+    exact_model_name = entry.get("exact_model_name") == "1"
+    prefix = str(entry.get("prefix") or entry["label"])
+    operator = "=" if exact_model_name else "LIKE"
+    pattern = prefix if exact_model_name else f"{prefix}_%"
+
+    row = con.execute(
+        f"""
+        SELECT
+            MAX(prediction_date) AS latest_prediction_date,
+            COUNT(*) AS total_prediction_rows,
+            COUNT(DISTINCT prediction_date) AS prediction_days
+        FROM predictions
+        WHERE model_name {operator} ?
+          AND prediction_date >= ?
+          AND prediction_date <= ?
+        """,
+        (pattern, start_date, end_date),
+    ).fetchone()
+
+    latest_prediction_date = str(row[0]) if row and row[0] else None
+    return {
+        "latest_prediction_date": latest_prediction_date,
+        "total_prediction_rows": int(row[1] or 0) if row else 0,
+        "prediction_days": int(row[2] or 0) if row else 0,
+    }
+
+
+def dashboard_history_is_current(report: dict[str, Any], min_market_days: int = MIN_DASHBOARD_HISTORY_DAYS) -> bool:
+    if not report.get("history_complete"):
+        return False
+    if int(report.get("window_days") or 0) < min_market_days:
+        return False
+    return True
+
+
+def backfill_required_history(from_date: str, fecha_base: date) -> bool:
+    for step_name, script_path in build_learning_steps("backfill"):
+        backfill_ok = ejecutar_paso(
+            step_name,
+            build_learning_command(script_path, "backfill", fecha_base, from_date=from_date),
+            fecha_base,
+        )
+        if not backfill_ok:
+            return False
+    return True
+
+
+def backfill_optional_history(from_date: str, fecha_base: date) -> None:
+    for step_name, script_path in build_observed_steps("backfill"):
+        ok = ejecutar_paso_opcional(
+            step_name,
+            build_learning_command(script_path, "backfill", fecha_base, from_date=from_date),
+            fecha_base,
+            timeout_seconds=BACKFILL_REQUIRED_TIMEOUT_SECONDS,
+        )
+        if not ok:
+            log.warning("[PIPELINE] Backfill observado opcional no bloqueante: %s", step_name)
+
+    for step_name, script_path in build_legacy_ml_steps("backfill"):
+        ok = ejecutar_paso_opcional(
+            step_name,
+            build_learning_command(script_path, "backfill", fecha_base, from_date=from_date),
+            fecha_base,
+            timeout_seconds=BACKFILL_REQUIRED_TIMEOUT_SECONDS,
+        )
+        if not ok:
+            log.warning("[PIPELINE] Backfill legacy ML opcional no bloqueante: %s", step_name)
+
+
+def ensure_minimum_dashboard_history(
+    fecha_base: date,
+    *,
+    min_market_days: int = MIN_DASHBOARD_HISTORY_DAYS,
+) -> bool:
+    report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
+    guardar_reporte_json(DASHBOARD_HISTORY_REPORT, report)
+    if dashboard_history_is_current(report, min_market_days=min_market_days):
+        return True
+
+    start_date = str(report.get("start_date") or "")
+    if not start_date:
+        emit_critical_alert(
+            code="dashboard_history_window_missing",
+            summary="No se pudo resolver la ventana historica minima del dashboard.",
+            details={"fecha_base": fecha_base.isoformat(), "report_path": str(DASHBOARD_HISTORY_REPORT)},
+        )
+        print("  [ERROR] No se pudo resolver la ventana historica minima del dashboard.")
+        return False
+
+    missing_snapshot_history = list(report.get("missing_snapshot_history") or [])
+    summary = (
+        "Cobertura historica insuficiente en cloud; se ejecuta bootstrap de dashboard "
+        f"desde {start_date} hasta {fecha_base.isoformat()}."
+    )
+    log.warning("[PIPELINE] %s Faltan snapshots: %s", summary, ", ".join(missing_snapshot_history) or "-")
+    print(f"  [WARN] {summary}")
+
+    if not backfill_required_history(start_date, fecha_base):
+        return False
+
+    backfill_optional_history(start_date, fecha_base)
+
+    if not recompute_required_outcomes(fecha_base):
+        return False
+
+    recompute_optional_outcomes(fecha_base)
+
+    refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
+    guardar_reporte_json(DASHBOARD_HISTORY_REPORT, refreshed_report)
+    if dashboard_history_is_current(refreshed_report, min_market_days=min_market_days):
+        return True
+
+    emit_critical_alert(
+        code="dashboard_history_incomplete",
+        summary="La cobertura historica minima del dashboard sigue incompleta tras el bootstrap.",
+        details={
+            "fecha_base": fecha_base.isoformat(),
+            "report_path": str(DASHBOARD_HISTORY_REPORT),
+            "missing_snapshot_history": refreshed_report.get("missing_snapshot_history") or [],
+            "predictions_recent": refreshed_report.get("predictions_recent"),
+            "outcomes_recent": refreshed_report.get("outcomes_recent"),
+            "regimes_recent": refreshed_report.get("regimes_recent"),
+        },
+    )
+    print(
+        "  [ERROR] La cobertura historica minima del dashboard sigue incompleta tras el bootstrap. "
+        f"Ver {DASHBOARD_HISTORY_REPORT}"
+    )
+    return False
+
+
+def recompute_required_outcomes(fecha_base: date) -> bool:
+    for step_name, script_path in build_learning_steps("recompute-outcomes"):
+        outcomes_ok = ejecutar_paso(
+            step_name,
+            build_learning_command(script_path, "recompute-outcomes", fecha_base),
+            fecha_base,
+        )
+        if not outcomes_ok:
+            return False
+    return True
+
+
+def recompute_optional_outcomes(fecha_base: date) -> None:
+    for step_name, script_path in build_observed_steps("recompute-outcomes"):
+        ok = ejecutar_paso_opcional(
+            step_name,
+            build_learning_command(script_path, "recompute-outcomes", fecha_base),
+            fecha_base,
+        )
+        if not ok:
+            log.warning("[PIPELINE] Sync outcomes observado opcional no bloqueante: %s", step_name)
+
+    for step_name, script_path in build_legacy_ml_steps("recompute-outcomes"):
+        ok = ejecutar_paso_opcional(
+            step_name,
+            build_learning_command(script_path, "recompute-outcomes", fecha_base),
+            fecha_base,
+        )
+        if not ok:
+            log.warning("[PIPELINE] Sync outcomes legacy ML opcional no bloqueante: %s", step_name)
 
 
 def expected_monitored_snapshot_entries() -> list[dict[str, str]]:
@@ -631,7 +1010,11 @@ def model_snapshot_coverage_is_current(report: dict[str, object], fecha_base: da
 
 def monitored_snapshots_already_current(fecha_base: date) -> bool:
     report = build_model_snapshot_freshness_report(fecha_base)
-    return model_snapshot_coverage_is_current(report, fecha_base)
+    if not model_snapshot_coverage_is_current(report, fecha_base):
+        return False
+    history_report = build_dashboard_history_report(fecha_base)
+    guardar_reporte_json(DASHBOARD_HISTORY_REPORT, history_report)
+    return dashboard_history_is_current(history_report)
 
 
 def ejecutar_paso_opcional(
@@ -740,8 +1123,16 @@ def ejecutar_publicacion_liviana(fecha_base: date) -> bool:
         fecha_base.isoformat(),
     )
 
+    if not ensure_minimum_dashboard_history(fecha_base):
+        return False
+
     if not validate_model_snapshot_freshness(fecha_base):
         return False
+
+    if not recompute_required_outcomes(fecha_base):
+        return False
+
+    recompute_optional_outcomes(fecha_base)
 
     if not refrescar_dashboard(fecha_base):
         return False
@@ -820,9 +1211,17 @@ def ejecutar_pipeline_diario(
     if not scanner_ok:
         return False
 
+    if not ensure_minimum_dashboard_history(fecha_base):
+        return False
+
+    if not recompute_required_outcomes(fecha_base):
+        return False
+
     if skip_dashboard_refresh:
         if not validate_model_snapshot_freshness(fecha_base):
             return False
+
+        recompute_optional_outcomes(fecha_base)
 
         log.info(
             "[PIPELINE] skip_dashboard_refresh=1: se omiten gestor y resumentes requeridos; el workflow cloud continuara con el build del dashboard."
@@ -843,30 +1242,14 @@ def ejecutar_pipeline_diario(
     for step_name, script_path in build_learning_steps("daily-summary"):
         resumen_ok = ejecutar_paso(
             step_name,
-            [sys.executable, str(script_path), "daily-summary", "--date", fecha_base.isoformat()],
+            build_learning_command(script_path, "daily-summary", fecha_base),
             fecha_base,
         )
         if not resumen_ok:
             return False
 
-    # Repetimos el sync despues de observados/legacy para que el refresh final
-    # capture tambien ese material en Postgres antes de publicar el dashboard.
-
-    # Segundo refresh para incorporar tambien lo que hayan agregado los modelos
-    # observados/legacy si llegaron a completarse en esta misma corrida.
-
     if not validate_model_snapshot_freshness(fecha_base):
         return False
-
-    # Antes del dashboard core, alineamos Postgres cloud con la SQLite local
-    # para que el bundle visible y GitHub Pages salgan del mismo corte operativo.
-
-    # Refrescamos el dashboard core antes de los opcionales lentos para que el
-    # tablero operativo y el heatmap queden alineados con la rueda cerrada.
-
-    # La auditoría centinela es una verificación de calidad de CÓDIGO, no de
-    # frescura de datos. Un fallo (ej. proyecto stale) NO debe bloquear los
-    # pasos opcionales de datos (legacy ML, observados). Solo se avisa en log.
 
     if operational.observed_versions and len(operational.observed_versions) != len(operational.observed_learning_chain):
         log.error("[PIPELINE] Hay versiones observadas habilitadas sin script de aprendizaje resoluble.")
@@ -884,7 +1267,7 @@ def ejecutar_pipeline_diario(
     for step_name, script_path in build_observed_steps("run"):
         ok = ejecutar_paso_opcional(
             step_name,
-            [sys.executable, str(script_path), "run", "--date", fecha_base.isoformat()],
+            build_learning_command(script_path, "run", fecha_base),
             fecha_base,
         )
         if not ok:
@@ -893,7 +1276,7 @@ def ejecutar_pipeline_diario(
     for step_name, script_path in build_observed_steps("daily-summary"):
         ok = ejecutar_paso_opcional(
             step_name,
-            [sys.executable, str(script_path), "daily-summary", "--date", fecha_base.isoformat()],
+            build_learning_command(script_path, "daily-summary", fecha_base),
             fecha_base,
         )
         if not ok:
@@ -902,7 +1285,7 @@ def ejecutar_pipeline_diario(
     for step_name, script_path in build_legacy_ml_steps("run"):
         ok = ejecutar_paso_opcional(
             step_name,
-            [sys.executable, str(script_path), "run", "--date", fecha_base.isoformat()],
+            build_learning_command(script_path, "run", fecha_base),
             fecha_base,
         )
         if not ok:
@@ -911,11 +1294,13 @@ def ejecutar_pipeline_diario(
     for step_name, script_path in build_legacy_ml_steps("daily-summary"):
         ok = ejecutar_paso_opcional(
             step_name,
-            [sys.executable, str(script_path), "daily-summary", "--date", fecha_base.isoformat()],
+            build_learning_command(script_path, "daily-summary", fecha_base),
             fecha_base,
         )
         if not ok:
             log.warning("[PIPELINE] Resumen legacy ML opcional no bloqueante: %s", step_name)
+
+    recompute_optional_outcomes(fecha_base)
 
     # Refresco de datos dinamicos en la plantilla canonica C1 Pro (heatmap + liga)
 

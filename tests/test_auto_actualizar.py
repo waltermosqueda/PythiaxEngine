@@ -195,6 +195,15 @@ def test_monitored_snapshots_already_current_requires_full_coverage_and_matching
             "latest_prediction_date": "2026-04-24",
         },
     )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_dashboard_history_report",
+        lambda fecha_base, min_market_days=90: {
+            "history_complete": True,
+            "window_days": 90,
+        },
+    )
+    monkeypatch.setattr(auto_actualizar, "guardar_reporte_json", lambda path, payload: path)
 
     assert auto_actualizar.monitored_snapshots_already_current(date(2026, 4, 24)) is True
 
@@ -207,6 +216,29 @@ def test_monitored_snapshots_already_current_requires_full_coverage_and_matching
             "latest_prediction_date": "2026-04-24",
         },
     )
+
+    assert auto_actualizar.monitored_snapshots_already_current(date(2026, 4, 24)) is False
+
+
+def test_monitored_snapshots_already_current_rejects_incomplete_dashboard_history(monkeypatch) -> None:
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_model_snapshot_freshness_report",
+        lambda fecha_base: {
+            "missing_models": [],
+            "latest_prices_date": "2026-04-24",
+            "latest_prediction_date": "2026-04-24",
+        },
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_dashboard_history_report",
+        lambda fecha_base, min_market_days=90: {
+            "history_complete": False,
+            "window_days": 90,
+        },
+    )
+    monkeypatch.setattr(auto_actualizar, "guardar_reporte_json", lambda path, payload: path)
 
     assert auto_actualizar.monitored_snapshots_already_current(date(2026, 4, 24)) is False
 
@@ -280,7 +312,10 @@ def test_auditar_integridad_dashboard_runs_required_step(monkeypatch) -> None:
 def test_ejecutar_publicacion_liviana_blocks_when_dashboard_integrity_fails(monkeypatch) -> None:
     optional_called = {"value": False}
 
+    monkeypatch.setattr(auto_actualizar, "ensure_minimum_dashboard_history", lambda fecha_base: True)
     monkeypatch.setattr(auto_actualizar, "validate_model_snapshot_freshness", lambda fecha_base: True)
+    monkeypatch.setattr(auto_actualizar, "recompute_required_outcomes", lambda fecha_base: True)
+    monkeypatch.setattr(auto_actualizar, "recompute_optional_outcomes", lambda fecha_base: None)
     monkeypatch.setattr(auto_actualizar, "refrescar_dashboard", lambda fecha_base: True)
     monkeypatch.setattr(auto_actualizar, "auditar_integridad_dashboard", lambda fecha_base: False)
     monkeypatch.setattr(
@@ -293,6 +328,122 @@ def test_ejecutar_publicacion_liviana_blocks_when_dashboard_integrity_fails(monk
 
     assert ok is False
     assert optional_called["value"] is False
+
+
+def test_ejecutar_publicacion_liviana_reconciles_outcomes_before_refresh(monkeypatch) -> None:
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ensure_minimum_dashboard_history",
+        lambda fecha_base: calls.append("ensure_history") or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "validate_model_snapshot_freshness",
+        lambda fecha_base: calls.append("validate") or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "recompute_required_outcomes",
+        lambda fecha_base: calls.append("required_outcomes") or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "recompute_optional_outcomes",
+        lambda fecha_base: calls.append("optional_outcomes"),
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "refrescar_dashboard",
+        lambda fecha_base: calls.append("refresh") or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "auditar_integridad_dashboard",
+        lambda fecha_base: calls.append("audit") or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ejecutar_paso_opcional",
+        lambda *args, **kwargs: calls.append("auditoria_centinela") or True,
+    )
+
+    ok = auto_actualizar.ejecutar_publicacion_liviana(date(2026, 4, 24))
+
+    assert ok is True
+    assert calls == [
+        "ensure_history",
+        "validate",
+        "required_outcomes",
+        "optional_outcomes",
+        "refresh",
+        "audit",
+        "auditoria_centinela",
+    ]
+
+
+def test_ensure_minimum_dashboard_history_bootstraps_sparse_cloud_history(monkeypatch) -> None:
+    calls: list[str] = []
+    reports = iter(
+        [
+            {
+                "history_complete": False,
+                "window_days": 90,
+                "start_date": "2026-01-01",
+                "missing_snapshot_history": ["V13", "V12"],
+                "predictions_recent": 46,
+                "outcomes_recent": 0,
+                "regimes_recent": 1,
+            },
+            {
+                "history_complete": True,
+                "window_days": 90,
+                "start_date": "2026-01-01",
+                "missing_snapshot_history": [],
+                "predictions_recent": 900,
+                "outcomes_recent": 700,
+                "regimes_recent": 90,
+            },
+        ]
+    )
+
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_dashboard_history_report",
+        lambda fecha_base, min_market_days=90: next(reports),
+    )
+    monkeypatch.setattr(auto_actualizar, "guardar_reporte_json", lambda path, payload: path)
+    monkeypatch.setattr(
+        auto_actualizar,
+        "backfill_required_history",
+        lambda from_date, fecha_base: calls.append(f"required:{from_date}") or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "backfill_optional_history",
+        lambda from_date, fecha_base: calls.append(f"optional:{from_date}"),
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "recompute_required_outcomes",
+        lambda fecha_base: calls.append("required_outcomes") or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "recompute_optional_outcomes",
+        lambda fecha_base: calls.append("optional_outcomes"),
+    )
+
+    ok = auto_actualizar.ensure_minimum_dashboard_history(date(2026, 4, 24))
+
+    assert ok is True
+    assert calls == [
+        "required:2026-01-01",
+        "optional:2026-01-01",
+        "required_outcomes",
+        "optional_outcomes",
+    ]
 
 
 def test_ejecutar_pipeline_diario_can_skip_dashboard_refresh_tail(monkeypatch) -> None:
@@ -312,16 +463,36 @@ def test_ejecutar_pipeline_diario_can_skip_dashboard_refresh_tail(monkeypatch) -
     }
 
     monkeypatch.setattr(auto_actualizar, "resolve_operational_scanner_context", lambda: operational)
-    monkeypatch.setattr(auto_actualizar, "build_learning_steps", lambda command_name: [])
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_learning_steps",
+        lambda command_name: [
+            ("outcomes_v13", Path("aprendizaje_v13.py"))
+        ]
+        if command_name == "recompute-outcomes"
+        else [],
+    )
     monkeypatch.setattr(
         auto_actualizar,
         "build_observed_steps",
-        lambda command_name: [("observado_v12", Path("observado_v12.py"))],
+        lambda command_name: [
+            (
+                "outcomes_observado_v12" if command_name == "recompute-outcomes" else "observado_v12",
+                Path("observado_v12.py"),
+            )
+        ],
     )
     monkeypatch.setattr(
         auto_actualizar,
         "build_legacy_ml_steps",
-        lambda command_name: [("legacy_ml_v39full", Path("legacy_ml_v39full.py"))],
+        lambda command_name: [
+            (
+                "outcomes_legacy_ml_v39full"
+                if command_name == "recompute-outcomes"
+                else "legacy_ml_v39full",
+                Path("legacy_ml_v39full.py"),
+            )
+        ],
     )
     monkeypatch.setattr(
         auto_actualizar,
@@ -332,6 +503,11 @@ def test_ejecutar_pipeline_diario_can_skip_dashboard_refresh_tail(monkeypatch) -
         auto_actualizar,
         "validate_model_snapshot_freshness",
         lambda fecha_base: dashboard_calls.__setitem__("validate", True) or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ensure_minimum_dashboard_history",
+        lambda fecha_base: required_steps.append("ensure_history") or True,
     )
     monkeypatch.setattr(
         auto_actualizar,
@@ -356,12 +532,12 @@ def test_ejecutar_pipeline_diario_can_skip_dashboard_refresh_tail(monkeypatch) -
     )
 
     assert ok is True
-    assert required_steps == ["validacion", "scanner"]
+    assert required_steps == ["validacion", "scanner", "ensure_history", "outcomes_v13"]
     assert dashboard_calls == {
         "validate": True,
         "refresh": False,
         "audit": False,
-        "optional": False,
+        "optional": True,
     }
 
 
@@ -381,10 +557,19 @@ def test_ejecutar_pipeline_diario_skip_dashboard_refresh_still_blocks_on_missing
     }
 
     monkeypatch.setattr(auto_actualizar, "resolve_operational_scanner_context", lambda: operational)
-    monkeypatch.setattr(auto_actualizar, "build_learning_steps", lambda command_name: [])
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_learning_steps",
+        lambda command_name: [
+            ("outcomes_v13", Path("aprendizaje_v13.py"))
+        ]
+        if command_name == "recompute-outcomes"
+        else [],
+    )
     monkeypatch.setattr(auto_actualizar, "build_observed_steps", lambda command_name: [])
     monkeypatch.setattr(auto_actualizar, "build_legacy_ml_steps", lambda command_name: [])
     monkeypatch.setattr(auto_actualizar, "ejecutar_paso", lambda step_name, command, fecha_base: True)
+    monkeypatch.setattr(auto_actualizar, "ensure_minimum_dashboard_history", lambda fecha_base: True)
     monkeypatch.setattr(
         auto_actualizar,
         "validate_model_snapshot_freshness",
@@ -436,13 +621,25 @@ def test_ejecutar_pipeline_diario_treats_observed_and_legacy_steps_as_optional(m
     }
 
     monkeypatch.setattr(auto_actualizar, "resolve_operational_scanner_context", lambda: operational)
-    monkeypatch.setattr(auto_actualizar, "build_learning_steps", lambda command_name: [])
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_learning_steps",
+        lambda command_name: [
+            ("outcomes_v13", Path("aprendizaje_v13.py"))
+        ]
+        if command_name == "recompute-outcomes"
+        else [],
+    )
     monkeypatch.setattr(
         auto_actualizar,
         "build_observed_steps",
         lambda command_name: [
             (
-                "observado_v12" if command_name == "run" else "resumen_observado_v12",
+                "observado_v12"
+                if command_name == "run"
+                else "resumen_observado_v12"
+                if command_name == "daily-summary"
+                else "outcomes_observado_v12",
                 Path("observado_v12.py"),
             )
         ],
@@ -452,7 +649,11 @@ def test_ejecutar_pipeline_diario_treats_observed_and_legacy_steps_as_optional(m
         "build_legacy_ml_steps",
         lambda command_name: [
             (
-                "legacy_ml_v39full" if command_name == "run" else "resumen_legacy_ml_v39full",
+                "legacy_ml_v39full"
+                if command_name == "run"
+                else "resumen_legacy_ml_v39full"
+                if command_name == "daily-summary"
+                else "outcomes_legacy_ml_v39full",
                 Path("legacy_ml_v39full.py"),
             )
         ],
@@ -466,6 +667,11 @@ def test_ejecutar_pipeline_diario_treats_observed_and_legacy_steps_as_optional(m
         auto_actualizar,
         "ejecutar_paso_opcional",
         lambda step_name, command, fecha_base, timeout_seconds=None: calls["optional"].append(step_name) or False,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "ensure_minimum_dashboard_history",
+        lambda fecha_base: calls["required"].append("ensure_history") or True,
     )
     monkeypatch.setattr(
         auto_actualizar,
@@ -483,6 +689,8 @@ def test_ejecutar_pipeline_diario_treats_observed_and_legacy_steps_as_optional(m
     assert calls["required"] == [
         "validacion",
         "scanner",
+        "ensure_history",
+        "outcomes_v13",
         "gestor",
         "dashboard_maquina",
         "dashboard_integrity",
@@ -492,6 +700,8 @@ def test_ejecutar_pipeline_diario_treats_observed_and_legacy_steps_as_optional(m
         "resumen_observado_v12",
         "legacy_ml_v39full",
         "resumen_legacy_ml_v39full",
+        "outcomes_observado_v12",
+        "outcomes_legacy_ml_v39full",
         "auditoria_centinela",
     ]
     assert calls["validate"] == 1
