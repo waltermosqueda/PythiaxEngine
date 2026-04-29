@@ -91,6 +91,15 @@ def test_validate_database_url_rejects_password_placeholder() -> None:
         raise AssertionError("Se esperaba ValueError para placeholder de password.")
 
 
+def test_validate_database_url_rejects_unencoded_special_chars_in_password() -> None:
+    try:
+        validate_database_url("postgresql://postgres:abc@123@db.project-ref.supabase.co:5432/postgres")
+    except ValueError as exc:
+        assert "URL-encodearla" in str(exc)
+    else:
+        raise AssertionError("Se esperaba ValueError para password con caracteres especiales sin encoding.")
+
+
 def test_validate_database_url_rejects_supabase_pooler_host() -> None:
     try:
         validate_database_url("postgresql://postgres:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres")
