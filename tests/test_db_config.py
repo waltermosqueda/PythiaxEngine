@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from infra.db.config import normalize_database_url, read_env_file, resolve_setting
+from infra.db.validate_database_url import validate_database_url
 
 
 def make_workspace_tmp_dir() -> Path:
@@ -61,3 +62,39 @@ def test_normalize_database_url_rewrites_legacy_postgres_scheme() -> None:
         normalize_database_url("postgres://user:pass@host/db")
         == "postgresql+psycopg://user:pass@host/db"
     )
+
+
+def test_validate_database_url_accepts_redactable_postgres_url() -> None:
+    payload = validate_database_url("postgresql://postgres:secret@db.project-ref.supabase.co:5432/postgres?sslmode=require")
+
+    assert payload["backend"] == "postgresql+psycopg"
+    assert payload["host"] == "db.project-ref.supabase.co"
+    assert payload["sslmode"] == "require"
+    assert payload["redacted_url"] == "postgresql+psycopg://postgres:***@db.project-ref.supabase.co:5432/postgres?sslmode=require"
+
+
+def test_validate_database_url_rejects_supabase_project_url() -> None:
+    try:
+        validate_database_url("https://project-ref.supabase.co")
+    except ValueError as exc:
+        assert "Project URL" in str(exc)
+    else:
+        raise AssertionError("Se esperaba ValueError para Project URL de Supabase.")
+
+
+def test_validate_database_url_rejects_password_placeholder() -> None:
+    try:
+        validate_database_url("postgresql://postgres:[YOUR-PASSWORD]@db.project-ref.supabase.co:5432/postgres")
+    except ValueError as exc:
+        assert "YOUR-PASSWORD" in str(exc)
+    else:
+        raise AssertionError("Se esperaba ValueError para placeholder de password.")
+
+
+def test_validate_database_url_rejects_supabase_pooler_host() -> None:
+    try:
+        validate_database_url("postgresql://postgres:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres")
+    except ValueError as exc:
+        assert "Direct connection" in str(exc)
+    else:
+        raise AssertionError("Se esperaba ValueError para pooler de Supabase.")
