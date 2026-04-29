@@ -27,6 +27,8 @@ import sys
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Any
+
 from sqlalchemy.engine import make_url
 
 # Este script vive en el working copy historico `Claude/`, pero opera sobre la
