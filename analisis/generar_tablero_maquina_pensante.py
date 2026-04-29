@@ -989,6 +989,14 @@ def build_active_snapshot(
     resolved_market_dates = market_dates or load_market_dates(con)
     active_run = load_run_snapshot(con, active_version, resolved_market_dates)
     reference_run = load_run_snapshot(con, reference_version, resolved_market_dates)
+    if active_run is not None and not active_run.get("regime_label"):
+      active_run["regime_label"] = resolve_regime_label_from_db(con, active_run.get("analyzed_date"), active_version)
+    if reference_run is not None and reference_version is not None and not reference_run.get("regime_label"):
+      reference_run["regime_label"] = resolve_regime_label_from_db(
+        con,
+        reference_run.get("analyzed_date"),
+        reference_version,
+      )
 
     active_d = exact_model_accuracy(db, f"INVERTIR_V{active_version}_D_D10")
     active_e = exact_model_accuracy(db, f"INVERTIR_V{active_version}_E_D15")
