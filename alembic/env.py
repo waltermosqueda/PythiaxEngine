@@ -5,7 +5,7 @@ from logging.config import fileConfig
 from alembic import context
 
 from infra.db.base import Base
-from infra.db.config import get_database_url
+from infra.db.config import escape_database_url_for_configparser, get_database_url
 from infra.db import models  # noqa: F401
 from infra.db.session import create_db_engine
 
@@ -17,7 +17,7 @@ if config.config_file_name is not None:
 configured_url = config.get_main_option("sqlalchemy.url")
 if not configured_url:
     configured_url = get_database_url()
-config.set_main_option("sqlalchemy.url", configured_url)
+config.set_main_option("sqlalchemy.url", escape_database_url_for_configparser(configured_url))
 target_metadata = Base.metadata
 
 

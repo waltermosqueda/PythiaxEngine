@@ -55,6 +55,10 @@ def normalize_database_url(database_url: str) -> str:
     return url
 
 
+def escape_database_url_for_configparser(database_url: str) -> str:
+    return database_url.replace("%", "%%")
+
+
 def resolve_sqlite_fallback_path(raw_path: str) -> Path:
     path = Path(raw_path).expanduser()
     if not path.is_absolute():

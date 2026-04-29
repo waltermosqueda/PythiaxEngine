@@ -4,7 +4,12 @@ import shutil
 from pathlib import Path
 from uuid import uuid4
 
-from infra.db.config import normalize_database_url, read_env_file, resolve_setting
+from infra.db.config import (
+    escape_database_url_for_configparser,
+    normalize_database_url,
+    read_env_file,
+    resolve_setting,
+)
 from infra.db.validate_database_url import validate_database_url
 
 
@@ -61,6 +66,15 @@ def test_normalize_database_url_rewrites_legacy_postgres_scheme() -> None:
     assert (
         normalize_database_url("postgres://user:pass@host/db")
         == "postgresql+psycopg://user:pass@host/db"
+    )
+
+
+def test_escape_database_url_for_configparser_doubles_percent_signs() -> None:
+    assert (
+        escape_database_url_for_configparser(
+            "postgresql+psycopg://postgres:%40pass@db.project-ref.supabase.co:5432/postgres?sslmode=require"
+        )
+        == "postgresql+psycopg://postgres:%%40pass@db.project-ref.supabase.co:5432/postgres?sslmode=require"
     )
 
 
