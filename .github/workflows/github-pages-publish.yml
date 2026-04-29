@@ -19,7 +19,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 180
     permissions:
       contents: read
       pages: write
@@ -56,6 +56,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
+
+      - name: Apply schema with Alembic
+        run: alembic upgrade head
+
+      - name: Run cloud-native pipeline
+        run: |
+          python herramientas/auto_actualizar.py --skip-dashboard-refresh
 
       - name: Build dashboard bundle
         run: python analisis/generar_tablero_maquina_pensante.py --variant all
