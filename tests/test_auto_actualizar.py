@@ -560,8 +560,5 @@ def test_main_skip_dashboard_refresh_short_circuits_pipeline_when_snapshots_look
     assert rc == 0
     assert publication_called["value"] is False
     assert pipeline_call == {}
-    assert repaired_invalid_call == {"fecha_base": latest_after}
-    assert repaired_bounds_call == {
-        "start_date": "2026-03-10",
-        "end_date": "2026-04-24",
-    }
+    assert repaired_invalid_call == {}
+    assert repaired_bounds_call == {}

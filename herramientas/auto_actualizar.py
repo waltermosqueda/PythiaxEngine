@@ -1039,6 +1039,16 @@ def main() -> int:
                 db.save_market_data_update(latest_after.isoformat())
                 log.info(f"[PIPELINE] Metadata de mercado reconciliada para {latest_after}")
 
+        current_snapshots = monitored_snapshots_already_current(latest_after)
+        if skip_dashboard_refresh and current_snapshots:
+            log.info(
+                "[PIPELINE] Snapshot coverage al dia. Se omiten reparaciones locales y recomputo cloud; el workflow continua con el build/publicacion."
+            )
+            print(
+                "  Snapshots requeridos al dia. Se omiten reparaciones locales y recomputo cloud; el workflow continua con el build/publicacion.\n"
+            )
+            return 0
+
         repair_recent_invalid_ohlcv_rows(latest_after)
         repair_recent_ohlcv_bounds(latest_after)
 
@@ -1058,15 +1068,7 @@ def main() -> int:
             )
             return 2
 
-        if monitored_snapshots_already_current(latest_after):
-            if skip_dashboard_refresh:
-                log.info(
-                    "[PIPELINE] Snapshot coverage al dia. Se omite el recomputo cloud y el workflow continua con el build/publicacion."
-                )
-                print(
-                    "  Snapshots requeridos al dia. Se omite recomputo cloud y el workflow continua con el build/publicacion.\n"
-                )
-                return 0
+        if current_snapshots:
             return 0 if ejecutar_publicacion_liviana(latest_after) else 1
 
         return 0 if ejecutar_pipeline_diario(
