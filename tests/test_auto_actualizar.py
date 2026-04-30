@@ -604,6 +604,15 @@ def test_ensure_minimum_dashboard_history_bootstraps_sparse_cloud_history(monkey
                 "regimes_recent": 1,
             },
             {
+                "history_complete": False,
+                "window_days": 90,
+                "start_date": "2026-01-01",
+                "missing_snapshot_history": [],
+                "predictions_recent": 900,
+                "outcomes_recent": 700,
+                "regimes_recent": 90,
+            },
+            {
                 "history_complete": True,
                 "window_days": 90,
                 "start_date": "2026-01-01",
@@ -647,9 +656,75 @@ def test_ensure_minimum_dashboard_history_bootstraps_sparse_cloud_history(monkey
     assert ok is True
     assert calls == [
         "required:2026-01-01",
-        "optional:2026-01-01",
         "required_outcomes",
+        "optional:2026-01-01",
         "optional_outcomes",
+    ]
+
+
+def test_ensure_minimum_dashboard_history_returns_after_required_repair(monkeypatch) -> None:
+    calls: list[str] = []
+    reports = iter(
+        [
+            {
+                "history_complete": False,
+                "window_days": 90,
+                "start_date": "2026-01-01",
+                "missing_snapshot_history": ["ML_V97"],
+                "predictions_recent": 46,
+                "outcomes_recent": 0,
+                "regimes_recent": 1,
+            },
+            {
+                "history_complete": True,
+                "window_days": 90,
+                "start_date": "2026-01-01",
+                "missing_snapshot_history": ["ML_V97"],
+                "predictions_recent": 900,
+                "outcomes_recent": 700,
+                "regimes_recent": 90,
+                "window_coverage": {
+                    "predictions": {"missing_days": []},
+                    "outcomes": {"missing_days": []},
+                    "regimes": {"missing_days": []},
+                },
+            },
+        ]
+    )
+
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_dashboard_history_report",
+        lambda fecha_base, min_market_days=90: next(reports),
+    )
+    monkeypatch.setattr(auto_actualizar, "guardar_reporte_json", lambda path, payload: path)
+    monkeypatch.setattr(
+        auto_actualizar,
+        "backfill_required_history",
+        lambda from_date, fecha_base: calls.append(f"required:{from_date}") or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "backfill_optional_history",
+        lambda from_date, fecha_base: calls.append(f"optional:{from_date}"),
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "recompute_required_outcomes",
+        lambda fecha_base: calls.append("required_outcomes") or True,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "recompute_optional_outcomes",
+        lambda fecha_base: calls.append("optional_outcomes"),
+    )
+
+    ok = auto_actualizar.ensure_minimum_dashboard_history(date(2026, 4, 24))
+
+    assert ok is True
+    assert calls == [
+        "required:2026-01-01",
+        "required_outcomes",
     ]
 
 

@@ -946,11 +946,15 @@ def ensure_minimum_dashboard_history(
     if not backfill_required_history(start_date, fecha_base):
         return False
 
-    backfill_optional_history(start_date, fecha_base)
-
     if not recompute_required_outcomes(fecha_base):
         return False
 
+    refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
+    guardar_reporte_json(DASHBOARD_HISTORY_REPORT, refreshed_report)
+    if dashboard_history_is_current(refreshed_report, min_market_days=min_market_days):
+        return True
+
+    backfill_optional_history(start_date, fecha_base)
     recompute_optional_outcomes(fecha_base)
 
     refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
