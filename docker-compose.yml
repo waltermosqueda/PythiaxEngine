@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pythiax_staging_postgres
+    environment:
+      POSTGRES_DB: pythiax
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_local
+    ports:
+      - "5433:5432"
+    volumes:
+      - pythiax_postgres_staging:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pythiax"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  pythiax_postgres_staging:
+    name: pythiax_postgres_staging
