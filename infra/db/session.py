@@ -14,8 +14,20 @@ def build_engine_kwargs(database_url: str) -> dict[str, object]:
         "pool_pre_ping": True,
     }
     if url.get_backend_name().startswith("postgres"):
-        kwargs["pool_recycle"] = 300
-        connect_args: dict[str, object] = {"connect_timeout": 15}
+        # pool_recycle: 1800s (30 min) en vez de 300 — evita reconexiones
+        # innecesarias durante runs largos de CI (~54 min) que disparan
+        # queries de inicializacion como SELECT name FROM pg_timezone_names.
+        kwargs["pool_recycle"] = 1800
+        # pool_size + max_overflow: maximo 4 conexiones totales (Supabase
+        # free tier permite 60; mantenerlo bajo ahorra RAM en el servidor).
+        kwargs["pool_size"] = 2
+        kwargs["max_overflow"] = 2
+        connect_args: dict[str, object] = {
+            "connect_timeout": 15,
+            # Fijar timezone en la conexion evita que SQLAlchemy/psycopg2
+            # ejecute SELECT name FROM pg_timezone_names al conectar.
+            "options": "-c TimeZone=UTC",
+        }
         host = (url.host or "").strip().lower()
         is_local_host = host in {"", "localhost", "127.0.0.1", "::1"}
         if not is_local_host and "sslmode" not in url.query:

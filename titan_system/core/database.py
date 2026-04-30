@@ -42,6 +42,7 @@
 
 import os
 import json
+import threading
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 import pandas as pd
@@ -53,6 +54,20 @@ from sqlalchemy.exc import DBAPIError, OperationalError
 from infra.db.config import get_database_url, get_sqlite_fallback_path
 from infra.db.runtime import adapt_qmark_sql
 from infra.db.titandb_compat import create_titandb_compat_connection
+
+# ── Cache en proceso: evita re-fetchar los mismos precios/tickers N veces ──
+# Vive mientras dure el proceso (cada CI run es un proceso nuevo → sin stale).
+_prices_cache: dict[tuple, pd.DataFrame] = {}
+_tickers_cache: list[str] | None = None
+_db_cache_lock = threading.Lock()
+
+
+def clear_db_process_cache() -> None:
+    """Limpia el cache en proceso. Útil para tests o runs en loop."""
+    global _tickers_cache
+    with _db_cache_lock:
+        _prices_cache.clear()
+        _tickers_cache = None
 
 
 class TitanDB:
@@ -674,6 +689,11 @@ class TitanDB:
         --------
         pd.DataFrame con columnas OHLCV y DatetimeIndex
         """
+        cache_key = (ticker, start_date or "", end_date or "")
+        with _db_cache_lock:
+            if cache_key in _prices_cache:
+                return _prices_cache[cache_key].copy()
+
         query = "SELECT * FROM prices WHERE ticker = ?"
         params: list = [ticker]
 
@@ -694,14 +714,23 @@ class TitanDB:
             df['date'] = pd.to_datetime(df['date'])
             df = df.set_index('date')
 
+        with _db_cache_lock:
+            _prices_cache[cache_key] = df.copy()
         return df
 
     def get_all_tickers(self) -> List[str]:
         """Devuelve lista de todos los tickers que tenemos en la DB."""
+        global _tickers_cache
+        with _db_cache_lock:
+            if _tickers_cache is not None:
+                return list(_tickers_cache)
         cursor = self.conn.execute(
             "SELECT DISTINCT ticker FROM prices ORDER BY ticker"
         )
-        return [row[0] for row in cursor.fetchall()]
+        result = [row[0] for row in cursor.fetchall()]
+        with _db_cache_lock:
+            _tickers_cache = result
+        return list(result)
 
     def get_latest_date(self, ticker: str) -> Optional[str]:
         """
