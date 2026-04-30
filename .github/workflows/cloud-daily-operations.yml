@@ -67,7 +67,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             FORCE_ARGS="--force"
           fi
-          python -m infra.cloud.decide_cloud_refresh --github-output "$GITHUB_OUTPUT" $FORCE_ARGS
+          python -m infra.cloud.decide_cloud_refresh --github-output "$GITHUB_OUTPUT" --max-stale-hours 20 $FORCE_ARGS
 
       - name: Build dashboard bundle
         if: steps.refresh.outputs.should_refresh == 'true'

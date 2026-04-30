@@ -1536,11 +1536,13 @@ def _build_variant_c(focus: list[dict], rank_1_ver: str | None = None) -> str:
 
 
 # ── build liga principal table ───────────────────────────────────────────────
-def _freshness_badge(stale_days: int | None) -> str:
+def _freshness_badge(stale_days: int | None, role: str = "") -> str:
     if stale_days is None:
         return "<span class='badge ba-muted'>N/D</span>"
     if stale_days == 0:
         return "<span class='badge ba-fresh'>AL DÍA</span>"
+    if (role or "").lower() == "legacy_ml":
+        return "<span class='badge ba-legacy'>SIN OPERAR</span>"
     if stale_days <= 7:
         label = "1d sin señal" if stale_days == 1 else f"{stale_days}d sin señal"
         return f"<span class='badge ba-warn'>{label}</span>"
@@ -1732,7 +1734,7 @@ def build_liga_table(snap: dict) -> str:
             f"data-spark-color='{sp_color}'>"
             f"<td><span class='rank-num'>{i}</span></td>"
             f"<td><strong>{ver}</strong> {_role_badge_liga(role)}</td>"
-            f"<td>{_freshness_badge(stale)}</td>"
+            f"<td>{_freshness_badge(stale, role)}</td>"
             f"<td><strong class='{wr_css}'>{wr_str}</strong>"
             f"<br><small>{ret_str}</small></td>"
             f"<td><small>{_esc(comp_activity)} \u00b7 {_esc(comp_picks)}</small></td>"

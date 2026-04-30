@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 from typing import Any
@@ -38,10 +38,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Fuerza el refresh aunque la ultima publicacion ya coincida.",
     )
+    parser.add_argument(
+        "--max-stale-hours",
+        type=int,
+        default=0,
+        help="Fuerza refresh si el ultimo deploy tiene mas de N horas de antiguedad (0 = desactivado).",
+    )
     return parser.parse_args()
 
 
-def decide_cloud_refresh(*, database_url: str | None = None, force: bool = False) -> dict[str, Any]:
+def decide_cloud_refresh(*, database_url: str | None = None, force: bool = False, max_stale_hours: int = 0) -> dict[str, Any]:
     engine = create_db_engine(database_url=database_url or get_database_url())
     try:
         backend = engine.dialect.name
@@ -99,6 +105,19 @@ def decide_cloud_refresh(*, database_url: str | None = None, force: bool = False
             should_refresh = bool(latest_prices_text) and latest_prices_text != last_publish_market_date
         if not should_refresh:
             should_refresh = snapshot_newer_than_publish
+        stale_deploy = False
+        if not should_refresh and max_stale_hours > 0:
+            now_utc = datetime.now(tz=timezone.utc)
+            if last_publish_finished_at is None:
+                stale_deploy = True
+            else:
+                finished = last_publish_finished_at
+                if finished.tzinfo is None:
+                    finished = finished.replace(tzinfo=timezone.utc)
+                elapsed_hours = (now_utc - finished) / timedelta(hours=1)
+                stale_deploy = elapsed_hours > max_stale_hours
+            if stale_deploy:
+                should_refresh = True
 
         return {
             "backend": backend,
@@ -109,6 +128,7 @@ def decide_cloud_refresh(*, database_url: str | None = None, force: bool = False
             "last_publish_finished_at": last_publish_finished_text,
             "latest_snapshot_created_at": latest_snapshot_created_text,
             "snapshot_newer_than_publish": snapshot_newer_than_publish,
+            "stale_deploy": stale_deploy,
             "should_refresh": should_refresh,
         }
     finally:
@@ -133,6 +153,7 @@ def main() -> int:
     payload = decide_cloud_refresh(
         database_url=args.database_url,
         force=bool(args.force),
+        max_stale_hours=args.max_stale_hours,
     )
     print(json.dumps(payload, ensure_ascii=True))
     if args.github_output:
