@@ -289,6 +289,10 @@ class OperationalLearningLegacyML:
         if updated_at_text and latest_prices_date == self.latest_db_date:
             self.db_last_write = datetime.strptime(updated_at_text, "%Y-%m-%d %H:%M:%S")
 
+        # Cache strategy instances across backfill dates — avoids retraining per date.
+        # Each strategy trains once on first call; subsequent dates reuse the instance.
+        self._strategy_instance_cache: dict[type, Any] = {}
+
     def _discover_sector_map(self) -> dict[str, str]:
         source = self.module if self.module is not None else self.source_metadata
         return extract_sector_map_from_module(source)
@@ -936,7 +940,11 @@ class OperationalLearningLegacyML:
             for ticker, df in histories.items()
         }
         tickers = list(prices_dict.keys())
-        strategy = strategy_cls(retrain_every=999)
+        # Reuse cached strategy instance to avoid full ML retraining on every backfill date.
+        # The model trains on first call; subsequent dates skip training (retrain_every=999).
+        if strategy_cls not in self._strategy_instance_cache:
+            self._strategy_instance_cache[strategy_cls] = strategy_cls(retrain_every=999)
+        strategy = self._strategy_instance_cache[strategy_cls]
         raw_picks = strategy(prices_dict, tickers, as_of_ts.date().isoformat())
         if not raw_picks:
             return [], []
