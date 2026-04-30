@@ -98,6 +98,72 @@ def runtime_backend_name() -> str:
     return shared_runtime_backend_name(get_database_url())
 
 
+# \u2500\u2500 Supabase egress monitor \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+# Estima el egress del run actual y alerta si la tendencia indica riesgo de
+# superar el limite gratuito (5 GB/mes = ~166 MB/dia).
+# Solo corre en backends Postgres; en SQLite es no-op.
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+_EGRESS_WARN_MB_PER_RUN = 50    # warning si un run transfiere >50 MB
+_EGRESS_DAILY_LIMIT_MB  = 167   # 5 GB / 30 dias = ~167 MB/dia
+
+
+def _check_supabase_egress() -> None:
+    """
+    Consulta pg_stat_statements para estimar cuantos bytes movio este proceso.
+    Emite ::warning en GitHub Actions y log de alerta local si supera umbral.
+    Totalmente defensivo: si falla, solo loguea y sigue.
+    """
+    if runtime_backend_name() == "sqlite":
+        return
+    try:
+        with RuntimeDB() as db:
+            # bytes_sent_network: suma de bytes enviados al cliente en este backend
+            # Disponible en pg_stat_statements a partir de Postgres 17.
+            # En versiones anteriores la columna no existe; el except lo maneja.
+            row = db.row(
+                """
+                SELECT
+                    SUM(calls)           AS total_calls,
+                    SUM(rows)            AS total_rows,
+                    SUM(total_exec_time) AS total_ms
+                FROM pg_stat_statements
+                WHERE query NOT LIKE '%pg_stat_statements%'
+                """
+            )
+        if not row:
+            return
+        total_calls = int(row.get("total_calls") or 0)
+        total_rows  = int(row.get("total_rows")  or 0)
+        total_ms    = float(row.get("total_ms")  or 0.0)
+
+        # Estimacion conservadora: precios ~3 KB/fila promedio; predictions ~0.5 KB
+        # Usamos 2 KB/fila como promedio global.
+        estimated_mb = (total_rows * 2048) / (1024 * 1024)
+
+        msg = (
+            f"[EGRESS-MONITOR] pg_stat_statements: calls={total_calls:,} | "
+            f"rows={total_rows:,} | time={total_ms/1000:.1f}s | "
+            f"estimated_egress~{estimated_mb:.1f}MB"
+        )
+        log.info(msg)
+        print(f"  {msg}")
+
+        if estimated_mb > _EGRESS_WARN_MB_PER_RUN:
+            warn = (
+                f"[ALERTA-EGRESS] Estimado ~{estimated_mb:.0f} MB en este run "
+                f"(umbral={_EGRESS_WARN_MB_PER_RUN} MB). "
+                f"Limite free tier: 5 GB/mes (~{_EGRESS_DAILY_LIMIT_MB} MB/dia). "
+                "Revisar: https://supabase.com/dashboard/org/_/usage"
+            )
+            log.warning(warn)
+            print(f"  {warn}")
+            # Emite anotacion de warning visible en el log de GitHub Actions
+            print(f"::warning::{warn}")
+
+    except Exception as exc:
+        log.debug("[EGRESS-MONITOR] No disponible: %s", exc)
+
+
 def cloud_runtime_required() -> bool:
     return shared_cloud_runtime_required()
 
@@ -1868,6 +1934,8 @@ def main() -> int:
             details={"error": str(exc)},
         )
         return 1
+    finally:
+        _check_supabase_egress()
 
 
 if __name__ == "__main__":
