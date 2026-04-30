@@ -13,6 +13,7 @@ import pandas as pd
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError, OperationalError
+import sqlalchemy.types as sa_types
 
 from infra.db import models  # noqa: F401
 from infra.db.base import Base
@@ -314,18 +315,22 @@ def adapt_chunk_for_target_backend(
     *,
     target_backend: str,
 ) -> pd.DataFrame:
-    if target_backend != "sqlite" or not JSON_COLUMNS.get(table_name):
+    if not JSON_COLUMNS.get(table_name):
         return chunk
 
     adapted = chunk.copy()
     for column_name in JSON_COLUMNS.get(table_name, ()):
         if column_name not in adapted.columns:
             continue
-        adapted[column_name] = adapted[column_name].apply(
-            lambda value: json.dumps(value, ensure_ascii=False)
-            if isinstance(value, (dict, list))
-            else value
-        )
+        if target_backend == "sqlite":
+            # SQLite almacena JSON como texto: serializar dicts a string.
+            adapted[column_name] = adapted[column_name].apply(
+                lambda value: json.dumps(value, ensure_ascii=False)
+                if isinstance(value, (dict, list))
+                else value
+            )
+        # Para Postgres: dejar los dicts como Python objects.
+        # sa_types.JSON() en el dtype de to_sql se encarga de la serialización.
     return adapted
 
 
@@ -363,6 +368,28 @@ def build_source_select_sql(source_engine: Engine, table_name: str) -> text:
         else:
             select_parts.append(column_name)
     return text(f"SELECT {', '.join(select_parts)} FROM {table_name}")
+
+
+def _build_to_sql_dtype(table_name: str, columns: Any) -> dict:
+    """Devuelve un dict {col: SQLAlchemy type} para evitar que pandas infiera
+    tipos incorrectos en columnas nullable (e.g. DATE con None -> VARCHAR)."""
+    dtype: dict = {}
+    for col in DATE_COLUMNS.get(table_name, ()):
+        if col in columns:
+            dtype[col] = sa_types.Date()
+    for col in DATETIME_COLUMNS.get(table_name, ()):
+        if col in columns:
+            dtype[col] = sa_types.DateTime(timezone=True)
+    for col in JSON_COLUMNS.get(table_name, ()):
+        if col in columns:
+            dtype[col] = sa_types.JSON()
+    for col in FLOAT_COLUMNS.get(table_name, ()):
+        if col in columns:
+            dtype[col] = sa_types.Float()
+    for col in INTEGER_COLUMNS.get(table_name, ()):
+        if col in columns:
+            dtype[col] = sa_types.BigInteger()
+    return dtype
 
 
 def migrate_table(
@@ -413,16 +440,18 @@ def migrate_table(
                 requested_chunk_size=chunk_size,
             )
 
+            col_dtypes = _build_to_sql_dtype(table_name, prepared_chunk.columns)
             run_db_operation_with_retry(
                 operation_name=f"insert_chunk:{table_name}",
                 engine=target_engine,
-                func=lambda prepared_chunk=prepared_chunk, insert_chunk_size=insert_chunk_size: prepared_chunk.to_sql(
+                func=lambda prepared_chunk=prepared_chunk, insert_chunk_size=insert_chunk_size, col_dtypes=col_dtypes: prepared_chunk.to_sql(
                     table_name,
                     target_engine,
                     if_exists="append",
                     index=False,
                     chunksize=insert_chunk_size,
                     method="multi",
+                    dtype=col_dtypes if col_dtypes else None,
                 ),
             )
             inserted_rows += len(prepared_chunk.index)

@@ -3,8 +3,9 @@ name: Cloud Daily Operations
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/15 13-21 * * 1-5"
-    - cron: "25 22 * * 1-5"
+    - cron: "30 22 * * 1-5"   # 19:30 AR — principal, post-cierre mercado US
+    - cron: "0 1 * * 2-6"     # 22:00 AR — fallback nocturno
+    - cron: "0 11 * * 1-5"    # 08:00 AR — sanidad matutina pre-apertura
 
 concurrency:
   group: pages-production-pipeline
