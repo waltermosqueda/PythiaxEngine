@@ -863,7 +863,7 @@ def backfill_required_history(from_date: str, fecha_base: date) -> bool:
     return True
 
 
-def backfill_optional_history(from_date: str, fecha_base: date) -> None:
+def backfill_optional_observed_history(from_date: str, fecha_base: date) -> None:
     for step_name, script_path in build_observed_steps("backfill"):
         ok = ejecutar_paso_opcional(
             step_name,
@@ -874,6 +874,8 @@ def backfill_optional_history(from_date: str, fecha_base: date) -> None:
         if not ok:
             log.warning("[PIPELINE] Backfill observado opcional no bloqueante: %s", step_name)
 
+
+def backfill_optional_legacy_history(from_date: str, fecha_base: date) -> None:
     for step_name, script_path in build_legacy_ml_steps("backfill"):
         ok = ejecutar_paso_opcional(
             step_name,
@@ -883,6 +885,11 @@ def backfill_optional_history(from_date: str, fecha_base: date) -> None:
         )
         if not ok:
             log.warning("[PIPELINE] Backfill legacy ML opcional no bloqueante: %s", step_name)
+
+
+def backfill_optional_history(from_date: str, fecha_base: date) -> None:
+    backfill_optional_observed_history(from_date, fecha_base)
+    backfill_optional_legacy_history(from_date, fecha_base)
 
 
 def ensure_minimum_dashboard_history(
@@ -954,8 +961,16 @@ def ensure_minimum_dashboard_history(
     if dashboard_history_is_current(refreshed_report, min_market_days=min_market_days):
         return True
 
-    backfill_optional_history(start_date, fecha_base)
-    recompute_optional_outcomes(fecha_base)
+    backfill_optional_observed_history(start_date, fecha_base)
+    recompute_optional_observed_outcomes(fecha_base)
+
+    refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
+    guardar_reporte_json(DASHBOARD_HISTORY_REPORT, refreshed_report)
+    if dashboard_history_is_current(refreshed_report, min_market_days=min_market_days):
+        return True
+
+    backfill_optional_legacy_history(start_date, fecha_base)
+    recompute_optional_legacy_outcomes(fecha_base)
 
     refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
     guardar_reporte_json(DASHBOARD_HISTORY_REPORT, refreshed_report)
@@ -994,7 +1009,7 @@ def recompute_required_outcomes(fecha_base: date) -> bool:
     return True
 
 
-def recompute_optional_outcomes(fecha_base: date) -> None:
+def recompute_optional_observed_outcomes(fecha_base: date) -> None:
     for step_name, script_path in build_observed_steps("recompute-outcomes"):
         ok = ejecutar_paso_opcional(
             step_name,
@@ -1004,6 +1019,8 @@ def recompute_optional_outcomes(fecha_base: date) -> None:
         if not ok:
             log.warning("[PIPELINE] Sync outcomes observado opcional no bloqueante: %s", step_name)
 
+
+def recompute_optional_legacy_outcomes(fecha_base: date) -> None:
     for step_name, script_path in build_legacy_ml_steps("recompute-outcomes"):
         ok = ejecutar_paso_opcional(
             step_name,
@@ -1012,6 +1029,11 @@ def recompute_optional_outcomes(fecha_base: date) -> None:
         )
         if not ok:
             log.warning("[PIPELINE] Sync outcomes legacy ML opcional no bloqueante: %s", step_name)
+
+
+def recompute_optional_outcomes(fecha_base: date) -> None:
+    recompute_optional_observed_outcomes(fecha_base)
+    recompute_optional_legacy_outcomes(fecha_base)
 
 
 def expected_monitored_snapshot_entries() -> list[dict[str, str]]:
