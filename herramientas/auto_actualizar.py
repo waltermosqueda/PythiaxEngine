@@ -1543,6 +1543,45 @@ def ejecutar_pipeline_diario(
         if not validate_model_snapshot_freshness(fecha_base):
             return False
 
+        # Modelos opcionales (observed + legacy_ml): se ejecutan en CI igual que en local
+        # para que sus resultados del dia queden en model_run_snapshots y el dashboard
+        # muestre stale_market_days=0 (AL DIA) para los modelos que predicen para hoy.
+        for step_name, script_path in build_observed_steps("run"):
+            ok = ejecutar_paso_opcional(
+                step_name,
+                build_learning_command(script_path, "run", fecha_base),
+                fecha_base,
+            )
+            if not ok:
+                log.warning("[PIPELINE] Paso observado opcional no bloqueante: %s", step_name)
+
+        for step_name, script_path in build_observed_steps("daily-summary"):
+            ok = ejecutar_paso_opcional(
+                step_name,
+                build_learning_command(script_path, "daily-summary", fecha_base),
+                fecha_base,
+            )
+            if not ok:
+                log.warning("[PIPELINE] Resumen observado opcional no bloqueante: %s", step_name)
+
+        for step_name, script_path in build_legacy_ml_steps("run"):
+            ok = ejecutar_paso_opcional(
+                step_name,
+                build_learning_command(script_path, "run", fecha_base),
+                fecha_base,
+            )
+            if not ok:
+                log.warning("[PIPELINE] Paso legacy ML opcional no bloqueante: %s", step_name)
+
+        for step_name, script_path in build_legacy_ml_steps("daily-summary"):
+            ok = ejecutar_paso_opcional(
+                step_name,
+                build_learning_command(script_path, "daily-summary", fecha_base),
+                fecha_base,
+            )
+            if not ok:
+                log.warning("[PIPELINE] Resumen legacy ML opcional no bloqueante: %s", step_name)
+
         recompute_optional_outcomes(fecha_base)
 
         log.info(
