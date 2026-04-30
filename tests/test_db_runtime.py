@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 import infra.db.config as db_config
+from herramientas import aprendizaje_operativo_legacy_ml_base as legacy_ml_base
 from infra.db.config import DEFAULT_SQLITE_PATH, get_sqlite_fallback_path
 from infra.db.runtime import RuntimeDB, adapt_qmark_sql, aggregate_distinct_sql
 from infra.db.sqlite_compat import connect_sqlite, get_sqlite_db_path
@@ -181,6 +182,97 @@ def test_runtime_db_reads_sqlite_via_database_url(monkeypatch) -> None:
         assert stats["predictions_count"] == 1
         assert stats["outcomes_count"] == 1
         assert stats["db_size_mb"] is not None
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_legacy_ml_recompute_outcomes_updates_targets_and_reuses_prefetched_prices(monkeypatch) -> None:
+    tmp_dir = make_workspace_tmp_dir()
+    db_path = tmp_dir / "db" / "legacy-ml-recompute.db"
+    model_prefix = f"LEGACY_ML_TEST_{uuid4().hex[:8].upper()}"
+    model_name = f"{model_prefix}_BUY_D2"
+    ticker_up = f"TST_{uuid4().hex[:6].upper()}_UP"
+    ticker_down = f"TST_{uuid4().hex[:6].upper()}_DOWN"
+
+    class DummyLegacyMLEngine(legacy_ml_base.OperationalLearningLegacyML):
+        def __init__(self, db: TitanDB):
+            self.db = db
+            self.config = legacy_ml_base.LegacyMLConfig(
+                model_id="legacy_ml_test",
+                label="ML_TEST",
+                model_prefix=model_prefix,
+                source_path="titan_system/models/strategies.py",
+                learning_file="herramientas/aprendizaje_operativo_legacy_ml_v22.py",
+                adapter_kind="v22",
+                signal_code="BUY",
+                native_horizon=2,
+                evaluation_mode="close_on_target",
+            )
+            self.model_prefix = self.config.model_prefix
+            self.model_name = f"{self.config.model_prefix}_{self.config.signal_code}_D{self.config.native_horizon}"
+            self.model_version = self.config.model_id
+            self.spy_dates = pd.to_datetime(["2026-04-21", "2026-04-22", "2026-04-23", "2026-04-24"])
+            self.date_to_idx = {ts.date().isoformat(): idx for idx, ts in enumerate(self.spy_dates)}
+            self.latest_db_date = "2026-04-24"
+
+    try:
+        monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
+
+        with TitanDB() as db:
+            db.conn.executemany(
+                """
+                INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (ticker_up, "2026-04-22", 100.0, 101.0, 99.0, 101.0, 1000, 101.0),
+                    (ticker_up, "2026-04-23", 101.0, 106.0, 100.0, 105.0, 1000, 105.0),
+                    (ticker_down, "2026-04-22", 200.0, 201.0, 199.0, 199.0, 1000, 199.0),
+                    (ticker_down, "2026-04-23", 199.0, 200.0, 190.0, 190.0, 1000, 190.0),
+                ],
+            )
+            db.conn.executemany(
+                """
+                INSERT INTO predictions
+                    (model_name, ticker, prediction_date, target_date, direction, confidence)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (model_name, ticker_up, "2026-04-21", "2026-04-22", "UP", 0.8),
+                    (model_name, ticker_down, "2026-04-21", "2026-04-23", "UP", 0.7),
+                ],
+            )
+            db.conn.commit()
+
+            prediction_ids = {
+                row[1]: int(row[0])
+                for row in db.conn.execute(
+                    "SELECT id, ticker FROM predictions WHERE model_name = ? AND ticker IN (?, ?)",
+                    (model_name, ticker_up, ticker_down),
+                ).fetchall()
+            }
+
+            engine = DummyLegacyMLEngine(db)
+            summary = engine.evaluate_due_predictions(max_target_date="2026-04-24", recompute_existing=True)
+
+            prediction_rows = db.conn.execute(
+                "SELECT id, target_date FROM predictions WHERE id IN (?, ?) ORDER BY id",
+                (prediction_ids[ticker_down], prediction_ids[ticker_up]),
+            ).fetchall()
+            outcome_rows = db.conn.execute(
+                "SELECT prediction_id, actual_direction, ROUND(actual_return, 3), hit FROM outcomes WHERE prediction_id IN (?, ?) ORDER BY prediction_id",
+                (prediction_ids[ticker_down], prediction_ids[ticker_up]),
+            ).fetchall()
+
+        assert summary == {"evaluated": 2, "hits": 1, "misses": 1, "errors": 0, "dates": 2}
+        assert [tuple(row) for row in prediction_rows] == [
+            (prediction_ids[ticker_up], "2026-04-23"),
+            (prediction_ids[ticker_down], "2026-04-23"),
+        ]
+        assert [tuple(row) for row in outcome_rows] == [
+            (prediction_ids[ticker_up], "UP", 0.05, 1),
+            (prediction_ids[ticker_down], "DOWN", -0.05, 0),
+        ]
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 

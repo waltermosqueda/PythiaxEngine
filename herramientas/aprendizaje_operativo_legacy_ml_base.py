@@ -1106,55 +1106,38 @@ class OperationalLearningLegacyML:
             max_target_date = self.latest_db_date
 
         if recompute_existing:
-            due_dates = [
-                row[0]
-                for row in self.db.conn.execute(
-                    """
-                    SELECT DISTINCT p.target_date
-                    FROM predictions p
-                    WHERE p.model_name = ? AND p.target_date <= ?
-                    ORDER BY p.target_date
-                    """,
-                    (self.model_name, max_target_date),
-                ).fetchall()
-            ]
+            pending = self.db.conn.execute(
+                """
+                SELECT p.id, p.model_name, p.ticker, p.direction, p.prediction_date, p.target_date
+                FROM predictions p
+                WHERE p.model_name = ? AND p.target_date <= ?
+                ORDER BY p.target_date, p.id
+                """,
+                (self.model_name, max_target_date),
+            ).fetchall()
         else:
-            due_dates = [
-                row[0]
-                for row in self.db.conn.execute(
-                    """
-                    SELECT DISTINCT p.target_date
-                    FROM predictions p
-                    LEFT JOIN outcomes o ON p.id = o.prediction_id
-                    WHERE p.model_name = ? AND o.id IS NULL AND p.target_date <= ?
-                    ORDER BY p.target_date
-                    """,
-                    (self.model_name, max_target_date),
-                ).fetchall()
-            ]
+            pending = self.db.conn.execute(
+                """
+                SELECT p.id, p.model_name, p.ticker, p.direction, p.prediction_date, p.target_date
+                FROM predictions p
+                LEFT JOIN outcomes o ON p.id = o.prediction_id
+                WHERE p.model_name = ? AND o.id IS NULL AND p.target_date <= ?
+                ORDER BY p.target_date, p.id
+                """,
+                (self.model_name, max_target_date),
+            ).fetchall()
 
-        summary = {"evaluated": 0, "hits": 0, "misses": 0, "errors": 0, "dates": len(due_dates)}
-        for target_date in due_dates:
-            if recompute_existing:
-                pending = self.db.conn.execute(
-                    """
-                    SELECT p.id, p.model_name, p.ticker, p.direction, p.prediction_date, p.target_date
-                    FROM predictions p
-                    WHERE p.model_name = ? AND p.target_date = ?
-                    """,
-                    (self.model_name, target_date),
-                ).fetchall()
-            else:
-                pending = self.db.conn.execute(
-                    """
-                    SELECT p.id, p.model_name, p.ticker, p.direction, p.prediction_date, p.target_date
-                    FROM predictions p
-                    LEFT JOIN outcomes o ON p.id = o.prediction_id
-                    WHERE p.model_name = ? AND p.target_date = ? AND o.id IS NULL
-                    """,
-                    (self.model_name, target_date),
-                ).fetchall()
+        summary = {
+            "evaluated": 0,
+            "hits": 0,
+            "misses": 0,
+            "errors": 0,
+            "dates": len({str(row[5]) for row in pending}),
+        }
+        target_updates: list[tuple[str, int]] = []
+        outcome_rows: list[tuple[int, str, float, int]] = []
 
+        if self.config.evaluation_mode == "window_max_close":
             for pred_id, model_name, ticker, predicted_dir, pred_date, stored_target_date in pending:
                 pred_date = str(pred_date)
                 stored_target_date = str(stored_target_date)
@@ -1163,52 +1146,107 @@ class OperationalLearningLegacyML:
                     summary["errors"] += 1
                     continue
 
-                entry_date = self.trading_day_offset(str(pred_date), 1)
-                actual_target_date = self.trading_day_offset(str(pred_date), horizon)
+                entry_date = self.trading_day_offset(pred_date, 1)
+                actual_target_date = self.trading_day_offset(pred_date, horizon)
                 if entry_date is None or actual_target_date is None or actual_target_date > max_target_date:
                     continue
 
                 if stored_target_date != actual_target_date:
-                    self.db.conn.execute(
-                        "UPDATE predictions SET target_date = ? WHERE id = ?",
-                        (actual_target_date, pred_id),
-                    )
+                    target_updates.append((actual_target_date, int(pred_id)))
 
-                if self.config.evaluation_mode == "window_max_close":
-                    actual_return = self._window_max_close_return(ticker, entry_date, actual_target_date)
-                else:
-                    entry_row = self.db.conn.execute(
-                        "SELECT open FROM prices WHERE ticker = ? AND date = ?",
-                        (ticker, entry_date),
-                    ).fetchone()
-                    target_row = self.db.conn.execute(
-                        "SELECT close FROM prices WHERE ticker = ? AND date = ?",
-                        (ticker, actual_target_date),
-                    ).fetchone()
-                    if entry_row is None or target_row is None or entry_row[0] in (None, 0) or target_row[0] is None:
-                        summary["errors"] += 1
-                        continue
-                    actual_return = (float(target_row[0]) - float(entry_row[0])) / float(entry_row[0])
-
+                actual_return = self._window_max_close_return(str(ticker), entry_date, actual_target_date)
                 if actual_return is None:
                     summary["errors"] += 1
                     continue
 
                 actual_direction = "UP" if actual_return >= 0 else "DOWN"
                 hit = 1 if str(predicted_dir).upper() == actual_direction else 0
-                self.db.conn.execute(
-                    """
-                    INSERT OR REPLACE INTO outcomes
-                        (prediction_id, actual_direction, actual_return, hit)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (pred_id, actual_direction, actual_return, hit),
-                )
+                outcome_rows.append((int(pred_id), actual_direction, float(actual_return), hit))
                 summary["evaluated"] += 1
                 if hit:
                     summary["hits"] += 1
                 else:
                     summary["misses"] += 1
+        else:
+            prepared_rows: list[tuple[int, str, str, str, str]] = []
+            tickers_needed: set[str] = set()
+            dates_needed: set[str] = set()
+
+            for pred_id, model_name, ticker, predicted_dir, pred_date, stored_target_date in pending:
+                pred_date = str(pred_date)
+                stored_target_date = str(stored_target_date)
+                ticker = str(ticker)
+                horizon = self.extract_horizon(str(model_name))
+                if horizon is None:
+                    summary["errors"] += 1
+                    continue
+
+                entry_date = self.trading_day_offset(pred_date, 1)
+                actual_target_date = self.trading_day_offset(pred_date, horizon)
+                if entry_date is None or actual_target_date is None or actual_target_date > max_target_date:
+                    continue
+
+                if stored_target_date != actual_target_date:
+                    target_updates.append((actual_target_date, int(pred_id)))
+
+                prepared_rows.append((int(pred_id), str(predicted_dir), ticker, entry_date, actual_target_date))
+                tickers_needed.add(ticker)
+                dates_needed.add(entry_date)
+                dates_needed.add(actual_target_date)
+
+            price_map: dict[tuple[str, str], tuple[object, object]] = {}
+            sorted_dates = sorted(dates_needed)
+            sorted_tickers = sorted(tickers_needed)
+            if sorted_dates and sorted_tickers:
+                max_tickers_per_chunk = max(1, 900 - len(sorted_dates))
+                date_placeholders = ",".join(["?"] * len(sorted_dates))
+                for start in range(0, len(sorted_tickers), max_tickers_per_chunk):
+                    ticker_chunk = sorted_tickers[start : start + max_tickers_per_chunk]
+                    ticker_placeholders = ",".join(["?"] * len(ticker_chunk))
+                    rows = self.db.conn.execute(
+                        f"""
+                        SELECT ticker, date, open, close
+                        FROM prices
+                        WHERE ticker IN ({ticker_placeholders}) AND date IN ({date_placeholders})
+                        """,
+                        (*ticker_chunk, *sorted_dates),
+                    ).fetchall()
+                    for row_ticker, row_date, row_open, row_close in rows:
+                        price_map[(str(row_ticker), str(row_date))] = (row_open, row_close)
+
+            for pred_id, predicted_dir, ticker, entry_date, actual_target_date in prepared_rows:
+                entry_row = price_map.get((ticker, entry_date))
+                target_row = price_map.get((ticker, actual_target_date))
+                entry_open = entry_row[0] if entry_row is not None else None
+                target_close = target_row[1] if target_row is not None else None
+                if entry_open in (None, 0) or target_close is None:
+                    summary["errors"] += 1
+                    continue
+
+                actual_return = (float(target_close) - float(entry_open)) / float(entry_open)
+                actual_direction = "UP" if actual_return >= 0 else "DOWN"
+                hit = 1 if predicted_dir.upper() == actual_direction else 0
+                outcome_rows.append((pred_id, actual_direction, actual_return, hit))
+                summary["evaluated"] += 1
+                if hit:
+                    summary["hits"] += 1
+                else:
+                    summary["misses"] += 1
+
+        if target_updates:
+            self.db.conn.executemany(
+                "UPDATE predictions SET target_date = ? WHERE id = ?",
+                target_updates,
+            )
+        if outcome_rows:
+            self.db.conn.executemany(
+                """
+                INSERT OR REPLACE INTO outcomes
+                    (prediction_id, actual_direction, actual_return, hit)
+                VALUES (?, ?, ?, ?)
+                """,
+                outcome_rows,
+            )
 
         self.db.conn.commit()
         return summary
