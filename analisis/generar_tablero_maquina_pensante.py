@@ -2058,10 +2058,114 @@ def latest_ticker_cloud(tickers: list[str], limit: int = 12) -> str:
     return "".join(parts)
 
 
+def _window_calendar_rows(window: dict[str, Any]) -> list[dict[str, Any]]:
+  return list(window.get("calendar") or [])
+
+
+def window_provisional_days(window: dict[str, Any]) -> int:
+  return sum(1 for item in _window_calendar_rows(window) if to_int(item.get("picks")) > 0)
+
+
+def window_provisional_picks(window: dict[str, Any]) -> int:
+  return sum(to_int(item.get("picks")) for item in _window_calendar_rows(window))
+
+
+def window_provisional_avg_return_pct(window: dict[str, Any]) -> float | None:
+  values = [
+    value
+    for item in _window_calendar_rows(window)
+    for value in [to_float(item.get("avg_return_pct"))]
+    if value is not None and to_int(item.get("picks")) > 0
+  ]
+  if not values:
+    return None
+  return sum(values) / len(values)
+
+
+def window_accuracy_label(window: dict[str, Any]) -> str:
+  if window.get("accuracy_pct") is not None:
+    return fmt_pct(window.get("accuracy_pct"))
+  if window_provisional_days(window):
+    return "PROV"
+  return "-"
+
+
+def window_return_label(window: dict[str, Any], digits: int = 3) -> str:
+  if window.get("avg_return_pct") is not None:
+    return fmt_pct(window.get("avg_return_pct"), digits, signed=True)
+  provisional_avg = window_provisional_avg_return_pct(window)
+  if provisional_avg is not None:
+    return fmt_pct(provisional_avg, digits, signed=True)
+  return "-"
+
+
+def window_activity_summary(window: dict[str, Any]) -> tuple[str, str]:
+  window_days = fmt_int(window.get("window_days"))
+  active_days = to_int(window.get("active_days"))
+  evaluated = to_int(window.get("evaluated"))
+  if active_days > 0 or evaluated > 0:
+    return f"{fmt_int(active_days)}/{window_days}", f"{fmt_int(evaluated)} picks"
+  provisional_days = window_provisional_days(window)
+  provisional_picks = window_provisional_picks(window)
+  if provisional_days > 0:
+    return f"{fmt_int(provisional_days)}/{window_days}", f"{fmt_int(provisional_picks)} picks prov"
+  return f"0/{window_days}", "0 picks"
+
+
+def window_hits_label(window: dict[str, Any]) -> str:
+  evaluated = to_int(window.get("evaluated"))
+  if evaluated > 0:
+    return f"{fmt_int(window.get('hits'))}/{fmt_int(evaluated)}"
+  provisional_picks = window_provisional_picks(window)
+  if provisional_picks > 0:
+    return f"prov {fmt_int(provisional_picks)}"
+  return "0/0"
+
+
+def coverage_ratio_text(coverage: dict[str, Any]) -> str:
+  return f"{fmt_int(coverage.get('covered_days'))}/{fmt_int(coverage.get('expected_days'))}"
+
+
+def coverage_gap_text(coverage: dict[str, Any]) -> str:
+  missing = [str(item) for item in (coverage.get("missing") or []) if item]
+  if not missing:
+    return ""
+  preview = ", ".join(missing[:2])
+  if len(missing) > 2:
+    preview += f" +{len(missing) - 2}"
+  return f" | falta {preview}"
+
+
+def coverage_triplet_text(integrity: dict[str, Any]) -> str:
+  coverage = integrity.get("coverage_last_30") or {}
+  predictions = coverage.get("predictions") or {}
+  outcomes = coverage.get("outcomes") or {}
+  regimes = coverage.get("regimes") or {}
+  return (
+    f"pred {coverage_ratio_text(predictions)}{coverage_gap_text(predictions)} | "
+    f"out {coverage_ratio_text(outcomes)}{coverage_gap_text(outcomes)} | "
+    f"reg {coverage_ratio_text(regimes)}{coverage_gap_text(regimes)}"
+  )
+
+
+def coverage_narrative_text(integrity: dict[str, Any]) -> str:
+  coverage = integrity.get("coverage_last_30") or {}
+  predictions = coverage.get("predictions") or {}
+  outcomes = coverage.get("outcomes") or {}
+  regimes = coverage.get("regimes") or {}
+  return (
+    f"Cobertura ultimas 30 ruedas: predictions {coverage_ratio_text(predictions)}{coverage_gap_text(predictions)}, "
+    f"outcomes {coverage_ratio_text(outcomes)}{coverage_gap_text(outcomes)}, "
+    f"regimens {coverage_ratio_text(regimes)}{coverage_gap_text(regimes)}."
+  )
+
+
 def recent_value_text(window: dict[str, Any]) -> str:
-    if window.get("accuracy_pct") is None:
+  accuracy_label = window_accuracy_label(window)
+  return_label = window_return_label(window)
+  if accuracy_label == "-" and return_label == "-":
         return "sin datos"
-    return f"{fmt_pct(window.get('accuracy_pct'))} | {fmt_pct(window.get('avg_return_pct'), 3, signed=True)}"
+  return f"{accuracy_label} | {return_label}"
 
 
 def tone_for_role(role: str) -> tuple[str, str]:
@@ -2077,49 +2181,52 @@ def tone_for_role(role: str) -> tuple[str, str]:
 
 
 def render_recent_rank_rows(rows: list[dict[str, Any]]) -> str:
-    body = []
-    for row in rows:
-        window = row.get("window") or {}
-        body.append(
-            "<tr>"
-            f"<td><span class='rank-chip'>{fmt_int(row.get('rank'))}</span></td>"
-            f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
-            f"<td>{freshness_badge(row.get('stale_market_days'))}<br><span class='mini'>{fmt_date(competition_freshness_date(row))}</span></td>"
-            f"<td>{fmt_int(window.get('active_days'))}/{fmt_int(window.get('window_days'))}<br><span class='mini'>{fmt_int(window.get('evaluated'))} picks</span></td>"
-            f"<td>{fmt_pct(window.get('accuracy_pct'))}<br><span class='mini'>mejor {fmt_pct(window.get('best_day_return_pct'), 2, signed=True)}</span></td>"
-            f"<td>{fmt_pct(window.get('avg_return_pct'), 3, signed=True)}<br><span class='mini'>peor {fmt_pct(window.get('worst_day_return_pct'), 2, signed=True)}</span></td>"
-            f"<td>{fmt_pct(window.get('avg_return_right_pct'), 2, signed=True)}<br><span class='mini'>{fmt_pct(window.get('avg_return_wrong_pct'), 2, signed=True)}</span></td>"
-            f"<td class='tight'>{safe(', '.join(row.get('latest_tickers', [])[:8]) or '-')}</td>"
-            "</tr>"
-        )
-    return "".join(body)
+  body = []
+  for row in rows:
+    window = row.get("window") or {}
+    activity_value, activity_detail = window_activity_summary(window)
+    body.append(
+      "<tr>"
+      f"<td><span class='rank-chip'>{fmt_int(row.get('rank'))}</span></td>"
+      f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
+      f"<td>{freshness_badge(row.get('stale_market_days'))}<br><span class='mini'>{fmt_date(competition_freshness_date(row))}</span></td>"
+      f"<td>{activity_value}<br><span class='mini'>{safe(activity_detail)}</span></td>"
+      f"<td>{safe(window_accuracy_label(window))}<br><span class='mini'>mejor {fmt_pct(window.get('best_day_return_pct'), 2, signed=True)}</span></td>"
+      f"<td>{safe(window_return_label(window))}<br><span class='mini'>peor {fmt_pct(window.get('worst_day_return_pct'), 2, signed=True)}</span></td>"
+      f"<td>{fmt_pct(window.get('avg_return_right_pct'), 2, signed=True)}<br><span class='mini'>{fmt_pct(window.get('avg_return_wrong_pct'), 2, signed=True)}</span></td>"
+      f"<td class='tight'>{safe(', '.join(row.get('latest_tickers', [])[:8]) or '-')}</td>"
+      "</tr>"
+    )
+  return "".join(body)
 
 
 def render_compact_rank_rows(rows: list[dict[str, Any]]) -> str:
-    body = []
-    for row in rows:
-        window = row.get("window") or {}
-        body.append(
-            "<tr>"
-            f"<td><span class='rank-chip'>{fmt_int(row.get('rank'))}</span></td>"
-            f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
-            f"<td>{fmt_pct(window.get('accuracy_pct'))}<br><span class='mini'>{fmt_pct(window.get('avg_return_pct'), 3, signed=True)}</span></td>"
-            f"<td>{fmt_int(window.get('active_days'))}/{fmt_int(window.get('window_days'))}<br><span class='mini'>{fmt_int(window.get('evaluated'))} picks</span></td>"
-            f"<td class='tight'>{safe(', '.join(row.get('latest_tickers', [])[:5]) or '-')}</td>"
-            "</tr>"
-        )
-    return "".join(body)
+  body = []
+  for row in rows:
+    window = row.get("window") or {}
+    activity_value, activity_detail = window_activity_summary(window)
+    body.append(
+      "<tr>"
+      f"<td><span class='rank-chip'>{fmt_int(row.get('rank'))}</span></td>"
+      f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
+      f"<td>{safe(window_accuracy_label(window))}<br><span class='mini'>{safe(window_return_label(window))}</span></td>"
+      f"<td>{activity_value}<br><span class='mini'>{safe(activity_detail)}</span></td>"
+      f"<td class='tight'>{safe(', '.join(row.get('latest_tickers', [])[:5]) or '-')}</td>"
+      "</tr>"
+    )
+  return "".join(body)
 
 
 def render_window_block(title: str, window: dict[str, Any]) -> str:
-    return (
-        "<div class='window-block'>"
-        f"<div class='window-title'>{safe(title)}</div>"
-        f"<div class='window-value'>{safe(recent_value_text(window))}</div>"
-        f"<div class='window-caption'>{fmt_int(window.get('active_days'))}/{fmt_int(window.get('window_days'))} ruedas | "
-        f"{fmt_int(window.get('evaluated'))} picks | peor {fmt_pct(window.get('worst_day_return_pct'), 2, signed=True)}</div>"
-        "</div>"
-    )
+  activity_value, activity_detail = window_activity_summary(window)
+  return (
+    "<div class='window-block'>"
+    f"<div class='window-title'>{safe(title)}</div>"
+    f"<div class='window-value'>{safe(recent_value_text(window))}</div>"
+    f"<div class='window-caption'>{activity_value} ruedas | "
+    f"{safe(activity_detail)} | peor {fmt_pct(window.get('worst_day_return_pct'), 2, signed=True)}</div>"
+    "</div>"
+  )
 
 
 def render_focus_cards(rows: list[dict[str, Any]]) -> str:
@@ -2199,39 +2306,41 @@ def render_recent_heatmap(rows: list[dict[str, Any]], dates: list[str]) -> str:
 
 
 def render_full_league_rows(rows: list[dict[str, Any]]) -> str:
-    body = []
-    for row in rows:
-        equalized = row.get("equalized_recent") or {}
-        thirty = row.get("recent_30") or {}
-        role = str(row.get("role") or "")
-        stroke, fill = tone_for_role(role)
-        series = equalized.get("spark_avg_return_pct") or thirty.get("spark_avg_return_pct") or []
-        labels = sparkline_labels_from_calendar(equalized) or sparkline_labels_from_calendar(thirty)
-        curve = sparkline_svg(
-            cumulative_series(series),
-            stroke,
-            fill,
-            width=236,
-            height=72,
-            labels=labels,
-            title=f"{row['version']} | curva reciente",
-            value_format="pct",
-            previewable=True,
-        )
-        body.append(
-            "<tr>"
-            f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
-            f"<td>{freshness_badge(row.get('stale_market_days'))}<br><span class='mini'>{fmt_date(competition_freshness_date(row))}</span></td>"
-            f"<td>{fmt_pct(equalized.get('accuracy_pct'))}<br><span class='mini'>{fmt_pct(equalized.get('avg_return_pct'), 3, signed=True)}</span></td>"
-            f"<td>{fmt_int(equalized.get('active_days'))}/{fmt_int(equalized.get('window_days'))}<br><span class='mini'>{fmt_int(equalized.get('evaluated'))} picks</span></td>"
-            f"<td>{fmt_pct(thirty.get('accuracy_pct'))}<br><span class='mini'>{fmt_pct(thirty.get('avg_return_pct'), 3, signed=True)}</span></td>"
-            f"<td>{fmt_int(thirty.get('active_days'))}/{fmt_int(thirty.get('window_days'))}<br><span class='mini'>{fmt_int(thirty.get('evaluated'))} picks</span></td>"
-            f"<td>{fmt_int(row.get('unique_tickers'))}<br><span class='mini'>{fmt_int(row.get('latest_picks'))} ultimos</span></td>"
-            f"<td class='tight'>{safe(', '.join(row.get('latest_tickers', [])[:10]) or '-')}</td>"
-            f"<td class='league-spark-cell'>{curve}</td>"
-            "</tr>"
-        )
-    return "".join(body)
+  body = []
+  for row in rows:
+    equalized = row.get("equalized_recent") or {}
+    thirty = row.get("recent_30") or {}
+    role = str(row.get("role") or "")
+    stroke, fill = tone_for_role(role)
+    equalized_activity_value, equalized_activity_detail = window_activity_summary(equalized)
+    thirty_activity_value, thirty_activity_detail = window_activity_summary(thirty)
+    series = equalized.get("spark_avg_return_pct") or thirty.get("spark_avg_return_pct") or []
+    labels = sparkline_labels_from_calendar(equalized) or sparkline_labels_from_calendar(thirty)
+    curve = sparkline_svg(
+      cumulative_series(series),
+      stroke,
+      fill,
+      width=236,
+      height=72,
+      labels=labels,
+      title=f"{row['version']} | curva reciente",
+      value_format="pct",
+      previewable=True,
+    )
+    body.append(
+      "<tr>"
+      f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
+      f"<td>{freshness_badge(row.get('stale_market_days'))}<br><span class='mini'>{fmt_date(competition_freshness_date(row))}</span></td>"
+      f"<td>{safe(window_accuracy_label(equalized))}<br><span class='mini'>{safe(window_return_label(equalized))}</span></td>"
+      f"<td>{equalized_activity_value}<br><span class='mini'>{safe(equalized_activity_detail)}</span></td>"
+      f"<td>{safe(window_accuracy_label(thirty))}<br><span class='mini'>{safe(window_return_label(thirty))}</span></td>"
+      f"<td>{thirty_activity_value}<br><span class='mini'>{safe(thirty_activity_detail)}</span></td>"
+      f"<td>{fmt_int(row.get('unique_tickers'))}<br><span class='mini'>{fmt_int(row.get('latest_picks'))} ultimos</span></td>"
+      f"<td class='tight'>{safe(', '.join(row.get('latest_tickers', [])[:10]) or '-')}</td>"
+      f"<td class='league-spark-cell'>{curve}</td>"
+      "</tr>"
+    )
+  return "".join(body)
 
 
 def cumulative_series(values: list[Any]) -> list[float]:
@@ -2254,59 +2363,62 @@ def latest_overlap_pct(row: dict[str, Any], champion_latest: set[str]) -> float 
 
 
 def render_group_model_cards(rows: list[dict[str, Any]], champion_latest: set[str]) -> str:
-    cards = []
-    for row in rows:
-        eq = row.get("equalized_recent") or {}
-        thirty = row.get("recent_30") or {}
-        role = str(row.get("role") or "")
-        stroke, fill = tone_for_role(role)
-        series = eq.get("spark_avg_return_pct") or thirty.get("spark_avg_return_pct") or []
-        curve = sparkline_svg(
-            cumulative_series(series),
-            stroke,
-            fill,
-            width=280,
-            height=84,
-            labels=sparkline_labels_from_calendar(eq) or sparkline_labels_from_calendar(thirty),
-            title=f"{row['version']} | muestra visible",
-            value_format="pct",
-        )
-        overlap = latest_overlap_pct(row, champion_latest)
-        block_id = f"model-{dom_id(role)}-{dom_id(row['version'])}"
-        cards.append(
-            f"<article class='model-card editable-block' data-block-id='{safe(block_id)}' data-block-label='{safe(row['version'])}'>"
-            "<div class='model-card-head'>"
-            f"<div><div class='model-card-title'>{safe(row['version'])}</div><div class='focus-meta'>{role_badge(role)} {freshness_badge(row.get('stale_market_days'))}</div></div>"
-            f"<div class='rank-chip'>{fmt_int(row.get('rank'))}</div>"
-            "</div>"
-            f"<div class='model-card-chart'>{curve}</div>"
-            "<div class='model-card-kpis'>"
-            f"<div class='model-kpi'><span>WR</span><strong>{fmt_pct(eq.get('accuracy_pct'))}</strong></div>"
-            f"<div class='model-kpi'><span>Ret</span><strong>{fmt_pct(eq.get('avg_return_pct'), 3, signed=True)}</strong></div>"
-            f"<div class='model-kpi'><span>Hits</span><strong>{fmt_int(eq.get('hits'))}/{fmt_int(eq.get('evaluated'))}</strong></div>"
-            f"<div class='model-kpi'><span>Activos</span><strong>{fmt_int(row.get('latest_picks'))}</strong></div>"
-            "</div>"
-            f"<div class='ticker-cloud'>{latest_ticker_cloud(row.get('latest_tickers', []), limit=8)}</div>"
-            "<details class='card-details'>"
-            "<summary>Mas data</summary>"
-            "<div class='card-details-body'>"
-            f"<div class='kpi-line'><span>WR igualado</span><strong>{fmt_pct(eq.get('accuracy_pct'))}</strong></div>"
-            f"<div class='kpi-line'><span>Ret igualado</span><strong>{fmt_pct(eq.get('avg_return_pct'), 3, signed=True)}</strong></div>"
-            f"<div class='kpi-line'><span>Hits / Misses</span><strong>{fmt_int(eq.get('hits'))} / {fmt_int(eq.get('misses'))}</strong></div>"
-            f"<div class='kpi-line'><span>Ganancia media aciertos</span><strong>{fmt_pct(eq.get('avg_return_right_pct'), 2, signed=True)}</strong></div>"
-            f"<div class='kpi-line'><span>Perdida media errores</span><strong>{fmt_pct(eq.get('avg_return_wrong_pct'), 2, signed=True)}</strong></div>"
-            f"<div class='kpi-line'><span>Rango muestra igualada</span><strong>{fmt_date(eq.get('start_date'))} -> {fmt_date(eq.get('end_date'))}</strong></div>"
-            f"<div class='kpi-line'><span>Contexto 30 ruedas</span><strong>{fmt_pct(thirty.get('accuracy_pct'))} | {fmt_pct(thirty.get('avg_return_pct'), 3, signed=True)}</strong></div>"
-            f"<div class='kpi-line'><span>Ultima fecha</span><strong>{fmt_date(competition_freshness_date(row))}</strong></div>"
-            f"<div class='kpi-line'><span>Target de picks</span><strong>{fmt_date(row.get('latest_target_date'))}</strong></div>"
-            f"<div class='kpi-line'><span>Universo total</span><strong>{fmt_int(row.get('unique_tickers'))}</strong></div>"
-            f"<div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>{fmt_pct(overlap) if overlap is not None else '-'}</strong></div>"
-            f"<div class='detail-picks'>{safe(', '.join(row.get('latest_tickers', [])) or 'Sin picks recientes')}</div>"
-            "</div>"
-            "</details>"
-            "</article>"
-        )
-    return "".join(cards)
+  cards = []
+  for row in rows:
+    eq = row.get("equalized_recent") or {}
+    thirty = row.get("recent_30") or {}
+    role = str(row.get("role") or "")
+    stroke, fill = tone_for_role(role)
+    eq_accuracy_label = window_accuracy_label(eq)
+    eq_return_label = window_return_label(eq)
+    eq_hits = window_hits_label(eq)
+    series = eq.get("spark_avg_return_pct") or thirty.get("spark_avg_return_pct") or []
+    curve = sparkline_svg(
+      cumulative_series(series),
+      stroke,
+      fill,
+      width=280,
+      height=84,
+      labels=sparkline_labels_from_calendar(eq) or sparkline_labels_from_calendar(thirty),
+      title=f"{row['version']} | muestra visible",
+      value_format="pct",
+    )
+    overlap = latest_overlap_pct(row, champion_latest)
+    block_id = f"model-{dom_id(role)}-{dom_id(row['version'])}"
+    cards.append(
+      f"<article class='model-card editable-block' data-block-id='{safe(block_id)}' data-block-label='{safe(row['version'])}'>"
+      "<div class='model-card-head'>"
+      f"<div><div class='model-card-title'>{safe(row['version'])}</div><div class='focus-meta'>{role_badge(role)} {freshness_badge(row.get('stale_market_days'))}</div></div>"
+      f"<div class='rank-chip'>{fmt_int(row.get('rank'))}</div>"
+      "</div>"
+      f"<div class='model-card-chart'>{curve}</div>"
+      "<div class='model-card-kpis'>"
+      f"<div class='model-kpi'><span>WR</span><strong>{safe(eq_accuracy_label)}</strong></div>"
+      f"<div class='model-kpi'><span>Ret</span><strong>{safe(eq_return_label)}</strong></div>"
+      f"<div class='model-kpi'><span>Hits</span><strong>{safe(eq_hits)}</strong></div>"
+      f"<div class='model-kpi'><span>Activos</span><strong>{fmt_int(row.get('latest_picks'))}</strong></div>"
+      "</div>"
+      f"<div class='ticker-cloud'>{latest_ticker_cloud(row.get('latest_tickers', []), limit=8)}</div>"
+      "<details class='card-details'>"
+      "<summary>Mas data</summary>"
+      "<div class='card-details-body'>"
+      f"<div class='kpi-line'><span>WR igualado</span><strong>{safe(eq_accuracy_label)}</strong></div>"
+      f"<div class='kpi-line'><span>Ret igualado</span><strong>{safe(eq_return_label)}</strong></div>"
+      f"<div class='kpi-line'><span>Hits / Misses</span><strong>{fmt_int(eq.get('hits'))} / {fmt_int(eq.get('misses'))}</strong></div>"
+      f"<div class='kpi-line'><span>Ganancia media aciertos</span><strong>{fmt_pct(eq.get('avg_return_right_pct'), 2, signed=True)}</strong></div>"
+      f"<div class='kpi-line'><span>Perdida media errores</span><strong>{fmt_pct(eq.get('avg_return_wrong_pct'), 2, signed=True)}</strong></div>"
+      f"<div class='kpi-line'><span>Rango muestra igualada</span><strong>{fmt_date(eq.get('start_date'))} -> {fmt_date(eq.get('end_date'))}</strong></div>"
+      f"<div class='kpi-line'><span>Contexto 30 ruedas</span><strong>{safe(recent_value_text(thirty))}</strong></div>"
+      f"<div class='kpi-line'><span>Ultima fecha</span><strong>{fmt_date(competition_freshness_date(row))}</strong></div>"
+      f"<div class='kpi-line'><span>Target de picks</span><strong>{fmt_date(row.get('latest_target_date'))}</strong></div>"
+      f"<div class='kpi-line'><span>Universo total</span><strong>{fmt_int(row.get('unique_tickers'))}</strong></div>"
+      f"<div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>{fmt_pct(overlap) if overlap is not None else '-'}</strong></div>"
+      f"<div class='detail-picks'>{safe(', '.join(row.get('latest_tickers', [])) or 'Sin picks recientes')}</div>"
+      "</div>"
+      "</details>"
+      "</article>"
+    )
+  return "".join(cards)
 
 
 def render_builder_markup() -> str:
@@ -3124,7 +3236,7 @@ def render_index(payload: dict[str, Any]) -> str:
             <span class="pill">Build {safe(build_status_label(payload))}</span>
             <span class="pill">Mercado {fmt_date(integrity["latest_market_date"])}</span>
             <span class="pill">Muestra igualada {fmt_int(equalized_days)} ruedas</span>
-            <span class="pill">Cobertura 30/30</span>
+            <span class="pill">Cobertura pred {coverage_ratio_text(integrity['coverage_last_30']['predictions'])}</span>
           </div>
         </div>
         <div class="toolbar" data-container-id="topbar-actions">
@@ -3141,7 +3253,7 @@ def render_index(payload: dict[str, Any]) -> str:
         <div class="stat-card accent-gold editable-block" data-block-id="kpi-picks" data-block-label="KPI Picks vivos"><div class="stat-label">Picks vivos</div><div class="stat-value">{fmt_int(len(live_results))} | {safe(active_run.get('regime_label', '-'))}</div><div class="stat-subtitle">breadth {fmt_pct(active_run.get('breadth_pct'), 1)} | target {fmt_date(active_run.get('prediction_for'))}</div></div>
         <div class="stat-card accent-rose editable-block" data-block-id="kpi-db" data-block-label="KPI DB viva"><div class="stat-label">DB viva</div><div class="stat-value">{fmt_int(integrity['outcomes_count'])}</div><div class="stat-subtitle">outcomes | pred {fmt_int(integrity['predictions_count'])}</div></div>
         <div class="stat-card editable-block" data-block-id="kpi-divergencia" data-block-label="KPI familias visibles"><div class="stat-label">Familias scanner</div><div class="stat-value">{fmt_int(len(historical_rows))}</div><div class="stat-subtitle">{fmt_int(len(hidden_redundant_scanners))} clones ocultos por redundancia</div></div>
-        <div class="stat-card editable-block" data-block-id="kpi-integridad" data-block-label="KPI Integridad"><div class="stat-label">Integridad</div><div class="stat-value">{integrity['coverage_last_30']['predictions']['covered_days']}/{integrity['coverage_last_30']['predictions']['expected_days']}</div><div class="stat-subtitle">pred | out | regime alineados</div></div>
+        <div class="stat-card editable-block" data-block-id="kpi-integridad" data-block-label="KPI Integridad"><div class="stat-label">Integridad</div><div class="stat-value">{coverage_ratio_text(integrity['coverage_last_30']['predictions'])}</div><div class="stat-subtitle">{safe(coverage_triplet_text(integrity))}</div></div>
       </section>
 
       <section class="prime-grid" data-container-id="champion-league-grid" id="champion">
@@ -3389,7 +3501,7 @@ def render_executive(payload: dict[str, Any]) -> str:
         <div class="eyebrow">Executive Board</div>
         <h1>La maquina esta viva, midiendo y compitiendo todos los dias</h1>
         <div class="hero-copy">
-          Predicciones, outcomes y regimens tuvieron cobertura completa en las ultimas 30 ruedas.
+          {safe(coverage_narrative_text(integrity))}
           El tablero distingue continuidad del champion, ortogonalidad legacy y salud de la
           memoria operativa sin ocultar donde todavia hay similitud entre versiones.
         </div>

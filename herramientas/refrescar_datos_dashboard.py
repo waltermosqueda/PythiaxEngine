@@ -211,6 +211,148 @@ def _fmt_int(value: int | None) -> str:
     return f"{int(value or 0):,}"
 
 
+def _to_int(value: object) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        try:
+            return int(float(value or 0))
+        except (TypeError, ValueError):
+            return 0
+
+
+def _window_calendar(window: dict | None) -> list[dict]:
+    return list((window or {}).get("calendar") or [])
+
+
+def _entry_tickers(entry: dict | None) -> list[str]:
+    return [str(ticker) for ticker in ((entry or {}).get("tickers") or []) if ticker]
+
+
+def _entry_picks_count(entry: dict | None) -> int:
+    picks = _to_int((entry or {}).get("picks"))
+    if picks > 0:
+        return picks
+    tickers = _entry_tickers(entry)
+    if tickers:
+        return len(tickers)
+    evaluated_assets = (entry or {}).get("evaluated_assets") or []
+    if isinstance(evaluated_assets, list) and evaluated_assets:
+        return len(evaluated_assets)
+    return 0
+
+
+def _window_activity_entries(window: dict | None) -> list[dict]:
+    return [
+        entry
+        for entry in _window_calendar(window)
+        if _entry_picks_count(entry) > 0 or entry.get("avg_return_pct") is not None
+    ]
+
+
+def _window_return_entries(window: dict | None) -> list[dict]:
+    return [entry for entry in _window_activity_entries(window) if entry.get("avg_return_pct") is not None]
+
+
+def _window_provisional_days(window: dict | None) -> int:
+    return sum(1 for entry in _window_activity_entries(window) if _entry_picks_count(entry) > 0)
+
+
+def _window_provisional_picks(window: dict | None) -> int:
+    return sum(_entry_picks_count(entry) for entry in _window_activity_entries(window))
+
+
+def _window_provisional_avg_return_pct(window: dict | None) -> float | None:
+    values = [float(entry.get("avg_return_pct")) for entry in _window_return_entries(window)]
+    if not values:
+        return None
+    return sum(values) / len(values)
+
+
+def _window_accuracy_label(window: dict | None, digits: int = 2) -> str:
+    accuracy = (window or {}).get("accuracy_pct")
+    if accuracy is not None:
+        return _fmt_pct(float(accuracy), digits)
+    if _window_provisional_days(window) > 0:
+        return "PROV"
+    return "—"
+
+
+def _window_return_label(window: dict | None, digits: int = 3, signed: bool = True) -> str:
+    avg_return = (window or {}).get("avg_return_pct")
+    if avg_return is not None:
+        return _fmt_pct(float(avg_return), digits, signed)
+    provisional_avg = _window_provisional_avg_return_pct(window)
+    if provisional_avg is not None:
+        return _fmt_pct(provisional_avg, digits, signed)
+    return "—"
+
+
+def _window_hits_label(window: dict | None) -> str:
+    hits = _to_int((window or {}).get("hits"))
+    evaluated = _to_int((window or {}).get("evaluated"))
+    if evaluated > 0:
+        return f"{_fmt_int(hits)}/{_fmt_int(evaluated)}"
+    provisional_picks = _window_provisional_picks(window)
+    if provisional_picks > 0:
+        return f"prov {_fmt_int(provisional_picks)}"
+    return "0/0"
+
+
+def _window_activity_summary(window: dict | None, *, period_days: object | None = None) -> tuple[str, str]:
+    total_days = _to_int((window or {}).get("window_days") or period_days)
+    active_days = _to_int((window or {}).get("active_days"))
+    evaluated = _to_int((window or {}).get("evaluated"))
+    if active_days > 0 or evaluated > 0:
+        return f"{_fmt_int(active_days)}/{_fmt_int(total_days)}", f"{_fmt_int(evaluated)} picks"
+    provisional_days = _window_provisional_days(window)
+    provisional_picks = _window_provisional_picks(window)
+    if provisional_days > 0:
+        return f"{_fmt_int(provisional_days)}/{_fmt_int(total_days)}", f"{_fmt_int(provisional_picks)} picks prov"
+    return f"0/{_fmt_int(total_days)}", "0 picks"
+
+
+def _row_latest_tickers(row: dict, limit: int = 10) -> list[str]:
+    tickers = [str(ticker) for ticker in (row.get("latest_tickers") or []) if ticker]
+    if tickers:
+        return tickers[:limit]
+    collected: list[str] = []
+    for entry in reversed(_window_calendar(row.get("recent_30") or {})):
+        recent_tickers = _entry_tickers(entry)
+        for ticker in recent_tickers:
+            if ticker not in collected:
+                collected.append(ticker)
+        if len(collected) >= limit:
+            break
+    return collected[:limit]
+
+
+def _row_latest_picks(row: dict) -> int:
+    latest_picks = _to_int(row.get("latest_picks"))
+    if latest_picks > 0:
+        return latest_picks
+    return len(_row_latest_tickers(row, limit=999))
+
+
+def _window_has_visible_activity(window: dict | None) -> bool:
+    if not window:
+        return False
+    if window.get("accuracy_pct") is not None or window.get("avg_return_pct") is not None:
+        return True
+    if _to_int(window.get("evaluated")) > 0 or _to_int(window.get("active_days")) > 0:
+        return True
+    return _window_provisional_days(window) > 0
+
+
+def _row_has_visible_activity(row: dict) -> bool:
+    if _row_latest_picks(row) > 0:
+        return True
+    for key in ("equalized_recent", "window", "recent_15", "recent_30", "recent_60", "recent_90"):
+        if _window_has_visible_activity(row.get(key) or {}):
+            return True
+    return False
+
+
 def _parse_iso_date(value: object) -> datetime.date | None:
     if value in (None, ""):
         return None
@@ -227,7 +369,9 @@ def _fmt_ddmm(value: object) -> str:
 
 def _dashboard_league(snap: dict) -> list[dict]:
     cr = snap.get("competition_recent") or {}
-    return list(cr.get("dashboard_league_equalized") or cr.get("league_equalized") or [])
+    league = list(cr.get("dashboard_league_equalized") or cr.get("league_equalized") or [])
+    visible = [row for row in league if _row_has_visible_activity(row)]
+    return visible or league
 
 
 def _competition_start_iso(snap: dict) -> str | None:
@@ -420,7 +564,19 @@ def _sparkline_markup_from_window(
     previewable: bool = False,
 ) -> str:
     labels = _sparkline_labels_from_window(window)
-    series, labels = _trim_series_and_labels((window or {}).get("spark_avg_return_pct") or [], labels)
+    raw_series = [float(value or 0.0) for value in ((window or {}).get("spark_avg_return_pct") or [])]
+    series, labels = _trim_series_and_labels(raw_series, labels)
+    if not series and raw_series:
+        series = raw_series
+        labels = labels or _sparkline_labels_from_window(window)
+    if not series:
+        derived = [
+            (float(entry.get("avg_return_pct")), str(entry.get("date")))
+            for entry in _window_return_entries(window)
+            if entry.get("date")
+        ]
+        series = [value for value, _ in derived]
+        labels = [label for _, label in derived]
     return _sparkline_svg(
         _cumulative(series),
         stroke,
@@ -711,6 +867,8 @@ def _render_legacy_grid(snap: dict) -> str:
         version = str(row.get("version") or "")
         eq = _row_window(row, "equalized_recent")
         recent = _row_window(row, "recent_30")
+        latest_tickers = _row_latest_tickers(row, limit=10)
+        eq_wr_css = "pos" if eq.get("accuracy_pct") is not None and float(eq.get("accuracy_pct") or 0) >= 60 else ""
         cards.append(
             f"<article class='model-card editable-block' data-bid='{_model_bid(version)}' data-blabel='{_esc(version)}'>"
             "<div class='mc-head'>"
@@ -720,14 +878,14 @@ def _render_legacy_grid(snap: dict) -> str:
             "</div>"
             f"<div class='mc-spark'>{_sparkline_markup_from_window(recent, ROLE_SPARK.get(role, '#6ea8cc'), title=f'{version} | curva 30 ruedas', value_format='pct')}</div>"
             "<div class='mc-kpis'>"
-            f"<div class='mk'><span>WR</span><strong class='{'pos' if (eq.get('accuracy_pct') or 0) >= 60 else ''}'>{_fmt_pct(eq.get('accuracy_pct'))}</strong></div>"
-            f"<div class='mk'><span>Ret</span><strong>{_fmt_pct(eq.get('avg_return_pct'), 3, True)}</strong></div>"
-            f"<div class='mk'><span>Hits</span><strong>{_fmt_int(eq.get('hits'))}/{_fmt_int(eq.get('evaluated'))}</strong></div>"
-            f"<div class='mk'><span>Picks</span><strong>{_fmt_int(row.get('latest_picks'))}</strong></div>"
+            f"<div class='mk'><span>WR</span><strong class='{eq_wr_css}'>{_window_accuracy_label(eq)}</strong></div>"
+            f"<div class='mk'><span>Ret</span><strong>{_window_return_label(eq)}</strong></div>"
+            f"<div class='mk'><span>Hits</span><strong>{_window_hits_label(eq)}</strong></div>"
+            f"<div class='mk'><span>Picks</span><strong>{_fmt_int(_row_latest_picks(row))}</strong></div>"
             "</div>"
-            f"<div class='mc-tickers'>{_esc(', '.join((row.get('latest_tickers') or [])[:10]) or 'Sin picks recientes')}</div>"
+            f"<div class='mc-tickers'>{_esc(', '.join(latest_tickers) or 'Sin picks recientes')}</div>"
             "<details class='mc-detail'><summary>Mas datos</summary><div class='mc-detail-body'>"
-            f"<div class='kl'><span>30 ruedas</span><strong>{_fmt_pct(recent.get('accuracy_pct'))} / {_fmt_pct(recent.get('avg_return_pct'), 3, True)}</strong></div>"
+            f"<div class='kl'><span>30 ruedas</span><strong>{_window_accuracy_label(recent)} / {_window_return_label(recent)}</strong></div>"
             f"<div class='kl'><span>Mejor rueda</span><strong>{_fmt_pct(recent.get('best_day_return_pct'), 2, True)}</strong></div>"
             f"<div class='kl'><span>Peor rueda</span><strong>{_fmt_pct(recent.get('worst_day_return_pct'), 2, True)}</strong></div>"
             f"<div class='kl'><span>Universo</span><strong>{_fmt_int(row.get('unique_tickers'))} tickers</strong></div>"
@@ -742,6 +900,16 @@ def _render_overlap_table_content(snap: dict) -> str:
     ovl = snap.get("overlap") or {}
     labels = ovl.get("labels") or []
     matrix = ovl.get("matrix") or []
+    visible_versions = {str(row.get("version") or "") for row in _dashboard_league(snap)}
+    if labels and matrix and visible_versions:
+        keep_indices = [idx for idx, label in enumerate(labels) if str(label) in visible_versions]
+        if keep_indices:
+            labels = [labels[idx] for idx in keep_indices]
+            trimmed_rows = []
+            for idx in keep_indices:
+                row_vals = list(matrix[idx]) if idx < len(matrix) and isinstance(matrix[idx], (list, tuple)) else []
+                trimmed_rows.append([row_vals[col_idx] if col_idx < len(row_vals) else None for col_idx in keep_indices])
+            matrix = trimmed_rows
     if not labels or not matrix:
         return ""
 
@@ -980,8 +1148,8 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str]) ->
             it    = cmap.get(d, {})
             ret   = it.get("avg_return_pct")
             acc   = it.get("accuracy_pct")
-            picks = it.get("picks", 0)
-            tks   = ", ".join(it.get("tickers") or [])
+            picks = _entry_picks_count(it)
+            tks   = ", ".join(_entry_tickers(it))
             is_prov = bool(it.get("is_provisional", False))
             if ret is None and not picks:
                 if latest_snapshot_date and d <= latest_snapshot_date:
@@ -1103,7 +1271,7 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str]) ->
         stale_models = 0
         for cmap_r, latest_snapshot_date in zip(all_cmaps, latest_snapshot_dates, strict=False):
             it = cmap_r.get(d, {})
-            picks = it.get("picks", 0) or 0
+            picks = _entry_picks_count(it)
             if latest_snapshot_date and d <= latest_snapshot_date:
                 covered_models += 1
             elif latest_snapshot_date:
@@ -1202,10 +1370,10 @@ def _build_variant_b(focus: list[dict], dates: list[str]) -> str:
         cmap = {c["date"]: c for c in ((r.get("recent_30") or {}).get("calendar") or [])}
         cells = f"<th class='hm-label'><span class='hm-v'>{_esc(ver)}</span><span class='hm-rl'>{icon}</span></th>"
         for key, day_list in week_map.items():
-            week_days_with_picks = [d for d in day_list if d in cmap and (cmap[d].get("picks") or 0) > 0]
+            week_days_with_picks = [d for d in day_list if d in cmap and _entry_picks_count(cmap[d]) > 0]
             rets  = [float(cmap[d]["avg_return_pct"]) for d in week_days_with_picks if cmap[d].get("avg_return_pct") is not None]
             wrs   = [float(cmap[d]["accuracy_pct"])   for d in week_days_with_picks if cmap[d].get("accuracy_pct") is not None]
-            total_picks = sum((cmap[d].get("picks") or 0) for d in day_list if d in cmap)
+            total_picks = sum(_entry_picks_count(cmap[d]) for d in day_list if d in cmap)
             avg_ret = sum(rets) / len(rets) if rets else None
             avg_wr  = sum(wrs)  / len(wrs)  if wrs  else None
             bg = _ret_bg(avg_ret)
@@ -1240,11 +1408,11 @@ def _build_variant_c(focus: list[dict]) -> str:
     """Variant C — Comparison table: 15d vs 30d WR/Ret + Trend arrow. Sorted by 30d WR desc."""
 
     def _summary(r: dict, key: str) -> dict:
-        cal = (r.get(key) or {}).get("calendar") or []
-        active = [c for c in cal if (c.get("picks") or 0) > 0]
+        cal = _window_calendar(r.get(key) or {})
+        active = [c for c in cal if _entry_picks_count(c) > 0]
         rets = [float(c["avg_return_pct"]) for c in active if c.get("avg_return_pct") is not None]
         wrs  = [float(c["accuracy_pct"])   for c in active if c.get("accuracy_pct") is not None]
-        picks = sum((c.get("picks") or 0) for c in cal)
+        picks = sum(_entry_picks_count(c) for c in cal)
         return {
             "wr":  sum(wrs)  / len(wrs)  if wrs  else None,
             "ret": sum(rets) / len(rets) if rets else None,
@@ -1393,15 +1561,20 @@ def _window_cell(w: dict | None) -> str:
         return "<td class='wnd-td'><span class='wnd-na'>\u2014</span></td>"
     wr  = w.get("accuracy_pct")
     ret = w.get("avg_return_pct")
-    ev  = w.get("evaluated") or 0
-    if wr is None and ret is None:
+    ev  = _to_int(w.get("evaluated"))
+    provisional_days = _window_provisional_days(w)
+    provisional_picks = _window_provisional_picks(w)
+    if wr is None and ret is None and provisional_days == 0:
         return "<td class='wnd-td'><span class='wnd-na'>s/d</span></td>"
-    wr_css  = "wnd-pos" if (wr or 0) >= 60 else ("wnd-neg" if (wr or 0) < 50 else "wnd-neu")
-    ret_css = "wnd-pos" if (ret or 0) >= 0 else "wnd-neg"
-    wr_s  = f"{wr:.0f}% WR" if wr is not None else "\u2014"
-    sgn   = "+" if (ret or 0) >= 0 else ""
-    ret_s = f"{sgn}{ret:.2f}%" if ret is not None else "\u2014"
-    tip   = f"WR {wr_s} | ret {ret_s} | {ev} picks evaluados"
+    ret_value = float(ret) if ret is not None else (_window_provisional_avg_return_pct(w) or 0.0)
+    wr_css  = "wnd-pos" if wr is not None and float(wr) >= 60 else ("wnd-neg" if wr is not None and float(wr) < 50 else "wnd-neu")
+    ret_css = "wnd-pos" if ret_value >= 0 else "wnd-neg"
+    wr_s  = f"{float(wr):.0f}% WR" if wr is not None else ("PROV" if provisional_days > 0 else "\u2014")
+    ret_s = _window_return_label(w, digits=2)
+    if wr is None and provisional_days > 0:
+        tip = f"Actividad provisional | {provisional_days} ruedas | {provisional_picks} picks abiertos | ret {ret_s}"
+    else:
+        tip = f"WR {wr_s} | ret {ret_s} | {ev} picks evaluados"
     return (
         f"<td class='wnd-td' title='{_esc(tip)}'>"
         f"<span class='{wr_css} wnd-wr'>{wr_s}</span>"
@@ -1436,15 +1609,13 @@ def build_liga_table(snap: dict) -> str:
         win   = m.get("window") or {}
         r30   = m.get("recent_30") or {}
         wr    = win.get("accuracy_pct")
-        ret   = win.get("avg_return_pct")
         eq_d  = win.get("equalized_days") or win.get("active_days") or 0
-        ev    = win.get("evaluated") or 0
-        tickers = m.get("latest_tickers") or []
+        tickers = _row_latest_tickers(m, limit=5)
+        comp_activity, comp_picks = _window_activity_summary(win, period_days=win.get("equalized_days") or win.get("window_days") or eq_d)
 
-        wr_str  = f"{wr:.2f}%" if wr is not None else "\u2014"
-        sgn     = "+" if (ret or 0) >= 0 else ""
-        ret_str = f"{sgn}{ret:.3f}%" if ret is not None else "\u2014"
-        wr_css  = "pos" if (wr or 0) >= 60 else ("neg" if (wr or 0) < 50 else "")
+        wr_str  = _window_accuracy_label(win)
+        ret_str = _window_return_label(win)
+        wr_css  = "pos" if wr is not None and float(wr) >= 60 else ("neg" if wr is not None and float(wr) < 50 else "")
         tickers_str = ", ".join(tickers[:5]) if tickers else "Sin picks"
 
         # Rich data-* attributes for the expand detail panel
@@ -1453,7 +1624,9 @@ def build_liga_table(snap: dict) -> str:
         worst_raw = win.get("worst_day_return_pct")
         best_s  = (("+" if best_raw >= 0 else "") + f"{best_raw:.2f}%") if best_raw is not None else "\u2014"
         worst_s = (("+" if worst_raw >= 0 else "") + f"{worst_raw:.2f}%") if worst_raw is not None else "\u2014"
-        w30_s   = (f"{wr:.0f}%/{sgn}{ret:.1f}%") if wr is not None and ret is not None else "\u2014"
+        w30_accuracy = _window_accuracy_label(r30, digits=0)
+        w30_return = _window_return_label(r30, digits=1)
+        w30_s   = f"{w30_accuracy}/{w30_return}" if (w30_accuracy != "—" or w30_return != "—") else "\u2014"
         # Dynamic prev-picks from recent_30 calendar (replaces hardcoded fallback when available)
         r30_cal_with = sorted(
             (e for e in (r30.get("calendar") or []) if e.get("avg_return_pct") is not None),
@@ -1468,10 +1641,20 @@ def build_liga_table(snap: dict) -> str:
                 break
         prev_picks_s = " ".join(prev_tks[:5]) or st.get("prev", "")
         # Sparkline data for liga expand row
-        sp_series, sp_labels = _trim_series_and_labels(
-            r30.get("spark_avg_return_pct") or [],
-            _sparkline_labels_from_window(r30),
-        )
+        sp_series = [float(value or 0.0) for value in (r30.get("spark_avg_return_pct") or [])]
+        sp_labels = _sparkline_labels_from_window(r30)
+        sp_series, sp_labels = _trim_series_and_labels(sp_series, sp_labels)
+        if not sp_series and (r30.get("spark_avg_return_pct") or []):
+            sp_series = [float(value or 0.0) for value in (r30.get("spark_avg_return_pct") or [])]
+            sp_labels = _sparkline_labels_from_window(r30)
+        if not sp_series:
+            derived = [
+                (float(entry.get("avg_return_pct")), str(entry.get("date")))
+                for entry in _window_return_entries(r30)
+                if entry.get("date")
+            ]
+            sp_series = [value for value, _ in derived]
+            sp_labels = [label for _, label in derived]
         sp_vals   = _cumulative(sp_series)
         sp_json   = json.dumps(sp_vals)
         sp_labels_json = json.dumps(sp_labels, ensure_ascii=True)
@@ -1505,7 +1688,7 @@ def build_liga_table(snap: dict) -> str:
             f"<td>{_freshness_badge(stale)}</td>"
             f"<td><strong class='{wr_css}'>{wr_str}</strong>"
             f"<br><small>{ret_str}</small></td>"
-            f"<td><small>{eq_d}/{eq_d} \u00b7 {ev} picks</small></td>"
+            f"<td><small>{_esc(comp_activity)} \u00b7 {_esc(comp_picks)}</small></td>"
             f"<td class='muted-td ticker-list'>{_esc(tickers_str)}</td>"
             f"<td class='ult-rueda-td'>{_last_round_cell_fresh(r30, win)}</td>"
             f"{_window_cell(m.get('recent_30'))}"
