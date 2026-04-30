@@ -261,6 +261,275 @@ def rewrite_dashboard_variant_hrefs(html_text: str, output_path: Path) -> str:
     return html_text
 
 
+_MOBILE_RESPONSIVE_CSS = """
+/* ── Mob hamburger button (hidden on desktop) ──────────────────────────── */
+.mob-ham-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255,255,255,.05);
+  color: var(--ink);
+  font-size: 20px; line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .14s;
+}
+.mob-ham-btn:hover { background: rgba(255,255,255,.09); }
+
+/* ── Overlay backdrop (hidden on desktop) ──────────────────────────────── */
+.mob-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.52);
+  z-index: 499;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+/* ── MOBILE <= 640px ────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .mob-ham-btn { display: inline-flex; }
+
+  .sidebar {
+    position: fixed !important;
+    left: -296px !important;
+    top: 0 !important;
+    height: 100vh !important;
+    width: min(80vw, 280px) !important;
+    min-width: 0 !important;
+    z-index: 500 !important;
+    transition: left .28s cubic-bezier(.25,.46,.45,.94) !important;
+    box-shadow: none !important;
+    border-right: 1px solid var(--line) !important;
+    overflow-y: auto !important;
+  }
+  body.mob-open .sidebar {
+    left: 0 !important;
+    box-shadow: 6px 0 36px rgba(0,0,0,.65) !important;
+  }
+  body.sidebar-collapsed .sidebar {
+    left: -296px !important;
+    width: min(80vw, 280px) !important;
+    min-width: 0 !important;
+  }
+  body.sidebar-collapsed.mob-open .sidebar { left: 0 !important; }
+
+  body.mob-open .mob-overlay { display: block; }
+
+  .main-wrap { padding: 8px 10px 24px 10px !important; gap: 10px !important; }
+  .sidebar-tab { display: none !important; }
+
+  .topbar { padding: 10px 12px !important; gap: 8px !important; flex-wrap: nowrap !important; }
+  .tb-left { flex: 1; min-width: 0; overflow: hidden; }
+  .tb-title { font-size: 14px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tb-meta { display: none !important; }
+  .tb-right { gap: 6px !important; flex-shrink: 0; }
+  .tb-edit-btn, .login-btn { display: none !important; }
+  .tb-right .tb-btn { display: none !important; }
+  .theme-toggle-btn { padding: 6px 8px !important; font-size: 11px !important; }
+
+  .kpi-strip { grid-template-columns: repeat(2, 1fr) !important; }
+  .kc-value  { font-size: 19px !important; }
+
+  .row-2-3, .row-1-1   { grid-template-columns: 1fr !important; }
+  .hero-row, .hero-row-4 { grid-template-columns: 1fr !important; padding: 0 !important; }
+  .models-grid, .ch-grid, .ctrl-grid { grid-template-columns: 1fr !important; }
+  .mc-kpis { grid-template-columns: repeat(2, 1fr) !important; }
+
+  .panel    { padding: 12px 13px !important; }
+  .kpi-card { padding: 10px 12px !important; }
+
+  /* ── Liga: solo 4 cols visibles: # Modelo WR/Ret Picks ── */
+  .league-spark-cell, .wnd-td { display: none !important; }
+  .ult-rueda-td { display: none !important; }
+  /* Ocultar headers+celdas: Estado(3) Comp·Picks(5) Últ.Rueda(7) 30D(8) 60D(9) 90D(10) Curva(11) */
+  #league .data-table th:nth-child(3),
+  #league .data-table td:nth-child(3),
+  #league .data-table th:nth-child(5),
+  #league .data-table td:nth-child(5),
+  #league .data-table th:nth-child(7),
+  #league .data-table td:nth-child(7),
+  #league .data-table th:nth-child(8),
+  #league .data-table td:nth-child(8),
+  #league .data-table th:nth-child(9),
+  #league .data-table td:nth-child(9),
+  #league .data-table th:nth-child(10),
+  #league .data-table td:nth-child(10),
+  #league .data-table th:nth-child(11),
+  #league .data-table td:nth-child(11) { display: none !important; }
+  #league .data-table {
+    table-layout: auto !important;
+    width: 100% !important;
+  }
+  #league .tbl-scroll, .liga-full .tbl-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Picks actuales: wrap y centrado */
+  #league .data-table .ticker-list {
+    text-align: center !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    color: var(--ink) !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    max-width: none !important;
+    line-height: 1.5 !important;
+  }
+  #league .data-table thead th:nth-child(6) { text-align: center !important; }
+  .data-table { font-size: 11px !important; }
+  .data-table th, .data-table td { padding: 7px 5px !important; }
+
+  /* ── Liga expandida: 1 col, label ↔ valor en misma fila ── */
+  .liga-detail-row td { padding: 10px 12px 12px !important; }
+  .liga-detail-inner { display: flex !important; flex-direction: column !important; gap: 0 !important; }
+  .liga-detail-inner .kl { display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 6px 0 !important; border-bottom: 1px solid rgba(255,255,255,.06) !important; }
+  .liga-detail-inner .kl span { font-size: 9px !important; display: inline !important; margin-bottom: 0 !important; }
+  .liga-detail-inner .kl strong { font-size: 11px !important; text-align: right !important; }
+  /* Mostrar: WR(1) Ret(2) Mejor(5) MDD(7) Sharpe(8) Picks(12) — ocultar el resto */
+  .liga-detail-inner .kl:nth-child(3),
+  .liga-detail-inner .kl:nth-child(4),
+  .liga-detail-inner .kl:nth-child(6),
+  .liga-detail-inner .kl:nth-child(9),
+  .liga-detail-inner .kl:nth-child(10),
+  .liga-detail-inner .kl:nth-child(11),
+  .liga-detail-inner .kl:nth-child(13) { display: none !important; }
+  .liga-expand-spark, .liga-expand-spark-label { display: none !important; }
+
+  .ls-spark     { display: none !important; }
+  .leader-strip { flex-wrap: wrap !important; gap: 8px !important; }
+  .side-views { grid-template-columns: 1fr !important; }
+
+  /* ── Heatmap: scroll horizontal con etiqueta fija a la izquierda ─────── */
+  .hm-legend { display: none !important; }
+  .hm-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .hm-table,
+  .hm-compact { table-layout: auto !important; }
+  .hm-compact { min-width: 1200px !important; }
+  .hm-table:not(.hm-compact):not(.hm-trend-table) { min-width: 460px !important; }
+  .hm-table td, .hm-table th {
+    min-width: 34px !important;
+    padding: 3px 2px !important;
+    font-size: 9px !important;
+  }
+  .hm-table .hm-label {
+    position: sticky !important;
+    left: 0 !important;
+    background: var(--bg, #0b1220) !important;
+    z-index: 5 !important;
+    min-width: 54px !important;
+    max-width: 80px !important;
+    font-size: 8px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+  .hm-date { font-size: 8px !important; }
+  .hm-dow  { display: none !important; }
+  .hm-ret  { font-size: 8px !important; line-height: 1.1 !important; }
+  .hm-meta { font-size: 7px !important; }
+  .hm-tabbar { gap: 4px !important; }
+  .hm-vtab { font-size: 10px !important; padding: 5px 8px !important; white-space: nowrap !important; }
+  .hm-trend-table { font-size: 11px !important; width: 100% !important; }
+
+  /* ── Model card charts: altura minima para que no colapsen ─────────── */
+  .mc-spark { min-height: 56px !important; }
+  .mc-spark svg { width: 100% !important; min-height: 56px !important; display: block !important; overflow: visible !important; }
+  .hc-spark { height: 48px !important; }
+  .hc-spark svg { overflow: visible !important; }
+
+  .editor-panel         { width: 100% !important; right: -100% !important; }
+  .editor-panel.ep-open { right: 0 !important; }
+
+  .chart-preview-panel {
+    left: 8px !important; right: 8px !important;
+    width: auto !important; bottom: 8px !important;
+  }
+}
+"""
+
+_MOBILE_RESPONSIVE_JS = """
+(function () {
+  'use strict';
+  function init() {
+    if (!document.getElementById('mobOverlay')) {
+      var ov = document.createElement('div');
+      ov.className = 'mob-overlay'; ov.id = 'mobOverlay';
+      document.body.insertBefore(ov, document.body.firstChild);
+    }
+    if (!document.getElementById('mobHamBtn')) {
+      var btn = document.createElement('button');
+      btn.className = 'mob-ham-btn'; btn.id = 'mobHamBtn';
+      btn.setAttribute('aria-label', 'Abrir men\\u00fa');
+      btn.setAttribute('title', 'Men\\u00fa');
+      btn.innerHTML = '&#9776;';
+      var tbRight = document.querySelector('.tb-right');
+      if (tbRight) tbRight.insertBefore(btn, tbRight.firstChild);
+    }
+    /* En mobile, cambiar heatmap a vista semanal (mas compacta, 7 cols) */
+    if (window.innerWidth <= 640 && typeof window._hmShowTab === 'function') {
+      window._hmShowTab('hm-pane-b');
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  function openMob()  { document.body.classList.add('mob-open'); }
+  function closeMob() { document.body.classList.remove('mob-open'); }
+  document.addEventListener('click', function (e) {
+    var mobBtn   = document.getElementById('mobHamBtn');
+    var overlay  = document.getElementById('mobOverlay');
+    var sidebar  = document.getElementById('sidebar');
+    var hamDeskt = document.getElementById('hamBtn');
+    if (mobBtn && (e.target === mobBtn || mobBtn.contains(e.target))) {
+      document.body.classList.contains('mob-open') ? closeMob() : openMob();
+      return;
+    }
+    if (overlay && e.target === overlay) { closeMob(); return; }
+    if (sidebar && sidebar.contains(e.target) && window.innerWidth <= 640) {
+      if (e.target.closest('a.sn-link')) { setTimeout(closeMob, 150); }
+    }
+    if (hamDeskt && hamDeskt.contains(e.target) && window.innerWidth <= 640) {
+      e.stopPropagation(); closeMob(); return;
+    }
+  });
+}());
+"""
+
+_MOBILE_STYLE_ID = "c1pro-mobile-responsive"
+_MOBILE_SCRIPT_ID = "c1pro-mobile-js"
+
+
+def _inject_mobile_responsive(html: str) -> str:
+    """Inject (or replace) mobile-responsive CSS + JS block before </body>."""
+    style_tag = f'<style id="{_MOBILE_STYLE_ID}">'
+    script_tag = f'<script id="{_MOBILE_SCRIPT_ID}">'
+
+    # Remove existing injections (idempotent)
+    for tag, close in [(style_tag, "</style>"), (script_tag, "</script>")]:
+        if tag in html:
+            start = html.index(tag)
+            end = html.index(close, start) + len(close)
+            html = html[:start] + html[end:]
+
+    block = (
+        f'\n{style_tag}\n{_MOBILE_RESPONSIVE_CSS}\n</style>\n'
+        f'{script_tag}\n{_MOBILE_RESPONSIVE_JS}\n</script>\n'
+    )
+    return html.replace("</body>", block + "</body>", 1)
+
+
 def build_c1_pro_outputs() -> list[Path]:
     if not C1_PRO_TEMPLATE_HTML.exists():
         raise FileNotFoundError(
@@ -272,6 +541,7 @@ def build_c1_pro_outputs() -> list[Path]:
 
     local_html = C1_PRO_TEMPLATE_HTML.read_text(encoding="utf-8")
     published_html = rewrite_dashboard_variant_hrefs(local_html, C1_PRO_BUNDLE_HTML)
+    published_html = _inject_mobile_responsive(published_html)
     C1_PRO_BUNDLE_HTML.write_text(published_html, encoding="utf-8")
     return [C1_PRO_BUNDLE_HTML]
 
