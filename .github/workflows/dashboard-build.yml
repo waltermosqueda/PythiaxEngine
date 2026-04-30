@@ -56,7 +56,7 @@ jobs:
         run: python analisis/generar_tablero_maquina_pensante.py --variant all
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Stage GitHub Pages site
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
@@ -104,13 +104,14 @@ jobs:
             docs/cloud/reports/dashboard_integrity_audit.json
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist/github-pages
+          include-hidden-files: true
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
       - name: Record publish in pipeline ledger
         run: python -m infra.publish.record_pages_publish --site-dir dist/github-pages --page-url "${{ steps.deployment.outputs.page_url }}"

@@ -39,7 +39,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Validate required secret
         run: |
@@ -370,13 +370,14 @@ jobs:
             dist/github-pages/site_bundle_manifest.json
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist/github-pages
+          include-hidden-files: true
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
       - name: Record publish in pipeline ledger
         run: python -m infra.publish.record_pages_publish --site-dir dist/github-pages --page-url "${{ steps.deployment.outputs.page_url }}"
