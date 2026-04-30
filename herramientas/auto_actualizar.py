@@ -615,6 +615,25 @@ def dashboard_history_window_dates(fecha_base: date, min_market_days: int = MIN_
     return market_dates[-min_market_days:]
 
 
+def query_window_date_coverage(
+    con: RuntimeDB,
+    query: str,
+    params: tuple[Any, ...],
+    window_dates: list[str],
+) -> dict[str, Any]:
+    if not window_dates:
+        return {"covered_days": 0, "expected_days": 0, "missing_days": []}
+
+    rows = con.execute(query, params).fetchall()
+    covered_dates = {str(row[0]) for row in rows if row and row[0]}
+    missing_days = [day for day in window_dates if day not in covered_dates]
+    return {
+        "covered_days": len(covered_dates),
+        "expected_days": len(window_dates),
+        "missing_days": missing_days,
+    }
+
+
 def build_dashboard_history_report(
     fecha_base: date,
     *,
@@ -633,6 +652,7 @@ def build_dashboard_history_report(
         optional_labels = [
             entry["label"] for entry in expected_entries if not is_required_monitored_role(str(entry.get("role") or ""))
         ]
+        empty_coverage = {"covered_days": 0, "expected_days": 0, "missing_days": []}
         return {
             "generated_at": datetime.now().isoformat(timespec="seconds"),
             "fecha_base": fecha_base.isoformat(),
@@ -645,6 +665,11 @@ def build_dashboard_history_report(
             "missing_snapshot_history": expected_labels,
             "required_missing_snapshot_history": required_labels,
             "optional_missing_snapshot_history": optional_labels,
+            "window_coverage": {
+                "predictions": dict(empty_coverage),
+                "outcomes": dict(empty_coverage),
+                "regimes": dict(empty_coverage),
+            },
             "models": [],
         }
 
@@ -681,6 +706,32 @@ def build_dashboard_history_report(
             )
             or 0
         )
+
+        window_coverage = {
+            "predictions": query_window_date_coverage(
+                con,
+                "SELECT DISTINCT prediction_date FROM predictions WHERE prediction_date >= ? AND prediction_date <= ?",
+                (start_date, end_date),
+                window_dates,
+            ),
+            "outcomes": query_window_date_coverage(
+                con,
+                """
+                SELECT DISTINCT p.target_date
+                FROM outcomes o
+                JOIN predictions p ON p.id = o.prediction_id
+                WHERE p.target_date >= ? AND p.target_date <= ?
+                """,
+                (start_date, end_date),
+                window_dates,
+            ),
+            "regimes": query_window_date_coverage(
+                con,
+                "SELECT DISTINCT date FROM regimes WHERE date >= ? AND date <= ?",
+                (start_date, end_date),
+                window_dates,
+            ),
+        }
 
         prediction_days_by_label = {
             entry["label"]: build_prediction_window_coverage(con, entry, start_date, end_date)
@@ -723,12 +774,15 @@ def build_dashboard_history_report(
             }
         )
 
+    coverage_complete = all(not coverage.get("missing_days") for coverage in window_coverage.values())
+
     history_complete = (
         len(window_dates) >= min_market_days
         and not required_missing_snapshot_history
         and predictions_recent > 0
         and outcomes_recent > 0
         and regimes_recent > 0
+        and coverage_complete
     )
 
     return {
@@ -742,6 +796,7 @@ def build_dashboard_history_report(
         "predictions_recent": predictions_recent,
         "outcomes_recent": outcomes_recent,
         "regimes_recent": regimes_recent,
+        "window_coverage": window_coverage,
         "missing_snapshot_history": missing_snapshot_history,
         "required_missing_snapshot_history": required_missing_snapshot_history,
         "optional_missing_snapshot_history": optional_missing_snapshot_history,
@@ -788,6 +843,11 @@ def dashboard_history_is_current(report: dict[str, Any], min_market_days: int = 
         return False
     if int(report.get("window_days") or 0) < min_market_days:
         return False
+    window_coverage = report.get("window_coverage") or {}
+    for domain in ("predictions", "outcomes", "regimes"):
+        coverage = window_coverage.get(domain) or {}
+        if coverage and list(coverage.get("missing_days") or []):
+            return False
     return True
 
 
@@ -840,12 +900,19 @@ def ensure_minimum_dashboard_history(
     missing_snapshot_history = list(report.get("missing_snapshot_history") or [])
     required_missing_snapshot_history = list(report.get("required_missing_snapshot_history") or [])
     optional_missing_snapshot_history = list(report.get("optional_missing_snapshot_history") or [])
+    window_coverage = report.get("window_coverage") or {}
+    predictions_coverage = window_coverage.get("predictions") or {}
+    outcomes_coverage = window_coverage.get("outcomes") or {}
+    regimes_coverage = window_coverage.get("regimes") or {}
     history_summary = (
         f"history_complete={bool(report.get('history_complete'))} | "
         f"window_days={int(report.get('window_days') or 0)} | "
         f"predictions_recent={int(report.get('predictions_recent') or 0)} | "
         f"outcomes_recent={int(report.get('outcomes_recent') or 0)} | "
         f"regimes_recent={int(report.get('regimes_recent') or 0)} | "
+        f"prediction_days={int(predictions_coverage.get('covered_days') or 0)}/{int(predictions_coverage.get('expected_days') or 0)} | "
+        f"outcome_days={int(outcomes_coverage.get('covered_days') or 0)}/{int(outcomes_coverage.get('expected_days') or 0)} | "
+        f"regime_days={int(regimes_coverage.get('covered_days') or 0)}/{int(regimes_coverage.get('expected_days') or 0)} | "
         f"required_missing_snapshots={','.join(required_missing_snapshot_history) or '-'} | "
         f"optional_missing_snapshots={','.join(optional_missing_snapshot_history) or '-'}"
     )
@@ -901,6 +968,7 @@ def ensure_minimum_dashboard_history(
             "predictions_recent": refreshed_report.get("predictions_recent"),
             "outcomes_recent": refreshed_report.get("outcomes_recent"),
             "regimes_recent": refreshed_report.get("regimes_recent"),
+            "window_coverage": refreshed_report.get("window_coverage") or {},
         },
     )
     print(

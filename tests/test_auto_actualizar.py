@@ -313,6 +313,13 @@ def test_monitored_snapshots_already_current_rejects_incomplete_dashboard_histor
 
 
 def test_build_dashboard_history_report_ignores_optional_missing_snapshot_history(monkeypatch) -> None:
+    class FakeRows:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def fetchall(self):
+            return self._rows
+
     class FakeConn:
         def __enter__(self):
             return self
@@ -327,6 +334,15 @@ def test_build_dashboard_history_report_ignores_optional_missing_snapshot_histor
                 return 2896
             if "FROM regimes" in query:
                 return 90
+            raise AssertionError(query)
+
+        def execute(self, query, params=()):
+            if "SELECT DISTINCT prediction_date" in query:
+                return FakeRows([(day,) for day in window_dates])
+            if "SELECT DISTINCT p.target_date" in query:
+                return FakeRows([(day,) for day in window_dates])
+            if "SELECT DISTINCT date" in query and "FROM regimes" in query:
+                return FakeRows([(day,) for day in window_dates])
             raise AssertionError(query)
 
     window_dates = [f"2026-01-{day:02d}" for day in range(1, 32)] + [f"2026-02-{day:02d}" for day in range(1, 29)] + [f"2026-03-{day:02d}" for day in range(1, 32)]
@@ -363,6 +379,75 @@ def test_build_dashboard_history_report_ignores_optional_missing_snapshot_histor
     assert report["missing_snapshot_history"] == ["ML_V97"]
     assert report["required_missing_snapshot_history"] == []
     assert report["optional_missing_snapshot_history"] == ["ML_V97"]
+
+
+def test_build_dashboard_history_report_rejects_missing_prediction_days(monkeypatch) -> None:
+    class FakeRows:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def fetchall(self):
+            return self._rows
+
+    class FakeConn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def scalar(self, query, params=()):
+            if "FROM predictions" in query and "COUNT(*)" in query:
+                return 29
+            if "FROM outcomes" in query:
+                return 30
+            if "FROM regimes" in query:
+                return 30
+            raise AssertionError(query)
+
+        def execute(self, query, params=()):
+            if "SELECT DISTINCT prediction_date" in query:
+                return FakeRows([("2026-03-19",), ("2026-03-20",)])
+            if "SELECT DISTINCT p.target_date" in query:
+                return FakeRows([("2026-03-18",), ("2026-03-19",), ("2026-03-20",)])
+            if "SELECT DISTINCT date" in query and "FROM regimes" in query:
+                return FakeRows([("2026-03-18",), ("2026-03-19",), ("2026-03-20",)])
+            raise AssertionError(query)
+
+    window_dates = ["2026-03-18", "2026-03-19", "2026-03-20"]
+
+    monkeypatch.setattr(
+        auto_actualizar,
+        "dashboard_history_window_dates",
+        lambda fecha_base, min_market_days=90: window_dates,
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "expected_monitored_snapshot_entries",
+        lambda: [
+            {"label": "V13", "role": "activo", "prefix": "INVERTIR_V13", "exact_model_name": "0"},
+        ],
+    )
+    monkeypatch.setattr(auto_actualizar, "connect_runtime_db", lambda: FakeConn())
+    monkeypatch.setattr(
+        auto_actualizar,
+        "fetch_model_run_snapshots",
+        lambda con, model_keys, analyzed_date_from, analyzed_date_to: [{"model_key": "V13"} for _ in window_dates],
+    )
+    monkeypatch.setattr(
+        auto_actualizar,
+        "build_prediction_window_coverage",
+        lambda con, entry, start_date, end_date: {
+            "prediction_days": len(window_dates),
+            "total_prediction_rows": 300,
+            "latest_prediction_date": end_date,
+        },
+    )
+
+    report = auto_actualizar.build_dashboard_history_report(date(2026, 3, 20), min_market_days=len(window_dates))
+
+    assert report["history_complete"] is False
+    assert report["window_coverage"]["predictions"]["missing_days"] == ["2026-03-18"]
 
 
 def test_model_snapshot_coverage_is_current_ignores_optional_missing_models() -> None:
