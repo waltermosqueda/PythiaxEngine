@@ -2470,15 +2470,26 @@ def render_recent_rank_rows(rows: list[dict[str, Any]]) -> str:
   return "".join(body)
 
 
-def render_compact_rank_rows(rows: list[dict[str, Any]]) -> str:
+def render_compact_rank_rows(rows: list[dict[str, Any]], active_version: int | None = None) -> str:
   body = []
   for row in rows:
     window = row.get("window") or {}
     activity_value, activity_detail = window_activity_summary(window)
+    rank = row.get("rank")
+    version_str = str(row.get("version", ""))
+    try:
+      version_int = int(version_str.lstrip("V"))
+    except (ValueError, AttributeError):
+      version_int = None
+    row_badges = ""
+    if rank == 1:
+      row_badges += " <span class='badge badge-fresh' title='Mayor win rate en muestra igualada'>Champion</span>"
+    if active_version is not None and version_int == active_version:
+      row_badges += " <span class='badge badge-warn' title='Motor activo en produccion'>Exp.</span>"
     body.append(
       "<tr>"
-      f"<td><span class='rank-chip'>{fmt_int(row.get('rank'))}</span></td>"
-      f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
+      f"<td><span class='rank-chip'>{fmt_int(rank)}</span></td>"
+      f"<td><strong>{safe(version_str)}</strong>{row_badges}<br>{role_badge(str(row['role']))}</td>"
       f"<td>{safe(window_accuracy_label(window))}<br><span class='mini'>{safe(window_return_label(window))}</span></td>"
       f"<td>{activity_value}<br><span class='mini'>{safe(activity_detail)}</span></td>"
       f"<td class='tight'>{safe(', '.join(row.get('latest_tickers', [])[:5]) or '-')}</td>"
@@ -2575,7 +2586,7 @@ def render_recent_heatmap(rows: list[dict[str, Any]], dates: list[str]) -> str:
     )
 
 
-def render_full_league_rows(rows: list[dict[str, Any]]) -> str:
+def render_full_league_rows(rows: list[dict[str, Any]], active_version: int | None = None) -> str:
   body = []
   for row in rows:
     equalized = row.get("equalized_recent") or {}
@@ -2597,9 +2608,20 @@ def render_full_league_rows(rows: list[dict[str, Any]]) -> str:
       value_format="pct",
       previewable=True,
     )
+    rank = row.get("rank")
+    version_str = str(row.get("version", ""))
+    try:
+      version_int = int(version_str.lstrip("V"))
+    except (ValueError, AttributeError):
+      version_int = None
+    row_badges = ""
+    if rank == 1:
+      row_badges += " <span class='badge badge-fresh' title='Mayor win rate en muestra igualada'>Champion</span>"
+    if active_version is not None and version_int == active_version:
+      row_badges += " <span class='badge badge-warn' title='Motor activo en produccion'>Exp.</span>"
     body.append(
       "<tr>"
-      f"<td><strong>{safe(row['version'])}</strong><br>{role_badge(str(row['role']))}</td>"
+      f"<td><strong>{safe(version_str)}</strong>{row_badges}<br>{role_badge(str(row['role']))}</td>"
       f"<td>{freshness_badge(row.get('stale_market_days'))}<br><span class='mini'>{fmt_date(competition_freshness_date(row))}</span></td>"
       f"<td>{safe(window_accuracy_label(equalized))}<br><span class='mini'>{safe(window_return_label(equalized))}</span></td>"
       f"<td>{equalized_activity_value}<br><span class='mini'>{safe(equalized_activity_detail)}</span></td>"
@@ -2682,7 +2704,7 @@ def render_group_model_cards(rows: list[dict[str, Any]], champion_latest: set[st
       f"<div class='kpi-line'><span>Ultima fecha</span><strong>{fmt_date(competition_freshness_date(row))}</strong></div>"
       f"<div class='kpi-line'><span>Target de picks</span><strong>{fmt_date(row.get('latest_target_date'))}</strong></div>"
       f"<div class='kpi-line'><span>Universo total</span><strong>{fmt_int(row.get('unique_tickers'))}</strong></div>"
-      f"<div class='kpi-line'><span>Overlap ultimo set vs champion</span><strong>{fmt_pct(overlap) if overlap is not None else '-'}</strong></div>"
+      f"<div class='kpi-line'><span>Overlap ultimo set vs motor exp.</span><strong>{fmt_pct(overlap) if overlap is not None else '-'}</strong></div>"
       f"<div class='detail-picks'>{safe(', '.join(row.get('latest_tickers', [])) or 'Sin picks recientes')}</div>"
       "</div>"
       "</details>"
@@ -3441,7 +3463,7 @@ def render_index(payload: dict[str, Any]) -> str:
         <div class="sidebar-label">Menu</div>
         <nav class="side-nav" data-container-id="sidebar-menu">
           <a class="nav-link editable-block active" data-block-id="nav-dashboard" data-block-label="Menu Dashboard" href="#overview"><span>Dashboard</span><span>{safe(champion_label)}</span></a>
-          <a class="nav-link editable-block" data-block-id="nav-champion" data-block-label="Menu Champion" href="#champion"><span>Champion</span><span>{fmt_int(len(live_results))}</span></a>
+          <a class="nav-link editable-block" data-block-id="nav-champion" data-block-label="Menu Champion" href="#champion"><span>Motor Exp.</span><span>{fmt_int(len(live_results))}</span></a>
           <a class="nav-link editable-block" data-block-id="nav-league" data-block-label="Menu Liga" href="#league"><span>Liga</span><span>{fmt_int(equalized_days)}</span></a>
           <a class="nav-link editable-block" data-block-id="nav-competition" data-block-label="Menu Competidores" href="#competition"><span>Competidores</span><span>{fmt_int(len(focus_models))}</span></a>
           <a class="nav-link editable-block" data-block-id="nav-heatmap" data-block-label="Menu Heatmap" href="#heatmap"><span>Heatmap</span><span>{fmt_int(len(recent_dates))}</span></a>
@@ -3470,7 +3492,7 @@ def render_index(payload: dict[str, Any]) -> str:
       <details class="drawer editable-block" data-block-id="drawer-configuracion" data-block-label="Panel Configuracion">
         <summary>Configuracion</summary>
         <div class="drawer-body">
-          <div class="kpi-line"><span>Champion</span><strong>{safe(champion_label)}</strong></div>
+          <div class="kpi-line"><span>Motor Experimental</span><strong>{safe(champion_label)}</strong></div>
           <div class="kpi-line"><span>Referencia</span><strong>{safe(reference_label or '-')}</strong></div>
           <div class="kpi-line"><span>Muestra igualada</span><strong>{fmt_int(equalized_days)} ruedas</strong></div>
           <div class="kpi-line"><span>Snapshot</span><strong>{safe(SNAPSHOT_PATH.name)}</strong></div>
@@ -3500,7 +3522,7 @@ def render_index(payload: dict[str, Any]) -> str:
       <header class="topbar editable-block" data-block-id="header-overview" data-block-label="Cabecera principal" id="overview">
         <div>
           <div class="eyebrow">Dashboard operativo</div>
-          <h1>Champion, liga y competencia diaria</h1>
+          <h1>Liga de modelos · Motor Experimental y performance</h1>
           <div class="header-meta">
             <span class="pill">Generado {safe(payload["generated_at"])}</span>
             <span class="pill">Build {safe(build_status_label(payload))}</span>
@@ -3518,8 +3540,8 @@ def render_index(payload: dict[str, Any]) -> str:
       </header>
 
       <section class="kpi-grid editable-block" data-block-id="section-kpi-grid" data-block-label="Franja KPI" data-container-id="kpi-grid">
-        <div class="stat-card accent-cyan editable-block" data-block-id="kpi-champion" data-block-label="KPI Champion"><div class="stat-label">Champion</div><div class="stat-value">{safe(champion_label)} | {fmt_pct(champion_equalized.get('accuracy_pct'))}</div><div class="stat-subtitle">ret {fmt_pct(champion_equalized.get('avg_return_pct'), 3, signed=True)} | rank #{fmt_int(champion_rank_equalized)}</div></div>
-        <div class="stat-card accent-green editable-block" data-block-id="kpi-lider" data-block-label="KPI Lider actual"><div class="stat-label">Lider actual</div><div class="stat-value">{safe(leader_equalized.get('version') or '-')}</div><div class="stat-subtitle">{fmt_pct(leader_window.get('accuracy_pct'))} | {fmt_pct(leader_window.get('avg_return_pct'), 3, signed=True)}</div></div>
+        <div class="stat-card accent-cyan editable-block" data-block-id="kpi-champion" data-block-label="KPI Champion"><div class="stat-label">Motor Experimental</div><div class="stat-value">{safe(champion_label)} | {fmt_pct(champion_equalized.get('accuracy_pct'))}</div><div class="stat-subtitle">ret {fmt_pct(champion_equalized.get('avg_return_pct'), 3, signed=True)} | rank #{fmt_int(champion_rank_equalized)}</div></div>
+        <div class="stat-card accent-green editable-block" data-block-id="kpi-lider" data-block-label="KPI Lider actual"><div class="stat-label">Champion #1</div><div class="stat-value">{safe(leader_equalized.get('version') or '-')}</div><div class="stat-subtitle">{fmt_pct(leader_window.get('accuracy_pct'))} | {fmt_pct(leader_window.get('avg_return_pct'), 3, signed=True)}</div></div>
         <div class="stat-card accent-gold editable-block" data-block-id="kpi-picks" data-block-label="KPI Picks vivos"><div class="stat-label">Picks vivos</div><div class="stat-value">{fmt_int(len(live_results))} | {safe(active_run.get('regime_label', '-'))}</div><div class="stat-subtitle">breadth {fmt_pct(active_run.get('breadth_pct'), 1)} | target {fmt_date(active_run.get('prediction_for'))}</div></div>
         <div class="stat-card accent-rose editable-block" data-block-id="kpi-db" data-block-label="KPI DB viva"><div class="stat-label">DB viva</div><div class="stat-value">{fmt_int(integrity['outcomes_count'])}</div><div class="stat-subtitle">outcomes | pred {fmt_int(integrity['predictions_count'])}</div></div>
         <div class="stat-card editable-block" data-block-id="kpi-divergencia" data-block-label="KPI familias visibles"><div class="stat-label">Familias scanner</div><div class="stat-value">{fmt_int(len(historical_rows))}</div><div class="stat-subtitle">{fmt_int(len(hidden_redundant_scanners))} clones ocultos por redundancia</div></div>
@@ -3530,8 +3552,8 @@ def render_index(payload: dict[str, Any]) -> str:
         <article class="panel hero-chart champion-compact editable-block" data-block-id="panel-champion-hero" data-block-label="Panel Champion">
           <div class="panel-head">
             <div>
-              <div class="section-label">Champion activo</div>
-              <h2 class="section-title">{safe(champion_label)} | resumen reciente</h2>
+              <div class="section-label">Motor Experimental</div>
+              <h2 class="section-title">{safe(champion_label)} | motor en aprendizaje</h2>
             </div>
             <div class="header-meta">
               {role_badge("activo")}
@@ -3577,18 +3599,18 @@ def render_index(payload: dict[str, Any]) -> str:
           </div>
           <div class="compact-ranking-grid">
             <div class="mini-card editable-block" data-block-id="panel-scanner-ranking" data-block-label="Ranking scanner">
-              <div class="mini-title">Ranking scanner</div>
+              <div class="mini-title">Ranking de modelos</div>
               <table class="data-table compact leaderboard-table">
                 <thead><tr><th>#</th><th>Modelo</th><th>WR</th><th>Muestra</th><th>Picks</th></tr></thead>
-                <tbody>{render_compact_rank_rows(historical_rows[:4])}</tbody>
+                <tbody>{render_compact_rank_rows(historical_rows[:4], active['active_version'])}</tbody>
               </table>
             </div>
             <div class="mini-card editable-block" data-block-id="panel-scanner-leader" data-block-label="Lider scanner">
-              <div class="mini-title">Lider scanner</div>
+              <div class="mini-title">Champion #1</div>
               <div class="mini-value">{safe(historical_leader.get('version') or '-')} | {fmt_pct((historical_leader.get('window') or {}).get('accuracy_pct'))}</div>
               <div class="scanner-top-note">ret {fmt_pct((historical_leader.get('window') or {}).get('avg_return_pct'), 3, signed=True)} | rank global #{fmt_int(historical_leader.get('rank'))}</div>
               {historical_leader_svg}
-              <div class="kpi-line"><span>Champion</span><strong>#{fmt_int(champion_rank_equalized)}</strong></div>
+              <div class="kpi-line"><span>Motor Exp. rank</span><strong>#{fmt_int(champion_rank_equalized)}</strong></div>
               <div class="kpi-line"><span>Picks actuales</span><strong>{safe(', '.join(champion_family.get('latest_tickers', [])[:4]) or '-')}</strong></div>
             </div>
           </div>
@@ -3607,9 +3629,9 @@ def render_index(payload: dict[str, Any]) -> str:
           </div>
           <table class="data-table compact leaderboard-table">
             <thead><tr><th>#</th><th>Modelo</th><th>WR</th><th>Muestra</th><th>Picks</th></tr></thead>
-            <tbody>{render_compact_rank_rows(league_equalized)}</tbody>
+            <tbody>{render_compact_rank_rows(league_equalized, active['active_version'])}</tbody>
           </table>
-          <div class="footer-note">Lider {safe(leader_equalized.get('version') or '-')} | WR {fmt_pct(leader_window.get('accuracy_pct'))} | ret {fmt_pct(leader_window.get('avg_return_pct'), 3, signed=True)}</div>
+          <div class="footer-note">Champion #1 {safe(leader_equalized.get('version') or '-')} | WR {fmt_pct(leader_window.get('accuracy_pct'))} | ret {fmt_pct(leader_window.get('avg_return_pct'), 3, signed=True)}</div>
           {leader_curve_svg}
         </article>
 
@@ -3617,7 +3639,7 @@ def render_index(payload: dict[str, Any]) -> str:
           <div class="panel-head">
             <div>
               <div class="section-label">Prediccion viva</div>
-              <h2 class="section-title">{safe(champion_label)} | activos actuales</h2>
+              <h2 class="section-title">{safe(champion_label)} | picks del motor experimental</h2>
             </div>
             <span class="pill">{fmt_date(active_run.get('prediction_for'))}</span>
           </div>
@@ -3706,7 +3728,7 @@ def render_index(payload: dict[str, Any]) -> str:
         </div>
         <table class="data-table">
           <thead><tr><th>Modelo</th><th>Frescura</th><th>Muestra igualada WR/Ret</th><th>Muestra igualada</th><th>30 ruedas WR/Ret</th><th>30 ruedas muestra</th><th>Universo</th><th>Proximos activos</th><th>Curva</th></tr></thead>
-          <tbody>{render_full_league_rows(league_all)}</tbody>
+          <tbody>{render_full_league_rows(league_all, active['active_version'])}</tbody>
         </table>
       </section>
     </main>
@@ -3772,7 +3794,7 @@ def render_executive(payload: dict[str, Any]) -> str:
         <h1>La maquina esta viva, midiendo y compitiendo todos los dias</h1>
         <div class="hero-copy">
           {safe(coverage_narrative_text(integrity))}
-          El tablero distingue continuidad del champion, ortogonalidad legacy y salud de la
+          El tablero distingue continuidad del motor experimental, ortogonalidad legacy y salud de la
           memoria operativa sin ocultar donde todavia hay similitud entre versiones.
         </div>
         <div class="footer-note">Build {safe(build_status_label(payload))}</div>
@@ -3785,7 +3807,7 @@ def render_executive(payload: dict[str, Any]) -> str:
       </div>
       <div class="hero-panel">
         <div class="eyebrow">Scanner activo</div>
-        <h2 class="section-title">Champion V{active['active_version']} | {safe(active_run.get('regime_label', '-'))}</h2>
+        <h2 class="section-title">Motor Experimental V{active['active_version']} | {safe(active_run.get('regime_label', '-'))}</h2>
         <div class="section-copy">
           Fecha analizada {safe(active_run.get('analyzed_date', '-'))} para operar {safe(active_run.get('prediction_for', '-'))}.
           Breadth {fmt_pct(active_run.get('breadth_pct'), 1)}. Snapshot fresco: {safe(active_run.get('freshness', '-'))}.
@@ -3826,7 +3848,7 @@ def render_executive(payload: dict[str, Any]) -> str:
         <div class="panel" style="margin:0">
           <div class="section-head">
             <div>
-              <h3 class="section-title" style="font-size:24px">Champion vs cadena operativa</h3>
+              <h3 class="section-title" style="font-size:24px">Motor Experimental vs cadena operativa</h3>
               <div class="section-copy">El scanner activo hereda continuidad, pero no hay que confundir continuidad con clonacion total.</div>
             </div>
           </div>
@@ -3842,8 +3864,8 @@ def render_executive(payload: dict[str, Any]) -> str:
           <ul class="note-list">
             <li>La maquina si aprende cada dia: predicciones, outcomes y regimens tuvieron continuidad 30/30 en la ultima ventana.</li>
             <li>V12 y V13 comparten la mayor parte del sleeve D: 1162 de 1203 fechas comunes fueron iguales en el agregado.</li>
-            <li>Eso no invalida a V13: la diferencia estructural viene del sleeve E y de la continuidad del champion.</li>
-            <li>La liga legacy si agrega ortogonalidad real frente al champion y por eso merece tablero propio.</li>
+            <li>Eso no invalida a V13: la diferencia estructural viene del sleeve E y de la continuidad del motor experimental.</li>
+            <li>La liga legacy si agrega ortogonalidad real frente al motor experimental y por eso merece tablero propio.</li>
           </ul>
         </div>
       </div>
@@ -3858,7 +3880,7 @@ def render_executive(payload: dict[str, Any]) -> str:
     </section>
 
     <section class="panel">
-      <div class="section-head"><div><h2 class="section-title">Picks vivos del champion</h2><div class="section-copy">Snapshot del scanner activo mas reciente con score, retorno esperado proxy y riesgo.</div></div></div>
+      <div class="section-head"><div><h2 class="section-title">Picks vivos del motor experimental</h2><div class="section-copy">Snapshot del scanner activo mas reciente con score, retorno esperado proxy y riesgo.</div></div></div>
       <table class="data-table">
         <thead><tr><th>Ticker</th><th>Setup</th><th>Sector</th><th>Priority</th><th>Ret esp.</th><th>Risk</th><th>RSI</th><th>Nota</th></tr></thead>
         <tbody>{render_latest_pick_rows(latest_results)}</tbody>
@@ -3869,7 +3891,7 @@ def render_executive(payload: dict[str, Any]) -> str:
     <section class="panel">
       <div class="section-head"><div><h2 class="section-title">Ortogonalidad entre cerebros</h2><div class="section-copy">Jaccard medio de picks por rueda en la ventana reciente.</div></div></div>
       {render_overlap_matrix(payload["overlap"])}
-      <div class="footer-note">Clave de lectura: V12 y V13 aparecen practicamente iguales en la base D reciente, mientras que la familia legacy queda muy lejos del champion y por eso aporta informacion nueva.</div>
+      <div class="footer-note">Clave de lectura: V12 y V13 aparecen practicamente iguales en la base D reciente, mientras que la familia legacy queda muy lejos del motor experimental y por eso aporta informacion nueva.</div>
     </section>
   </main>
   <script>{render_chart_interaction_script()}</script>
@@ -3904,7 +3926,7 @@ def render_lab(payload: dict[str, Any]) -> str:
         <h1>Densidad tecnica para medir si la maquina esta pensando o solo replicando</h1>
         <div class="hero-copy">
           Esta vista cruza competencia, sectores, continuidad y overlap. Sirve para auditar si la
-          DB esta viva, si el champion evoluciona con memoria y si los challengers legacy son de verdad
+          DB esta viva, si el motor experimental evoluciona con memoria y si los challengers legacy son de verdad
           modelos ortogonales o solo ruido con nombres nuevos.
         </div>
         <div class="footer-note">Build {safe(build_status_label(payload))}</div>
@@ -3918,7 +3940,7 @@ def render_lab(payload: dict[str, Any]) -> str:
       <div class="hero-panel">
         <div class="eyebrow">Matriz de lectura</div>
         <h2 class="section-title">Hechos clave del sistema</h2>
-        <div class="kpi-line"><span>Champion actual</span><strong>V{active['active_version']}</strong></div>
+        <div class="kpi-line"><span>Motor Experimental actual</span><strong>V{active['active_version']}</strong></div>
         <div class="kpi-line"><span>Referencia inmediata</span><strong>V{active['reference_version']}</strong></div>
         <div class="kpi-line"><span>Fechas iguales V12/V13</span><strong>{fmt_int(divergence['same_dates'])}</strong></div>
         <div class="kpi-line"><span>Fechas distintas V12/V13</span><strong>{fmt_int(divergence['changed_dates'])}</strong></div>
@@ -3935,7 +3957,7 @@ def render_lab(payload: dict[str, Any]) -> str:
     </section>
 
     <section class="panel">
-      <div class="section-head"><div><h2 class="section-title">Curvas de retorno medio por rueda</h2><div class="section-copy">Series de retorno promedio diario para los sleeves del champion.</div></div></div>
+      <div class="section-head"><div><h2 class="section-title">Curvas de retorno medio por rueda</h2><div class="section-copy">Series de retorno promedio diario para los sleeves del motor experimental.</div></div></div>
       <div class="two-col">
         <div class="panel" style="margin:0">
           <div class="section-head"><div><h3 class="section-title" style="font-size:24px">V13 D_D10</h3></div></div>
@@ -3978,7 +4000,7 @@ def render_lab(payload: dict[str, Any]) -> str:
     </section>
 
     <section class="panel">
-      <div class="section-head"><div><h2 class="section-title">Sectores fuertes</h2><div class="section-copy">Donde el champion y dos challengers destacados estan acertando mas segun la DB evaluada.</div></div></div>
+      <div class="section-head"><div><h2 class="section-title">Sectores fuertes</h2><div class="section-copy">Donde el motor experimental y dos challengers destacados estan acertando mas segun la DB evaluada.</div></div></div>
       <div class="three-col">
         <div class="panel" style="margin:0"><div class="section-head"><div><h3 class="section-title" style="font-size:24px">V13 D_D10</h3></div></div>{render_sector_table(sectors["v13_d"], "Sin desagregado sectorial disponible.")}</div>
         <div class="panel" style="margin:0"><div class="section-head"><div><h3 class="section-title" style="font-size:24px">ML_V97</h3></div></div>{render_sector_table(sectors["ml_v97"], "Este modelo no trae sectores mapeados todavia.")}</div>

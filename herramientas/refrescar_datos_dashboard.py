@@ -153,6 +153,13 @@ body.theme-white .hm-vtab.active{background:rgba(99,102,241,0.15);border-color:#
 .hm-trend-eq{color:var(--muted);font-size:13px}
 body.theme-white .hm-trend-up{color:#0a8060}
 body.theme-white .hm-trend-dn{color:#c0203a}
+/* ── Heatmap inline label stat (ret · WR) ───────────────────── */
+.hm-lbl-stat{display:block;font-size:8px;font-weight:700;margin-top:2px;
+  white-space:nowrap;letter-spacing:.02em}
+.hm-lbl-pos{color:#1fcc80}
+.hm-lbl-neg{color:#f05070}
+body.theme-white .hm-lbl-pos{color:#0a8060}
+body.theme-white .hm-lbl-neg{color:#c0203a}
 /* ── LIGA: nueva columna Últ. Rueda + badge legacy ──────────── */
 .ult-rueda-td{white-space:nowrap;font-size:12px}
 .ult-rueda-td small{display:block;margin-top:1px}
@@ -682,7 +689,7 @@ def _render_sidebar_config(snap: dict) -> str:
     active = snap.get("active") or {}
     return (
         '<div class="sd-body">'
-        f'<div class="kl"><span>Champion</span><strong>V{_fmt_int(active.get("active_version"))}</strong></div>'
+        f'<div class="kl"><span>Motor Experimental</span><strong>V{_fmt_int(active.get("active_version"))}</strong></div>'
         f'<div class="kl"><span>Referencia</span><strong>V{_fmt_int(active.get("reference_version"))}</strong></div>'
         f'<div class="kl"><span>Per\u00edodo comp.</span><strong>{_fmt_int(cr.get("equalized_days"))} ruedas</strong></div>'
         f'<div class="kl"><span>Desde</span><strong>02/03/2026</strong></div>'
@@ -712,12 +719,12 @@ def _render_kpi_strip(snap: dict) -> str:
     regime = str(active_run.get("regime_label") or "GLOBAL").upper()
     return (
         '<div class="kpi-card accent-cyan editable-block" data-bid="kpi-champion" data-blabel="KPI Champion">'
-        '<div class="kc-label">Champion activo</div>'
+        '<div class="kc-label">Motor Experimental</div>'
         f'<div class="kc-value">{_esc(champion_ver)}</div>'
         f'<div class="kc-sub">WR {_fmt_pct(champion_eq.get("accuracy_pct"))} · ret {_fmt_pct(champion_eq.get("avg_return_pct"), 3, True)} · #{_esc(champion_rank)}</div>'
         "</div>"
         '<div class="kpi-card accent-gold editable-block" data-bid="kpi-leader" data-blabel="KPI Líder">'
-        '<div class="kc-label">Lider liga</div>'
+        '<div class="kc-label">Champion #1</div>'
         f'<div class="kc-value">{_esc(leader.get("version"))}</div>'
         f'<div class="kc-sub">WR {_fmt_pct(leader_eq.get("accuracy_pct"))} · ret {_fmt_pct(leader_eq.get("avg_return_pct"), 3, True)}</div>'
         "</div>"
@@ -809,29 +816,29 @@ def _render_hero_panel(snap: dict) -> str:
         '<div class="panel-head">'
         '<div>'
         '<div class="panel-label">Podio de rendimiento</div>'
-        f'<h2 class="panel-title">Champion · Líder WR · Mayor retorno · Período competencia {eq_days} ruedas{period_suffix}</h2>'
+        f'<h2 class="panel-title">Motor Exp. · Líder WR · Mayor retorno · Período competencia {eq_days} ruedas{period_suffix}</h2>'
         "</div>"
         "</div>"
         '<div class="hero-row">'
         + _hero_card_html(
+            leader_accuracy,
+            label="🏆 Champion",
+            card_class="hc-green",
+            subtitle=f"Mayor WR · {eq_days} ruedas",
+        )
+        + _hero_card_html(
+            leader_return,
+            label="🥇 Mayor Retorno",
+            card_class="hc-purple",
+            subtitle=f"Mejor ret/trade · {_fmt_int(_row_window(leader_return, 'equalized_recent').get('evaluated'))} picks",
+        )
+        + _hero_card_html(
             champion,
-            label="🏆 Champion activo",
+            label="🔬 Motor Experimental",
             card_class="hc-cyan",
             subtitle="Scanner activo · 4 sleeves",
             picks_override=len(champion_live),
             live_override=champion_live,
-        )
-        + _hero_card_html(
-            leader_accuracy,
-            label="🎯 Puntero accuracy",
-            card_class="hc-green",
-            subtitle=f"Maximo WR · {eq_days} ruedas",
-        )
-        + _hero_card_html(
-            leader_return,
-            label="📈 Mayor retorno",
-            card_class="hc-purple",
-            subtitle=f"Mejor ret/trade · {_fmt_int(_row_window(leader_return, 'equalized_recent').get('evaluated'))} picks",
         )
         + "</div>"
     )
@@ -1027,13 +1034,7 @@ def _apply_snapshot_sections(html: str, snap: dict) -> str:
     html = _replace_once(
         html,
         r'(<div class="leader-strip">).*?(</div>\s*<table class="data-table">)',
-        r"\1"
-        + '<div class="ls-info">'
-        + f'<div class="ls-version">{_esc(leader.get("version") or "—")}</div>'
-        + f'<div class="ls-sub">lider actual · WR {_fmt_pct(leader_eq.get("accuracy_pct"))} · ret {_fmt_pct(leader_eq.get("avg_return_pct"), 3, True)}</div>'
-        + '</div>'
-        + f'<div class="ls-spark">{_sparkline_markup_from_window(_row_window(leader, "recent_30"), "#f5b833", width=200, height=50, title=leader_spark_title, value_format="pct")}</div>'
-        + r"\2",
+        r"\1\2",
     )
     html = _replace_once(
         html,
@@ -1106,7 +1107,15 @@ def _next_trading_days(date_str: str, n: int) -> list[str]:
     return result
 
 
-def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str]) -> str:
+def _abbrev_ver(ver: str, limit: int = 11) -> str:
+    """Shorten long version strings for heatmap labels."""
+    if len(ver) <= limit:
+        return ver
+    keep_end = 4
+    return ver[:limit - keep_end - 1] + "\u2026" + ver[-keep_end:]
+
+
+def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], rank_1_ver: str | None = None) -> str:
     """Variant A — 30d full table + 5 future pending cols. All 12 models."""
     all_dates = dates + pending
     compact_cls = " hm-compact" if len(all_dates) > 20 else ""
@@ -1137,13 +1146,31 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str]) ->
         )
 
     body_rows = ""
-    for r in focus:
+    for rank_i, r in enumerate(focus, 1):
         ver  = r.get("version", "")
         role = r.get("role", "")
-        icon = "🏆" if role == "activo" else ROLE_ICON.get(role, role[:3].upper())
+        is_champ = bool(rank_1_ver and ver == rank_1_ver)
+        icon = "\U0001f3c6" if is_champ else ROLE_ICON.get(role, role[:3].upper())
+        champ_tag = "<span style='font-size:9px;font-weight:700;color:#f5b833;display:block'>Champion</span>" if is_champ else ""
         latest_snapshot_date = str(r.get("latest_snapshot_date") or "")
         cmap = {c["date"]: c for c in ((r.get("recent_30") or {}).get("calendar") or [])}
-        cells = f"<th class='hm-label'><span class='hm-v'>{_esc(ver)}</span><span class='hm-rl'>{icon}</span></th>"
+        ver_disp = _abbrev_ver(ver)
+        _r30 = [c for c in cmap.values() if _entry_picks_count(c) > 0]
+        _r30_rets = [float(c["avg_return_pct"]) for c in _r30 if c.get("avg_return_pct") is not None]
+        _r30_wrs  = [float(c["accuracy_pct"])   for c in _r30 if c.get("accuracy_pct")   is not None]
+        _r30_ret  = sum(_r30_rets) / len(_r30_rets) if _r30_rets else None
+        _r30_wr   = sum(_r30_wrs)  / len(_r30_wrs)  if _r30_wrs  else None
+        if _r30_ret is None:
+            _lbl_s = ''
+        elif _r30_ret >= 0:
+            _lbl_s = (f"<span class='hm-lbl-stat hm-lbl-pos'>+{_r30_ret:.1f}%"
+                      + (f" · {_r30_wr:.0f}% WR" if _r30_wr is not None else "")
+                      + "</span>")
+        else:
+            _lbl_s = (f"<span class='hm-lbl-stat hm-lbl-neg'>{_r30_ret:.1f}%"
+                      + (f" · {_r30_wr:.0f}% WR" if _r30_wr is not None else "")
+                      + "</span>")
+        cells = f"<th class='hm-label'><span class='hm-rank' style='font-size:9px;color:#888;display:block'>{rank_i}°</span><span class='hm-v'>{_esc(ver_disp)}</span><span class='hm-rl'>{icon}</span>{champ_tag}{_lbl_s}</th>"
         for d in dates:
             it    = cmap.get(d, {})
             ret   = it.get("avg_return_pct")
@@ -1333,7 +1360,7 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str]) ->
     )
 
 
-def _build_variant_b(focus: list[dict], dates: list[str]) -> str:
+def _build_variant_b(focus: list[dict], dates: list[str], rank_1_ver: str | None = None) -> str:
     """Variant B — Group 30d by ISO week. One column per week."""
     import collections
 
@@ -1360,15 +1387,33 @@ def _build_variant_b(focus: list[dict], dates: list[str]) -> str:
         for k, v in week_map.items()
     )
 
-    ROLE_ICON = {"activo": "🏆", "referencia": "REF", "base": "BASE",
-                 "legacy_ml": "ML", "observado": "OBS"}
+    ROLE_ICON_B = {"activo": "OBS", "referencia": "REF", "base": "BASE",
+                  "legacy_ml": "ML", "observado": "OBS"}
     body_rows = ""
-    for r in focus:
+    for rank_i, r in enumerate(focus, 1):
         ver  = r.get("version", "")
         role = r.get("role", "")
-        icon = ROLE_ICON.get(role, role[:3].upper())
+        is_champ = bool(rank_1_ver and ver == rank_1_ver)
+        icon = "\U0001f3c6" if is_champ else ROLE_ICON_B.get(role, role[:3].upper())
+        champ_tag = "<span style='font-size:9px;font-weight:700;color:#f5b833;display:block'>Champion</span>" if is_champ else ""
         cmap = {c["date"]: c for c in ((r.get("recent_30") or {}).get("calendar") or [])}
-        cells = f"<th class='hm-label'><span class='hm-v'>{_esc(ver)}</span><span class='hm-rl'>{icon}</span></th>"
+        ver_disp = _abbrev_ver(ver)
+        _rb = [c for c in cmap.values() if _entry_picks_count(c) > 0]
+        _rb_rets = [float(c["avg_return_pct"]) for c in _rb if c.get("avg_return_pct") is not None]
+        _rb_wrs  = [float(c["accuracy_pct"])   for c in _rb if c.get("accuracy_pct")   is not None]
+        _rb_ret  = sum(_rb_rets) / len(_rb_rets) if _rb_rets else None
+        _rb_wr   = sum(_rb_wrs)  / len(_rb_wrs)  if _rb_wrs  else None
+        if _rb_ret is None:
+            _lbl_sb = ''
+        elif _rb_ret >= 0:
+            _lbl_sb = (f"<span class='hm-lbl-stat hm-lbl-pos'>+{_rb_ret:.1f}%"
+                       + (f" · {_rb_wr:.0f}% WR" if _rb_wr is not None else "")
+                       + "</span>")
+        else:
+            _lbl_sb = (f"<span class='hm-lbl-stat hm-lbl-neg'>{_rb_ret:.1f}%"
+                       + (f" · {_rb_wr:.0f}% WR" if _rb_wr is not None else "")
+                       + "</span>")
+        cells = f"<th class='hm-label'><span class='hm-rank' style='font-size:9px;color:#888;display:block'>{rank_i}°</span><span class='hm-v'>{_esc(ver_disp)}</span><span class='hm-rl'>{icon}</span>{champ_tag}{_lbl_sb}</th>"
         for key, day_list in week_map.items():
             week_days_with_picks = [d for d in day_list if d in cmap and _entry_picks_count(cmap[d]) > 0]
             rets  = [float(cmap[d]["avg_return_pct"]) for d in week_days_with_picks if cmap[d].get("avg_return_pct") is not None]
@@ -1404,7 +1449,7 @@ def _build_variant_b(focus: list[dict], dates: list[str]) -> str:
     )
 
 
-def _build_variant_c(focus: list[dict]) -> str:
+def _build_variant_c(focus: list[dict], rank_1_ver: str | None = None) -> str:
     """Variant C — Comparison table: 15d vs 30d WR/Ret + Trend arrow. Sorted by 30d WR desc."""
 
     def _summary(r: dict, key: str) -> dict:
@@ -1419,14 +1464,15 @@ def _build_variant_c(focus: list[dict]) -> str:
             "picks": picks,
         }
 
-    ROLE_ICON = {"activo": "🏆", "referencia": "REF", "base": "BASE",
-                 "legacy_ml": "ML", "observado": "OBS"}
+    ROLE_ICON_C = {"activo": "OBS", "referencia": "REF", "base": "BASE",
+                   "legacy_ml": "ML", "observado": "OBS"}
 
     rows_data = []
     for r in focus:
         ver  = r.get("version", "")
         role = r.get("role", "")
-        icon = ROLE_ICON.get(role, role[:3].upper())
+        is_champ = bool(rank_1_ver and ver == rank_1_ver)
+        icon = "\U0001f3c6" if is_champ else ROLE_ICON_C.get(role, role[:3].upper())
         s15 = _summary(r, "recent_15")
         s30 = _summary(r, "recent_30")
         rows_data.append((ver, icon, s15, s30))
@@ -1458,12 +1504,13 @@ def _build_variant_c(focus: list[dict]) -> str:
         return f"{v:.0f}%" if v is not None else "—"
 
     tbody = ""
-    for ver, icon, s15, s30 in rows_data:
+    for rank_i, (ver, icon, s15, s30) in enumerate(rows_data, 1):
+        ver_disp = _abbrev_ver(ver)
         wr15_cls  = "hm-pos" if (s15["wr"]  or 0) >= 60 else ("hm-neg" if (s15["wr"]  or 0) > 0 and s15["wr"] < 50 else "")
         wr30_cls  = "hm-pos" if (s30["wr"]  or 0) >= 60 else ("hm-neg" if (s30["wr"]  or 0) > 0 and s30["wr"] < 50 else "")
         tbody += (
             f"<tr>"
-            f"<td><span class='hm-v'>{_esc(ver)}</span></td>"
+            f"<td><span class='hm-rank' style='font-size:9px;color:#888;margin-right:4px'>{rank_i}°</span><span class='hm-v'>{_esc(ver_disp)}</span></td>"
             f"<td><span class='hm-rl'>{icon}</span></td>"
             f"<td class='{wr15_cls}' style='text-align:right;font-weight:700'>{fmt_wr(s15['wr'])}</td>"
             f"<td style='text-align:right'>{fmt_ret(s15['ret'])}</td>"
@@ -1710,15 +1757,8 @@ def build_heatmap(snap: dict) -> str:
     av = act.get("active_version", "") or snap.get("operational_context", {}).get("active_version", "")
     champ_ver = f"V{av}" if av else None
 
-    # Focus: champion first, then ALL remaining models (no cap)
-    focus: list[dict] = []
-    if champ_ver:
-        champ_row = next((r for r in league if r.get("version") == champ_ver), None)
-        if champ_row:
-            focus.append(champ_row)
-    for r in league:
-        if r.get("version") != champ_ver:
-            focus.append(r)
+    # Pure rank order — no visual priority for experimental motor
+    focus: list[dict] = list(league)
 
     if not focus:
         return "<p style='color:var(--muted);padding:20px;text-align:center'>Sin datos de heatmap.</p>"
@@ -1733,10 +1773,11 @@ def build_heatmap(snap: dict) -> str:
     last_date = dates[-1]
     pending   = _next_trading_days(last_date, 5)
 
-    # Build the 3 variants
-    var_a = _build_variant_a(focus, dates, pending)
-    var_b = _build_variant_b(focus, dates)
-    var_c = _build_variant_c(focus)
+    # Build the 3 variants — pass rank_1_ver so Champion badge appears on correct row
+    rank_1_ver = focus[0].get("version") if focus else None
+    var_a = _build_variant_a(focus, dates, pending, rank_1_ver)
+    var_b = _build_variant_b(focus, dates, rank_1_ver)
+    var_c = _build_variant_c(focus, rank_1_ver)
 
     # Methodology legend — always visible, explains entry/exit logic to non-technical users
     metodologia = (
@@ -1935,12 +1976,13 @@ def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str
         f"<div class='hc-spark'>{d.get('spark', '')}</div>"
         f"<div class='hc-wr'>{d.get('wr_s', '—')}</div>"
         f"<div class='hc-wr-label'>Win Rate &middot; {d.get('eq_d', 0)} ruedas &middot; {d.get('ev', 0)} picks</div>"
+        f"<div style='font-size:1.5rem;font-weight:800;letter-spacing:-0.5px;margin:6px 0 2px;color:{color}'>{d.get('ret_s', '—')}</div>"
+        f"<div class='hc-wr-label' style='margin-bottom:6px'>Ret. medio por trade</div>"
         f"<div class='hc-round'>"
         f"<span class='hc-round-label'>\u00dalt. rueda eval. {d.get('ld', '')}</span>"
         f"<span class='hc-round-val {d.get('lr_css', 'neu')}'>{d.get('lr_s', '—')}</span>"
         f"</div>"
         f"<div class='hc-stats'>"
-        f"<div class='kl'><span>Ret medio</span><strong>{d.get('ret_s', '—')}</strong></div>"
         f"<div class='kl'><span>Hits</span><strong>{d.get('hits', 0)} / {d.get('ev', 0)}</strong></div>"
         f"<div class='kl'><span>Mejor rueda</span><strong class='pos'>{d.get('best', '—')}</strong></div>"
         f"<div class='kl'><span>Peor rueda</span><strong class='neg'>{d.get('worst', '—')}</strong></div>"
@@ -1977,81 +2019,61 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
                 break
         return seen[:5]
 
-    # ── Champion block: breakdown by signal type ──────────────────────────────
+    # ── Rank-ordered signal list (rank #1 = Champion, experimental in its position) ──
+    rank_1_ver = league[0].get("version") if league else None
     SIG_DEFS = [
         ("D",    "#18e8c8", run.get("results_d") or []),
         ("C5",   "#44e890", run.get("results_c5") or []),
         ("A",    "#a882ff", run.get("results_a") or []),
         ("E_HW", "#f5b833", run.get("results_e") or run.get("results_e_hw") or []),
     ]
-    champ_row = next((r for r in league if r.get("version") == champion_ver), {})
-    champ_eq  = champ_row.get("equalized_recent") or champ_row.get("window") or {}
-    wr_v  = champ_eq.get("accuracy_pct")
-    ret_v = champ_eq.get("avg_return_pct")
-    wr_s  = f"{float(wr_v):.0f}%" if wr_v is not None else "—"
-    ret_s = (("+" if float(ret_v) >= 0 else "") + f"{float(ret_v):.1f}%") if ret_v is not None else "—"
-    champ_color = ROLE_SPARK.get(champ_row.get("role", ""), "#18e8c8")
 
-    sig_html: list[str] = []
-    for sn, color, results in SIG_DEFS:
-        if results:
-            tickers = " · ".join(_esc(p.get("ticker", "?")) for p in results[:6])
-            sig_html.append(
-                f"<div class='svb-sig-line'>"
-                f"<span class='svb-sig-tag' style='border-color:{color}55;color:{color}'>{sn}</span>"
-                f"<span class='svb-sig-tickers'>{tickers}</span>"
-                f"<span class='svb-sig-n'>{len(results)}p</span>"
-                f"</div>"
-            )
-        else:
-            sig_html.append(
-                f"<div class='svb-sig-line svb-sig-off'>"
-                f"<span class='svb-sig-tag' style='border-color:{color}25;color:{color}70'>{sn}</span>"
-                f"<span class='svb-sig-empty-lbl'>—</span>"
-                f"</div>"
-            )
-
-    champ_block = (
-        f"<div class='svb-champion'>"
-        f"<div class='svb-champ-head'>"
-        f"<span class='svb-champ-ver' style='color:{champ_color}'>{_esc(champion_ver)}</span>"
-        f"<span class='svb-champ-badge'>ACTIVO</span>"
-        f"<span class='svb-champ-kpi'>{_esc(wr_s)} WR &middot; {_esc(ret_s)}</span>"
-        f"</div>"
-        + "".join(sig_html)
-        + "</div>"
-    )
-
-    # ── Other models: compact signal rows ───────────────────────────────────
     rows_html: list[str] = []
     for row in league:
         ver = row.get("version", "?")
-        if ver == champion_ver:
-            continue
-        role  = row.get("role", "")
+        role = row.get("role", "")
         color = ROLE_SPARK.get(role, "#6ea8cc")
-        eq    = row.get("equalized_recent") or row.get("window") or {}
-        wr    = eq.get("accuracy_pct")
-        ret   = eq.get("avg_return_pct")
+        eq = row.get("equalized_recent") or row.get("window") or {}
+        wr = eq.get("accuracy_pct")
+        ret = eq.get("avg_return_pct")
         wr_s2  = f"{float(wr):.0f}%" if wr is not None else "—"
         ret_s2 = (("+" if float(ret) >= 0 else "") + f"{float(ret):.1f}%") if ret is not None else "—"
         ret_css = "pos" if (ret is not None and float(ret) >= 0) else ("neg" if ret is not None else "neu")
-        curr   = (row.get("latest_tickers") or [])[:5]
-        curr_s = " · ".join(_esc(t) for t in curr) if curr else "—"
-        prev   = _prev_tk(row)
-        prev_s = " · ".join(_esc(t) for t in prev) if prev else "—"
+        badges = ""
+        if ver == rank_1_ver:
+            badges += "<span class='svb-champ-badge' style='background:#f5b833;color:#111'>CHAMPION</span>"
+        if ver == champion_ver:
+            badges += "<span class='svb-champ-badge'>ACTIVO</span>"
+
+        if ver == champion_ver:
+            curr   = (row.get("latest_tickers") or [])[:5]
+            curr_s = " · ".join(_esc(t) for t in curr) if curr else "—"
+            prev   = _prev_tk(row)
+            prev_s = " · ".join(_esc(t) for t in prev) if prev else "—"
+            body_extra = (
+                f"<div class='svb-picks-now'><span class='svb-lbl'>Hoy</span><strong>{curr_s}</strong></div>"
+                f"<div class='svb-picks-prev'><span class='svb-lbl'>Ant</span>{prev_s}</div>"
+            )
+        else:
+            curr   = (row.get("latest_tickers") or [])[:5]
+            curr_s = " · ".join(_esc(t) for t in curr) if curr else "—"
+            prev   = _prev_tk(row)
+            prev_s = " · ".join(_esc(t) for t in prev) if prev else "—"
+            body_extra = (
+                f"<div class='svb-picks-now'><span class='svb-lbl'>Hoy</span><strong>{curr_s}</strong></div>"
+                f"<div class='svb-picks-prev'><span class='svb-lbl'>Ant</span>{prev_s}</div>"
+            )
+
         rows_html.append(
             f"<div class='svb-row'>"
             f"<div class='svb-row-head'>"
             f"<span class='svb-rver' style='color:{color}'>{_esc(ver)}</span>"
+            f"{badges}"
             f"<span class='svb-rkpi'>{_esc(wr_s2)} · <span class='{ret_css}'>{_esc(ret_s2)}</span></span>"
             f"</div>"
-            f"<div class='svb-picks-now'><span class='svb-lbl'>Hoy</span><strong>{curr_s}</strong></div>"
-            f"<div class='svb-picks-prev'><span class='svb-lbl'>Ant</span>{prev_s}</div>"
-            f"</div>"
+            + body_extra
+            + "</div>"
         )
-
-    other_html = "<div class='svb-list'>" + "".join(rows_html) + "</div>" if rows_html else ""
 
     return (
         "<div class='hero-card hc-gold editable-block' data-bid='hero-signals'>"
@@ -2060,9 +2082,8 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
         f"<span class='pv-regime {regime_cls}'>{_esc(regime_label)}</span>"
         f"<span class='sv-pred-for'>Para {_esc(pred_for)}</span>"
         f"</div>"
-        + champ_block
-        + other_html
-        + "</div>"
+        "<div class='svb-list'>" + "".join(rows_html) + "</div>"
+        "</div>"
     )
 
 
@@ -2101,9 +2122,9 @@ def _build_c1pro_hero_row(snap: dict) -> str:
     ret_d = _c1pro_card_data(leader_ret, "#a882ff") if leader_ret else {}
 
     return "\n".join([
-        _c1pro_hero_card(champ_row, champ_d, "hc-cyan",   "#18e8c8", "\U0001f3c6 Champion activo"),
-        _c1pro_hero_card(leader_wr, wr_d,   "hc-green",  "#44e890", "\U0001f3af Mayor Win Rate"),
-        _c1pro_hero_card(leader_ret, ret_d, "hc-purple", "#a882ff", "\U0001f4c8 Mayor Retorno"),
+        _c1pro_hero_card(leader_wr, wr_d,   "hc-green",  "#44e890", "\U0001f3c6 Champion"),
+        _c1pro_hero_card(leader_ret, ret_d, "hc-purple", "#a882ff", "\U0001f947 Mayor Retorno"),
+        _c1pro_hero_card(champ_row, champ_d, "hc-cyan",   "#18e8c8", "\U0001f52c Motor Experimental"),
         _build_c1pro_senales_vivas_card(snap),
     ])
 
