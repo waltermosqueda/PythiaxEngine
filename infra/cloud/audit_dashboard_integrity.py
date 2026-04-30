@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from analisis.generar_tablero_maquina_pensante import (
+    _inject_mobile_responsive,
     build_run_snapshot_from_db,
     build_dashboard_payload,
     load_market_dates,
@@ -546,9 +547,11 @@ def verify_dashboard_html(
                 }
             )
         else:
-            expected_preview_html = rewrite_dashboard_variant_hrefs(
-                expected_template_html,
-                dashboard_dir / C1_PRO_BUNDLE_HTML.name,
+            expected_preview_html = _inject_mobile_responsive(
+                rewrite_dashboard_variant_hrefs(
+                    expected_template_html,
+                    dashboard_dir / C1_PRO_BUNDLE_HTML.name,
+                )
             )
 
     preview_path = dashboard_dir / C1_PRO_BUNDLE_HTML.name
