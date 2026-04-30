@@ -977,6 +977,23 @@ def ensure_minimum_dashboard_history(
     if dashboard_history_is_current(refreshed_report, min_market_days=min_market_days):
         return True
 
+    # Si todos los modelos (requeridos y opcionales) han sido cargados y hay datos
+    # suficientes, aceptar como completo aunque outcome_days sea menor que window_days.
+    # Los dias recientes sin outcomes son estructurales: el horizonte de prediccion
+    # (D5/D10) no ha vencido aun para las predicciones mas recientes.
+    if (
+        not refreshed_report.get("required_missing_snapshot_history")
+        and not refreshed_report.get("optional_missing_snapshot_history")
+        and int(refreshed_report.get("window_days") or 0) >= min_market_days
+        and int(refreshed_report.get("predictions_recent") or 0) > 0
+        and int(refreshed_report.get("outcomes_recent") or 0) > 0
+    ):
+        log.info(
+            "[PIPELINE] Bootstrap completo: todos los snapshots de modelos cargados. "
+            "outcome_days pendientes son estructurales (horizonte de prediccion vigente)."
+        )
+        return True
+
     emit_critical_alert(
         code="dashboard_history_incomplete",
         summary="La cobertura historica minima del dashboard sigue incompleta tras el bootstrap.",
