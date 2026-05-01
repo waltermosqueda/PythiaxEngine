@@ -144,9 +144,11 @@ def seed_model_run_snapshots(db_path: Path, monitored: list[dict[str, str]], ana
 
 def write_human_dashboard_artifacts(payload: dict[str, object], dashboard_dir: Path, template_path: Path) -> None:
     template_html = C1_PRO_TEMPLATE_HTML.read_text(encoding="utf-8")
+    template_path.write_text(template_html, encoding="utf-8")
     rendered_html = refresher.render_dashboard_html(template_html, payload, verbose=False)
-    template_path.write_text(rendered_html, encoding="utf-8")
-    published_html = dashboard.rewrite_dashboard_variant_hrefs(rendered_html, dashboard_dir / C1_PRO_BUNDLE_HTML.name)
+    published_html = dashboard._inject_mobile_responsive(
+        dashboard.rewrite_dashboard_variant_hrefs(rendered_html, dashboard_dir / C1_PRO_BUNDLE_HTML.name)
+    )
     (dashboard_dir / C1_PRO_BUNDLE_HTML.name).write_text(published_html, encoding="utf-8")
 
 
