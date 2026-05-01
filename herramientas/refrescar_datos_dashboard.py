@@ -1559,10 +1559,13 @@ def _freshness_badge(stale_days: int | None, role: str = "") -> str:
         return "<span class='badge ba-muted'>N/D</span>"
     if stale_days == 0:
         return "<span class='badge ba-fresh'>AL DÍA</span>"
-    if (role or "").lower() == "legacy_ml":
-        return "<span class='badge ba-legacy'>SIN OPERAR</span>"
-    if stale_days <= 7:
+    is_legacy = (role or "").lower() == "legacy_ml"
+    if stale_days <= 2:
         label = "1d sin señal" if stale_days == 1 else f"{stale_days}d sin señal"
+        cls = "ba-legacy" if is_legacy else "ba-warn"
+        return f"<span class='badge {cls}'>{label}</span>"
+    if stale_days <= 7:
+        label = f"{stale_days}d sin señal"
         return f"<span class='badge ba-warn'>{label}</span>"
     return f"<span class='badge ba-stale'>{stale_days}d sin señal</span>"
 
