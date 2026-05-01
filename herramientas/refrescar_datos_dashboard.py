@@ -1123,6 +1123,9 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
     """Variant A — 30d full table + 5 future pending cols. All 12 models."""
     all_dates = dates + pending
     compact_cls = " hm-compact" if len(all_dates) > 20 else ""
+    # Map each date to its immediately preceding market date in the calendar.
+    # Used to distinguish "trailing edge" (model 1 day behind) from real gaps.
+    dates_prev: dict[str, str | None] = {d: (dates[i - 1] if i > 0 else None) for i, d in enumerate(dates)}
 
     # header
     hdr = ""
@@ -1205,6 +1208,17 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                         f"<td class='hm-no-signal' data-tip='{tip_hoy}'>"
                         "<div class='hm-ret'>—</div>"
                         "<div class='hm-meta'>hoy</div>"
+                        "</td>"
+                    )
+                elif (dates_prev.get(d) is not None
+                      and latest_snapshot_date >= dates_prev[d]):
+                    # model ran on the immediately preceding market date —
+                    # this is a trailing edge, not a genuine gap → sin señal
+                    tip_trail = _esc(f"{ver} · {d} | sin datos (último run: {latest_snapshot_date})")
+                    cells += (
+                        f"<td class='hm-no-signal' data-tip='{tip_trail}'>"
+                        "<div class='hm-ret'>—</div>"
+                        "<div class='hm-meta'>sin datos</div>"
                         "</td>"
                     )
                 else:
@@ -1322,8 +1336,11 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
             if latest_snapshot_date and d <= latest_snapshot_date:
                 covered_models += 1
             elif latest_snapshot_date and d < today_iso:
-                # only a truly past date with missing snapshot counts as stale
-                stale_models += 1
+                # only stale if model is 2+ market days behind (genuine gap,
+                # not just trailing 1 day behind the last run)
+                d_prev = dates_prev.get(d)
+                if d_prev is None or latest_snapshot_date < d_prev:
+                    stale_models += 1
             if picks > 0:
                 has_picks = True
                 ret = it.get("avg_return_pct")

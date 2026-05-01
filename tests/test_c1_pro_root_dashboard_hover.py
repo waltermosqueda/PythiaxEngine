@@ -97,20 +97,23 @@ def test_heatmap_variant_a_marks_fresh_zero_signal_days_explicitly() -> None:
 
 
 def test_heatmap_variant_a_marks_stale_snapshot_gaps_explicitly() -> None:
+    # Genuine stale gap: model last ran Apr 25, calendar has Apr 28 AND Apr 29.
+    # Apr 28: d_prev=Apr 25 → latest_snapshot_date (Apr 25) >= d_prev (Apr 25) → trailing edge → sin datos (not stale)
+    # Apr 29: d_prev=Apr 28 → latest_snapshot_date (Apr 25) < d_prev (Apr 28) → genuine 2-day gap → stale
     focus = [
         {
             "version": "ML_V94",
             "role": "legacy_ml",
-            "latest_snapshot_date": "2026-04-27",
+            "latest_snapshot_date": "2026-04-25",
             "recent_30": {
                 "calendar": [
-                    {"date": "2026-04-27", "avg_return_pct": 1.4, "accuracy_pct": 50.0, "picks": 2, "tickers": ["NVDA", "AAPL"]},
+                    {"date": "2026-04-25", "avg_return_pct": 1.4, "accuracy_pct": 50.0, "picks": 2, "tickers": ["NVDA", "AAPL"]},
                 ]
             },
         }
     ]
 
-    html = refresher._build_variant_a(focus, ["2026-04-27", "2026-04-28"], [])
+    html = refresher._build_variant_a(focus, ["2026-04-25", "2026-04-28", "2026-04-29"], [])
 
     assert "sin snapshot fresco para esta rueda" in html
     assert "hm-stale-gap" in html
