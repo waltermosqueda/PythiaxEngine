@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-04-27T16:35:00",
+  "updated_at": "2026-05-01T00:00:00",
   "legacy_ml_models": [
     {
       "model_id": "legacy_ml_brain_v11",
@@ -118,6 +118,19 @@
       "native_horizon": 5,
       "evaluation_mode": "close_on_target",
       "notes": "ML Trading Brain v9.0 original (Quant Professional Edition v20/v22). 62 features, Triple Barrier labels, Purged Walk-Forward CV, Dynamic IC weights. Carga el archivo original via importlib con datos de titan DB — bypasses yfinance, corre en minutos. XGB/LGBM desactivados para compatibilidad CI."
+    },
+    {
+      "model_id": "legacy_ml_brain_v10",
+      "label": "ML_BRAIN_V10",
+      "model_prefix": "LEGACY_ML_BRAIN_V10",
+      "signal_code": "BUY",
+      "status": "enabled",
+      "role": "legacy_ml_observed",
+      "source_path": "ml_investigacion/ml_trading_v23.py",
+      "runner_script": "herramientas/aprendizaje_operativo_legacy_ml_brain_v10.py",
+      "native_horizon": 5,
+      "evaluation_mode": "close_on_target",
+      "notes": "ML Trading Brain v10.0 Ultra-Fast (v23). 62 features identicas al v22, Triple Barrier vectorizado numpy, HistGradientBoosting (30-50x vs GBC), RF/ET 80 arboles, features paralelas joblib, 3-fold WF. 8.7x mas rapido que v9. Misma logica de picks, 100% acuerdo con v9 en backtests."
     }
   ]
 }
