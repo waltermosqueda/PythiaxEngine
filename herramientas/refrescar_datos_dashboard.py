@@ -279,7 +279,11 @@ def _window_provisional_avg_return_pct(window: dict | None) -> float | None:
 def _window_accuracy_label(window: dict | None, digits: int = 2) -> str:
     accuracy = (window or {}).get("accuracy_pct")
     if accuracy is not None:
-        return _fmt_pct(float(accuracy), digits)
+        label = _fmt_pct(float(accuracy), digits)
+        evaluated = _to_int((window or {}).get("evaluated"))
+        if 0 < evaluated < 15:
+            label += f" ({evaluated}p)"
+        return label
     if _window_provisional_days(window) > 0:
         return "PROV"
     return "—"
@@ -721,12 +725,12 @@ def _render_kpi_strip(snap: dict) -> str:
         '<div class="kpi-card accent-cyan editable-block" data-bid="kpi-champion" data-blabel="KPI Champion">'
         '<div class="kc-label">Motor Experimental</div>'
         f'<div class="kc-value">{_esc(champion_ver)}</div>'
-        f'<div class="kc-sub">WR {_fmt_pct(champion_eq.get("accuracy_pct"))} · ret {_fmt_pct(champion_eq.get("avg_return_pct"), 3, True)} · #{_esc(champion_rank)}</div>'
+        f'<div class="kc-sub">WR {_window_accuracy_label(champion_eq)} · ret {_fmt_pct(champion_eq.get("avg_return_pct"), 3, True)} · #{_esc(champion_rank)}</div>'
         "</div>"
         '<div class="kpi-card accent-gold editable-block" data-bid="kpi-leader" data-blabel="KPI Líder">'
         '<div class="kc-label">Champion #1</div>'
         f'<div class="kc-value">{_esc(leader.get("version"))}</div>'
-        f'<div class="kc-sub">WR {_fmt_pct(leader_eq.get("accuracy_pct"))} · ret {_fmt_pct(leader_eq.get("avg_return_pct"), 3, True)}</div>'
+        f'<div class="kc-sub">WR {_window_accuracy_label(leader_eq)} · ret {_fmt_pct(leader_eq.get("avg_return_pct"), 3, True)}</div>'
         "</div>"
         '<div class="kpi-card accent-green editable-block" data-bid="kpi-picks" data-blabel="KPI Picks">'
         '<div class="kc-label">Picks hoy</div>'
@@ -1160,15 +1164,22 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
         _r30_wrs  = [float(c["accuracy_pct"])   for c in _r30 if c.get("accuracy_pct")   is not None]
         _r30_ret  = sum(_r30_rets) / len(_r30_rets) if _r30_rets else None
         _r30_wr   = sum(_r30_wrs)  / len(_r30_wrs)  if _r30_wrs  else None
+        _r30_ev   = _to_int((r.get("recent_30") or {}).get("evaluated"))
+        if _r30_wr is not None and 0 < _r30_ev < 15:
+            _wr_lbl = f"{_r30_wr:.0f}% WR ({_r30_ev}p)"
+        elif _r30_wr is not None:
+            _wr_lbl = f"{_r30_wr:.0f}% WR"
+        else:
+            _wr_lbl = ""
         if _r30_ret is None:
             _lbl_s = ''
         elif _r30_ret >= 0:
             _lbl_s = (f"<span class='hm-lbl-stat hm-lbl-pos'>+{_r30_ret:.1f}%"
-                      + (f" · {_r30_wr:.0f}% WR" if _r30_wr is not None else "")
+                      + (f" · {_wr_lbl}" if _wr_lbl else "")
                       + "</span>")
         else:
             _lbl_s = (f"<span class='hm-lbl-stat hm-lbl-neg'>{_r30_ret:.1f}%"
-                      + (f" · {_r30_wr:.0f}% WR" if _r30_wr is not None else "")
+                      + (f" · {_wr_lbl}" if _wr_lbl else "")
                       + "</span>")
         cells = f"<th class='hm-label'><span class='hm-rank' style='font-size:9px;color:#888;display:block'>{rank_i}°</span><span class='hm-v'>{_esc(ver_disp)}</span><span class='hm-rl'>{icon}</span>{champ_tag}{_lbl_s}</th>"
         for d in dates:
@@ -1403,15 +1414,22 @@ def _build_variant_b(focus: list[dict], dates: list[str], rank_1_ver: str | None
         _rb_wrs  = [float(c["accuracy_pct"])   for c in _rb if c.get("accuracy_pct")   is not None]
         _rb_ret  = sum(_rb_rets) / len(_rb_rets) if _rb_rets else None
         _rb_wr   = sum(_rb_wrs)  / len(_rb_wrs)  if _rb_wrs  else None
+        _rb_ev   = _to_int((r.get("recent_30") or {}).get("evaluated"))
+        if _rb_wr is not None and 0 < _rb_ev < 15:
+            _wr_lbl_b = f"{_rb_wr:.0f}% WR ({_rb_ev}p)"
+        elif _rb_wr is not None:
+            _wr_lbl_b = f"{_rb_wr:.0f}% WR"
+        else:
+            _wr_lbl_b = ""
         if _rb_ret is None:
             _lbl_sb = ''
         elif _rb_ret >= 0:
             _lbl_sb = (f"<span class='hm-lbl-stat hm-lbl-pos'>+{_rb_ret:.1f}%"
-                       + (f" · {_rb_wr:.0f}% WR" if _rb_wr is not None else "")
+                       + (f" · {_wr_lbl_b}" if _wr_lbl_b else "")
                        + "</span>")
         else:
             _lbl_sb = (f"<span class='hm-lbl-stat hm-lbl-neg'>{_rb_ret:.1f}%"
-                       + (f" · {_rb_wr:.0f}% WR" if _rb_wr is not None else "")
+                       + (f" · {_wr_lbl_b}" if _wr_lbl_b else "")
                        + "</span>")
         cells = f"<th class='hm-label'><span class='hm-rank' style='font-size:9px;color:#888;display:block'>{rank_i}°</span><span class='hm-v'>{_esc(ver_disp)}</span><span class='hm-rl'>{icon}</span>{champ_tag}{_lbl_sb}</th>"
         for key, day_list in week_map.items():
@@ -2038,7 +2056,11 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
         eq = row.get("equalized_recent") or row.get("window") or {}
         wr = eq.get("accuracy_pct")
         ret = eq.get("avg_return_pct")
-        wr_s2  = f"{float(wr):.0f}%" if wr is not None else "—"
+        ev_sv = _to_int(eq.get("evaluated"))
+        if wr is not None and 0 < ev_sv < 15:
+            wr_s2 = f"{float(wr):.0f}% ({ev_sv}p)"
+        else:
+            wr_s2 = f"{float(wr):.0f}%" if wr is not None else "—"
         ret_s2 = (("+" if float(ret) >= 0 else "") + f"{float(ret):.1f}%") if ret is not None else "—"
         ret_css = "pos" if (ret is not None and float(ret) >= 0) else ("neg" if ret is not None else "neu")
         badges = ""
