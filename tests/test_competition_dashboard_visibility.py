@@ -151,7 +151,7 @@ def test_build_entry_state_carries_spark_labels(monkeypatch) -> None:
         "_build_day_records",
         lambda ranked_picks_by_date, source_by_date, row_map, top_n: (day_records, active_dates, active_dates, {"LMT", "IREN", "NVDA"}),
     )
-    monkeypatch.setattr(standardized, "_market_staleness", lambda latest_date, market_dates: 0)
+    monkeypatch.setattr(standardized, "_market_staleness", lambda latest_date, market_dates, latest_target_date=None: 0)
     monkeypatch.setattr(standardized, "build_window_metrics_from_records", lambda records, window_dates: {})
 
     state = standardized._build_entry_state(None, entry, active_dates, top_n=2)

@@ -79,7 +79,16 @@ def _empty_window_metrics(window_dates: list[str]) -> dict[str, Any]:
     }
 
 
-def _market_staleness(latest_model_date: str | None, market_dates: list[str]) -> int | None:
+def _market_staleness(
+    latest_model_date: str | None,
+    market_dates: list[str],
+    latest_target_date: str | None = None,
+) -> int | None:
+    # If model has an active prediction covering the current market period it is not stale.
+    # This handles D1/D3/D7 models that predict on day N for day N+k: their effective
+    # "last active date" is the target date, not the prediction date.
+    if market_dates and latest_target_date and latest_target_date >= market_dates[-1]:
+        return 0
     if not latest_model_date or latest_model_date not in market_dates:
         return None
     return max(0, len(market_dates) - 1 - market_dates.index(latest_model_date))
@@ -720,6 +729,11 @@ def _build_entry_state(
     )
     latest_date = all_dates[-1] if all_dates else None
     latest_record = day_records.get(latest_date or "", {})
+    _latest_target_date: str | None = (
+        latest_snapshot_target_dates[-1]
+        if latest_snapshot_target_dates
+        else latest_record.get("latest_target_date")
+    )
     spark_series = [
         _to_float(day_records[date_text].get("avg_return_pct")) or 0.0
         for date_text in active_evaluated_dates[-60:]
@@ -768,7 +782,7 @@ def _build_entry_state(
             "unique_tickers": len(unique_tickers),
             "latest_snapshot_signal_count": int(latest_snapshot_row.get("signal_count") or 0) if latest_snapshot_row else 0,
             "snapshot_stale_market_days": _market_staleness(latest_snapshot_date, market_dates),
-            "stale_market_days": _market_staleness(latest_snapshot_date or latest_date, market_dates),
+            "stale_market_days": _market_staleness(latest_snapshot_date or latest_date, market_dates, _latest_target_date),
             "spark_avg_return_pct": spark_series,
             "spark_cumulative_return_pct": cumulative,
             "spark_labels": spark_labels,
