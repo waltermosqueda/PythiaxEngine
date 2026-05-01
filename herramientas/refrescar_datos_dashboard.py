@@ -779,7 +779,7 @@ def _hero_card_html(row: dict, *, label: str, card_class: str, subtitle: str, pi
         "</div>"
         f"<div class=\"hc-spark-wrap\">{spark}</div>"
         '<div class="hc-big-row">'
-        f'<div><div class="hc-big-num hc-accent-val">{_fmt_pct(eq.get("accuracy_pct"))}</div><div class="hc-big-lbl">Win Rate igualada</div></div>'
+        f'<div><div class="hc-big-num hc-accent-val">{_window_accuracy_label(eq)}</div><div class="hc-big-lbl">Win Rate igualada</div></div>'
         f'<div><div class="hc-big-num">{_fmt_pct(eq.get("avg_return_pct"), 2, True)}</div><div class="hc-big-lbl">Ret. promedio/trade</div></div>'
         "</div>"
         '<div class="hc-stats">'
@@ -858,9 +858,9 @@ def _render_liga_tab2_tbody(snap: dict) -> str:
             "<tr>"
             f"<td><strong>{_esc(row.get('version'))}</strong> {_role_badge_card(str(row.get('role') or ''))}</td>"
             f"<td>{_freshness_badge_card(row.get('stale_market_days'))}</td>"
-            f"<td>{_fmt_pct(eq.get('accuracy_pct'))} / {_fmt_pct(eq.get('avg_return_pct'), 3, True)}</td>"
+            f"<td>{_window_accuracy_label(eq)} / {_fmt_pct(eq.get('avg_return_pct'), 3, True)}</td>"
             f"<td>{_fmt_int(eq.get('active_days'))}/{_fmt_int((snap.get('competition_recent') or {}).get('equalized_days'))} · {_fmt_int(eq.get('evaluated'))}</td>"
-            f"<td>{_fmt_pct(recent.get('accuracy_pct'))} / {_fmt_pct(recent.get('avg_return_pct'), 3, True)}</td>"
+            f"<td>{_window_accuracy_label(recent)} / {_fmt_pct(recent.get('avg_return_pct'), 3, True)}</td>"
             f"<td>{_fmt_int(recent.get('active_days'))}/30 · {_fmt_int(recent.get('evaluated'))}</td>"
             f"<td class='muted-td ticker-list'>{_esc(', '.join((row.get('latest_tickers') or [])[:6]) or 'Sin picks')}</td>"
             "</tr>"
@@ -965,14 +965,14 @@ def _render_models_grid(snap: dict) -> str:
             "</div>"
             f"<div class='mc-spark'>{_sparkline_markup_from_window(recent, ROLE_SPARK.get(role, '#6ea8cc'), title=f'{version} | curva 30 ruedas', value_format='pct')}</div>"
             "<div class='mc-kpis'>"
-            f"<div class='mk'><span>WR</span><strong class='{'pos' if (eq.get('accuracy_pct') or 0) >= 60 else ''}'>{_fmt_pct(eq.get('accuracy_pct'))}</strong></div>"
+            f"<div class='mk'><span>WR</span><strong class='{'pos' if (eq.get('accuracy_pct') or 0) >= 60 else ''}'>{_window_accuracy_label(eq)}</strong></div>"
             f"<div class='mk'><span>Ret</span><strong>{_fmt_pct(eq.get('avg_return_pct'), 3, True)}</strong></div>"
             f"<div class='mk'><span>Hits</span><strong>{_fmt_int(eq.get('hits'))}/{_fmt_int(eq.get('evaluated'))}</strong></div>"
             f"<div class='mk'><span>Picks</span><strong>{_fmt_int(row.get('latest_picks'))}</strong></div>"
             "</div>"
             f"<div class='mc-tickers'>{_esc(', '.join((row.get('latest_tickers') or [])[:10]) or 'Sin picks recientes')}</div>"
             "<details class='mc-detail'><summary>Mas datos</summary><div class='mc-detail-body'>"
-            f"<div class='kl'><span>30 ruedas</span><strong>{_fmt_pct(recent.get('accuracy_pct'))} / {_fmt_pct(recent.get('avg_return_pct'), 3, True)}</strong></div>"
+            f"<div class='kl'><span>30 ruedas</span><strong>{_window_accuracy_label(recent)} / {_fmt_pct(recent.get('avg_return_pct'), 3, True)}</strong></div>"
             f"<div class='kl'><span>Mejor rueda</span><strong>{_fmt_pct(recent.get('best_day_return_pct'), 2, True)}</strong></div>"
             f"<div class='kl'><span>Peor rueda</span><strong>{_fmt_pct(recent.get('worst_day_return_pct'), 2, True)}</strong></div>"
             f"<div class='kl'><span>Universo</span><strong>{_fmt_int(row.get('unique_tickers'))} tickers</strong></div>"
