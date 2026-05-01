@@ -616,6 +616,8 @@ class OperationalLearningLegacyML:
                     min_rows=max(self.config.min_rows, 220),
                     signal="EVENT",
                 )
+            if self.config.adapter_kind == "brain_v9":
+                return self._run_v22(as_of_ts)
         except Exception as exc:
             return [], [f"ERROR adapter {self.config.adapter_kind}: {type(exc).__name__}: {exc}"]
         return [], [f"Adapter no soportado: {self.config.adapter_kind}"]

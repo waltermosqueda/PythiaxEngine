@@ -105,6 +105,19 @@
       "native_horizon": 3,
       "evaluation_mode": "window_max_close",
       "notes": "Titan Omega T+1/T+3; se evalua contra el mejor close de la ventana."
+    },
+    {
+      "model_id": "legacy_ml_brain_v9",
+      "label": "ML_BRAIN_V9",
+      "model_prefix": "LEGACY_ML_BRAIN_V9",
+      "signal_code": "BUY",
+      "status": "enabled",
+      "role": "legacy_ml_observed",
+      "source_path": "ml_investigacion/ml_trading_v22.py",
+      "runner_script": "herramientas/aprendizaje_operativo_legacy_ml_brain_v9.py",
+      "native_horizon": 5,
+      "evaluation_mode": "close_on_target",
+      "notes": "ML Trading Brain v9.0 original (Quant Professional Edition v20/v22). 62 features, Triple Barrier labels, Purged Walk-Forward CV, Dynamic IC weights. Carga el archivo original via importlib con datos de titan DB — bypasses yfinance, corre en minutos. XGB/LGBM desactivados para compatibilidad CI."
     }
   ]
 }
