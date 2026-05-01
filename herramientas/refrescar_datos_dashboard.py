@@ -1198,6 +1198,15 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                         "<div class='hm-meta'>sin señal</div>"
                         "</td>"
                     )
+                elif d >= today_iso:
+                    # today (or future): model hasn't run yet — not stale
+                    tip_hoy = _esc(f"{ver} · {d} | sin datos aún — rueda en curso")
+                    cells += (
+                        f"<td class='hm-no-signal' data-tip='{tip_hoy}'>"
+                        "<div class='hm-ret'>—</div>"
+                        "<div class='hm-meta'>hoy</div>"
+                        "</td>"
+                    )
                 else:
                     tip_gap = _esc(f"{ver} · {d} | sin snapshot fresco para esta rueda")
                     cells += (
@@ -1312,7 +1321,8 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
             picks = _entry_picks_count(it)
             if latest_snapshot_date and d <= latest_snapshot_date:
                 covered_models += 1
-            elif latest_snapshot_date:
+            elif latest_snapshot_date and d < today_iso:
+                # only a truly past date with missing snapshot counts as stale
                 stale_models += 1
             if picks > 0:
                 has_picks = True
@@ -1325,7 +1335,8 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                     if acc is not None:
                         day_wrs.append(float(acc))
         if not has_picks:
-            if covered_models and stale_models == 0:
+            if stale_models == 0:
+                # no past gaps — either all covered or today not yet processed
                 tfoot_cells += (
                     "<td class='hm-no-signal'>"
                     "<div class='hm-ret'>0p</div>"
