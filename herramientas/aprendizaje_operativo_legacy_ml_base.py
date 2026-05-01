@@ -876,8 +876,6 @@ class OperationalLearningLegacyML:
         self.module.RandomForestClassifier = self._force_kwargs(patches["RandomForestClassifier"], n_jobs=1)
         self.module.ExtraTreesClassifier = self._force_kwargs(patches["ExtraTreesClassifier"], n_jobs=1)
         self.module.LogisticRegression = self._force_kwargs(patches["LogisticRegression"], n_jobs=1)
-        self.module.HAS_XGB = False
-        self.module.HAS_LGBM = False
         try:
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 engine = self.module.TradingEngine()
