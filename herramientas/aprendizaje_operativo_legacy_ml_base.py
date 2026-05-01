@@ -866,16 +866,19 @@ class OperationalLearningLegacyML:
         if "SPY" not in histories:
             return [], ["SPY faltante para v22."]
 
+        # Weekly brain cache: ISO-week key so we retrain once per week, not every day.
+        # This makes backfill ~5x faster while preserving per-day signal generation.
+        week_key = as_of_ts.strftime("%G-W%V")  # e.g. "2025-W23"
+        cached_brain = getattr(self, "_v22_brain_cache", None)
+        use_cached = cached_brain is not None and cached_brain[0] == week_key
+
+        # Save/restore only HAS_XGB/HAS_LGBM flags; do NOT patch n_jobs so the
+        # module runs with its native n_jobs=-1 (RF/ET/LR parallelism unchanged).
+        # Brain-v9 always runs alone (serial backfill), so n_jobs=-1 is safe.
         patches = {
-            "RandomForestClassifier": getattr(self.module, "RandomForestClassifier"),
-            "ExtraTreesClassifier": getattr(self.module, "ExtraTreesClassifier"),
-            "LogisticRegression": getattr(self.module, "LogisticRegression"),
             "HAS_XGB": getattr(self.module, "HAS_XGB", False),
             "HAS_LGBM": getattr(self.module, "HAS_LGBM", False),
         }
-        self.module.RandomForestClassifier = self._force_kwargs(patches["RandomForestClassifier"], n_jobs=1)
-        self.module.ExtraTreesClassifier = self._force_kwargs(patches["ExtraTreesClassifier"], n_jobs=1)
-        self.module.LogisticRegression = self._force_kwargs(patches["LogisticRegression"], n_jobs=1)
         try:
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 engine = self.module.TradingEngine()
@@ -885,12 +888,14 @@ class OperationalLearningLegacyML:
                 }
                 engine.spy_ret = engine.data["SPY"]["Close"].pct_change().fillna(0)
                 engine.calcular_features()
-                engine.entrenar_global(verbose=False)
+                if use_cached:
+                    # Reuse last week's trained brain — skip full retraining
+                    engine.brain = cached_brain[1]
+                else:
+                    engine.entrenar_global(verbose=False)
+                    self._v22_brain_cache = (week_key, engine.brain)
                 signals = engine.generar_senales()
         finally:
-            self.module.RandomForestClassifier = patches["RandomForestClassifier"]
-            self.module.ExtraTreesClassifier = patches["ExtraTreesClassifier"]
-            self.module.LogisticRegression = patches["LogisticRegression"]
             self.module.HAS_XGB = patches["HAS_XGB"]
             self.module.HAS_LGBM = patches["HAS_LGBM"]
 
