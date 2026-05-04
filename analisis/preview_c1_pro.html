@@ -925,9 +925,53 @@ body.theme-white .hm-table td{
 .hc-round-val.neg{ color:var(--rose,#f07080); }
 .hc-round-val.neu{ color:var(--muted); }
 
-.hc-picks{ margin-top:2px; }
+/* ── RANK BADGE (replaces hc-label for top3 cards) ── */
+.hc-rank-badge{
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:11px; font-weight:800; letter-spacing:.05em;
+  padding:3px 8px; border-radius:4px; margin-bottom:6px;
+  text-transform:uppercase;
+}
+.hc-green  .hc-rank-badge{ background:rgba(68,232,144,.15); color:var(--green); }
+.hc-purple .hc-rank-badge{ background:rgba(168,130,255,.15); color:#a882ff; }
+.hc-cyan   .hc-rank-badge{ background:rgba(24,232,200,.15); color:var(--cyan); }
+
+.hc-picks{ margin-top:6px; }
 .hc-picks-lbl{ font-size:9px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:3px; }
 .hc-picks-prev{ font-size:10px; color:var(--muted); line-height:1.4; }
+
+/* ── OPEN/ACTIVE PICKS (prominent) ── */
+.hc-open-row{
+  padding:8px 10px; border-radius:6px; margin-bottom:6px;
+  background:rgba(255,255,255,.04); border-left:3px solid transparent;
+}
+.hc-green  .hc-open-row{ border-color:var(--green); }
+.hc-purple .hc-open-row{ border-color:#a882ff; }
+.hc-cyan   .hc-open-row{ border-color:var(--cyan); }
+.hc-open-header{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.hc-open-lbl{ color:var(--ink) !important; font-weight:700; margin-bottom:0; }
+.hc-picks-live{
+  font-size:14px; font-weight:800; line-height:1.3; color:var(--ink);
+}
+.hc-green  .hc-picks-live{ color:var(--green); }
+.hc-purple .hc-picks-live{ color:#a882ff; }
+.hc-cyan   .hc-picks-live{ color:var(--cyan); }
+.hc-prov-ret{
+  font-size:11px; font-weight:700; padding:1px 6px;
+  border-radius:3px; background:rgba(255,255,255,.07);
+}
+.hc-prov-ret.pos{ color:var(--green); }
+.hc-prov-ret.neg{ color:var(--rose,#f07080); }
+.hc-prov-ret.neu{ color:var(--muted); font-style:italic; }
+
+/* ── LAST CLOSED PICKS (muted) ── */
+.hc-closed-row{ margin-top:2px; }
+.hc-closed-tickers{ font-size:10px; color:var(--muted); line-height:1.4; margin-top:2px; }
+.hc-closed-ret{ font-size:9px; font-weight:700; }
+.hc-closed-ret.pos{ color:var(--green); }
+.hc-closed-ret.neg{ color:var(--rose,#f07080); }
+.hc-closed-ret.neu{ color:var(--muted); }
+
 .hc-picks-next{
   font-size:12px; font-weight:700; color:var(--ink);
   background:rgba(255,255,255,.05); padding:5px 8px;

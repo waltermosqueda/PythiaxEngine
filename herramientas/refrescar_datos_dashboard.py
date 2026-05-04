@@ -1980,10 +1980,10 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
     eq   = row.get("equalized_recent") or row.get("window") or {}
     r30  = row.get("recent_30") or {}
     cal  = r30.get("calendar") or []
-    cal_with = sorted(
-        (e for e in cal if e.get("avg_return_pct") is not None),
-        key=lambda e: e["date"],
-    )
+    cal_sorted = sorted(cal, key=lambda e: e.get("date", ""))
+
+    # Last round with a realized return (for the "Últ. rueda eval." widget)
+    cal_with = [e for e in cal_sorted if e.get("avg_return_pct") is not None]
     last = cal_with[-1] if cal_with else None
     lr_s, ld, lr_css = "—", "", "neu"
     if last:
@@ -1992,35 +1992,102 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
         ld = f"{p[2]}/{p[1]}" if len(p) == 3 else last["date"]
         lr_s = ("+" if lr >= 0 else "") + f"{lr:.2f}%"
         lr_css = "pos" if lr >= 0 else "neg"
+
+    # ── Last TRULY CLOSED session (is_provisional != True, ret ≠ None) ───────
+    closed_info: dict = {}
+    for e in reversed(cal_sorted):
+        if e.get("is_provisional") is not True and e.get("avg_return_pct") is not None and e.get("tickers"):
+            ret_v = float(e["avg_return_pct"])
+            p = e.get("date", "").split("-")
+            closed_info = {
+                "tickers": list(e["tickers"])[:6],
+                "ret_s": ("+" if ret_v >= 0 else "") + f"{ret_v:.2f}%",
+                "ret_css": "pos" if ret_v >= 0 else "neg",
+                "date_s": f"{p[2]}/{p[1]}" if len(p) == 3 else e.get("date", ""),
+            }
+            break
+
+    # ── Provisional MTM return for currently open picks ───────────────────────
+    open_tickers: list[str] = list(row.get("latest_tickers") or [])
+    prov_ret_s, prov_ret_css = "", "neu"
+    for e in reversed(cal_sorted):
+        if e.get("is_provisional") is True and e.get("avg_return_pct") is not None:
+            ret_v = float(e["avg_return_pct"])
+            prov_ret_s = ("+" if ret_v >= 0 else "") + f"{ret_v:.2f}%"
+            prov_ret_css = "pos" if ret_v >= 0 else "neg"
+            break
+
+    # ── Previous closed picks (for the history line) ──────────────────────────
     prev_tickers: list[str] = []
-    for e in reversed(cal_with[:-1]):
+    closed_tickers_set = set(closed_info.get("tickers", []))
+    for e in reversed(cal_sorted[:-1] if cal_sorted else []):
+        if e.get("is_provisional") is True:
+            continue
         for t in (e.get("tickers") or []):
-            if t not in prev_tickers:
+            if t not in prev_tickers and t not in closed_tickers_set:
                 prev_tickers.append(t)
         if len(prev_tickers) >= 5:
             break
+
     return {
-        "spark":  _make_sparkline_c1pro(row, color),
-        "wr_s":   _sfmt_c1(eq.get("accuracy_pct"), 2),
-        "ret_s":  _sfmt_c1(eq.get("avg_return_pct"), 3, signed=True),
-        "best":   _sfmt_c1(eq.get("best_day_return_pct"), 2, signed=True),
-        "worst":  _sfmt_c1(eq.get("worst_day_return_pct"), 2, signed=True),
-        "hits":   eq.get("hits", 0),
-        "ev":     eq.get("evaluated", 0),
-        "eq_d":   eq.get("equalized_days") or eq.get("active_days") or 0,
-        "lr_s":   lr_s,
-        "ld":     ld,
-        "lr_css": lr_css,
+        "spark":        _make_sparkline_c1pro(row, color),
+        "wr_s":         _sfmt_c1(eq.get("accuracy_pct"), 2),
+        "ret_s":        _sfmt_c1(eq.get("avg_return_pct"), 3, signed=True),
+        "best":         _sfmt_c1(eq.get("best_day_return_pct"), 2, signed=True),
+        "worst":        _sfmt_c1(eq.get("worst_day_return_pct"), 2, signed=True),
+        "hits":         eq.get("hits", 0),
+        "ev":           eq.get("evaluated", 0),
+        "eq_d":         eq.get("equalized_days") or eq.get("active_days") or 0,
+        "lr_s":         lr_s,
+        "ld":           ld,
+        "lr_css":       lr_css,
+        # open picks
+        "open_tickers": open_tickers,
+        "open_s":       " · ".join(open_tickers[:6]) or "Sin picks activos",
+        "prov_ret_s":   prov_ret_s,
+        "prov_ret_css": prov_ret_css,
+        # last closed session
+        "closed_tickers_s": " · ".join(closed_info.get("tickers", [])[:6]) or "—",
+        "closed_ret_s":     closed_info.get("ret_s", "—"),
+        "closed_ret_css":   closed_info.get("ret_css", "neu"),
+        "closed_date_s":    closed_info.get("date_s", ""),
+        # history (keep for backwards compat)
         "prev":   ", ".join(prev_tickers[:4]) or "—",
-        "picks":  ", ".join((row.get("latest_tickers") or [])[:5]) or "Sin picks",
+        "picks":  " · ".join(open_tickers[:5]) or "Sin picks",
     }
 
 
 def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str) -> str:
     ver = row.get("version", "?") if row else "?"
+    # ── Open picks block ────────────────────────────────────────────────────
+    open_count   = len(d.get("open_tickers") or [])
+    open_s       = _esc(d.get("open_s") or "Sin picks activos")
+    prov_ret_s   = d.get("prov_ret_s", "")
+    prov_ret_css = d.get("prov_ret_css", "neu")
+    prov_badge   = (
+        f"<span class='hc-prov-ret {prov_ret_css}'>MTM {_esc(prov_ret_s)}</span>"
+        if prov_ret_s else
+        "<span class='hc-prov-ret neu'>en curso</span>"
+    )
+    open_count_s = f"{open_count} pick{'s' if open_count != 1 else ''}" if open_count else ""
+    open_header_parts = ["\u26a1 Activos"]
+    if open_count_s:
+        open_header_parts.append(open_count_s)
+    open_lbl = " &middot; ".join(open_header_parts)
+
+    # ── Closed picks block ───────────────────────────────────────────────────
+    closed_s      = _esc(d.get("closed_tickers_s") or "—")
+    closed_ret_s  = d.get("closed_ret_s", "—")
+    closed_ret_css = d.get("closed_ret_css", "neu")
+    closed_date_s = d.get("closed_date_s", "")
+    closed_lbl_parts = ["\u2713 Cerrados"]
+    if closed_date_s:
+        closed_lbl_parts.append(closed_date_s)
+    closed_lbl = " &middot; ".join(closed_lbl_parts)
+
     return (
         f"<div class='hero-card {card_class} editable-block' data-bid='hero-{ver.lower()}'>"
-        f"<div class='hc-label'>{label}</div>"
+        f"<div class='hc-rank-badge'>{label}</div>"
         f"<div class='hc-model'>{ver}</div>"
         f"<div class='hc-spark'>{d.get('spark', '')}</div>"
         f"<div class='hc-wr'>{d.get('wr_s', '—')}</div>"
@@ -2037,10 +2104,21 @@ def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str
         f"<div class='kl'><span>Peor rueda</span><strong class='neg'>{d.get('worst', '—')}</strong></div>"
         f"</div>"
         f"<div class='hc-picks'>"
-        f"<div class='hc-picks-lbl'>Picks anteriores</div>"
-        f"<div class='hc-picks-prev'>{d.get('prev', '—')}</div>"
-        f"<div class='hc-picks-lbl' style='margin-top:6px'>Pr\u00f3ximos picks</div>"
-        f"<div class='hc-picks-next'>{d.get('picks', 'Sin picks')}</div>"
+        # ── Active / open picks (prominent) ──
+        f"<div class='hc-open-row'>"
+        f"<div class='hc-open-header'>"
+        f"<span class='hc-picks-lbl hc-open-lbl'>{open_lbl}</span>"
+        f"{prov_badge}"
+        f"</div>"
+        f"<div class='hc-picks-live'>{open_s}</div>"
+        f"</div>"
+        # ── Last closed session (muted) ──
+        f"<div class='hc-closed-row'>"
+        f"<span class='hc-picks-lbl'>{closed_lbl}"
+        f"<span class='hc-closed-ret {closed_ret_css}'> {_esc(closed_ret_s)}</span>"
+        f"</span>"
+        f"<div class='hc-closed-tickers'>{closed_s}</div>"
+        f"</div>"
         f"</div>"
         f"</div>"
     )
