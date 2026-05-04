@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Genera tableros visuales del estado operativo del proyecto.
-Modelos soportados: V11, V13, ML_V97, ML_V39, ML_V39FULL, ML_BRAIN_V11, ML_BRAIN_V11_OPT, ML_V37, ML_BRAIN_V10.
+Modelos soportados: V11, V13, ML_V97, ML_V39, ML_V39FULL, ML_BRAIN_V11, ML_BRAIN_V11_OPT, ML_V37, ML_BRAIN_V10, ML_V94.
 """
 
 from __future__ import annotations
@@ -1376,6 +1376,7 @@ def build_overlap_matrix(
             "ML_BRAIN_V11_OPT": "LEGACY_ML_BRAIN_V11_OPT_BUY_D5",
             "ML_V37": "LEGACY_ML_V37_SURGE_D1",
             "ML_BRAIN_V10": "LEGACY_ML_BRAIN_V10_BUY_D5",
+            "ML_V94": "LEGACY_ML_V94_BUY_D5",
         }
     )
     recent_dates = query_df(
