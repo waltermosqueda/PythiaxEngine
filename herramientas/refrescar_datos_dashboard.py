@@ -2156,11 +2156,12 @@ def _build_c1pro_hero_row(snap: dict) -> str:
             return league[0] if league else {}
         return max(valid, key=lambda m: float((m.get("equalized_recent") or m.get("window") or {}).get("avg_return_pct") or -1e18))
 
-    champ_row  = _find(champion_ver)
-    leader_wr  = league[0] if league else {}
-    leader_ret = _leader_ret()
+    # Top 3 del ranking global equalized
+    rank1 = league[0] if len(league) > 0 else {}
+    rank2 = league[1] if len(league) > 1 else {}
+    rank3 = league[2] if len(league) > 2 else {}
 
-    # Live tickers from current run → override champion picks
+    # Live tickers del scanner activo
     live: list[str] = []
     for k in ["results_d", "results_e", "results_e_hw", "results_c5", "results_a"]:
         for p in (run.get(k) or []):
@@ -2168,16 +2169,17 @@ def _build_c1pro_hero_row(snap: dict) -> str:
             if t and t not in live:
                 live.append(t)
 
-    champ_d = _c1pro_card_data(champ_row, "#18e8c8") if champ_row else {}
-    if live:
-        champ_d["picks"] = ", ".join(live[:5])
-    wr_d  = _c1pro_card_data(leader_wr, "#44e890") if leader_wr else {}
-    ret_d = _c1pro_card_data(leader_ret, "#a882ff") if leader_ret else {}
+    rank1_d = _c1pro_card_data(rank1, "#44e890") if rank1 else {}
+    # Inyectar picks vivos solo si rank1 es el scanner activo
+    if live and rank1.get("version") == champion_ver:
+        rank1_d["picks"] = ", ".join(live[:5])
+    rank2_d = _c1pro_card_data(rank2, "#a882ff") if rank2 else {}
+    rank3_d = _c1pro_card_data(rank3, "#18e8c8") if rank3 else {}
 
     return "\n".join([
-        _c1pro_hero_card(leader_wr, wr_d,   "hc-green",  "#44e890", "\U0001f3c6 Champion"),
-        _c1pro_hero_card(leader_ret, ret_d, "hc-purple", "#a882ff", "\U0001f947 Mayor Retorno"),
-        _c1pro_hero_card(champ_row, champ_d, "hc-cyan",   "#18e8c8", "\U0001f52c Motor Experimental"),
+        _c1pro_hero_card(rank1, rank1_d, "hc-green",  "#44e890", "\U0001f947 Champion 1\u00b0"),
+        _c1pro_hero_card(rank2, rank2_d, "hc-purple", "#a882ff", "\U0001f948 2\u00b0"),
+        _c1pro_hero_card(rank3, rank3_d, "hc-cyan",   "#18e8c8", "\U0001f949 3\u00b0"),
         _build_c1pro_senales_vivas_card(snap),
     ])
 
