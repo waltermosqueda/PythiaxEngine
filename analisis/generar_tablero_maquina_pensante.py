@@ -1374,6 +1374,7 @@ def build_overlap_matrix(
             "ML_BRAIN_V11": "LEGACY_ML_BRAIN_V11_BUY_D5",
             "ML_BRAIN_V11_OPT": "LEGACY_ML_BRAIN_V11_OPT_BUY_D5",
             "ML_V37": "LEGACY_ML_V37_SURGE_D1",
+            "ML_BRAIN_V10": "LEGACY_ML_BRAIN_V10_BUY_D5",
         }
     )
     recent_dates = query_df(
