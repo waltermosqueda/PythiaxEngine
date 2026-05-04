@@ -2102,6 +2102,25 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
     }
 
 
+def _build_closed_tickers_html(d: dict) -> str:
+    """Render last-closed tickers with individual actual return %."""
+    tickers_s = d.get("closed_tickers_s") or ""
+    ticker_rets: dict[str, float] = d.get("closed_ticker_rets") or {}
+    tickers = [t.strip() for t in tickers_s.split(" · ") if t.strip() and t.strip() != "—"]
+    if not tickers:
+        return _esc(tickers_s) or "—"
+    parts = []
+    for t in tickers:
+        ret = ticker_rets.get(t)
+        if ret is not None:
+            css  = "pos" if ret >= 0 else "neg"
+            sign = "+" if ret >= 0 else ""
+            parts.append(f"{_esc(t)}<small class='hc-tk-pct {css}'> {sign}{ret:.1f}%</small>")
+        else:
+            parts.append(_esc(t))
+    return " &middot; ".join(parts)
+
+
 def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str) -> str:
     ver = row.get("version", "?") if row else "?"
     # ── Open picks block ────────────────────────────────────────────────────
@@ -2173,12 +2192,12 @@ def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str
         f"</div>"
         f"<div class='hc-picks-live'>{open_html}</div>"
         f"</div>"
-        # ── Last closed session (muted) ──
+        # ── Last closed session (with per-ticker individual %) ──
         f"<div class='hc-closed-row'>"
         f"<span class='hc-picks-lbl'>{closed_lbl}"
         f"<span class='hc-closed-ret {closed_ret_css}'> {_esc(closed_ret_s)}</span>"
         f"</span>"
-        f"<div class='hc-closed-tickers'>{closed_s}</div>"
+        f"<div class='hc-closed-tickers'>{_build_closed_tickers_html(d)}</div>"
         f"</div>"
         f"</div>"
         f"</div>"
@@ -2285,7 +2304,7 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
                 f"<span class='svb-lbl svb-lbl-closed'>{closed_lbl}</span>"
                 f"<span class='svb-closed-ret {closed_ret_css}'>{_esc(closed_ret_s)}</span>"
                 f"</div>"
-                f"<div class='svb-closed-tickers'>{_esc(closed_tickers_s)}</div>"
+                f"<div class='svb-closed-tickers'>{_build_closed_tickers_html(d)}</div>"
                 f"</div>"
             )
         else:
