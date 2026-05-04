@@ -540,6 +540,7 @@ def _build_day_records(
             "selection_source": source_by_date.get(date_text, "unknown"),
             "avg_confidence_pct": avg_confidence_pct,
             "evaluated_assets": evaluated_assets,
+            "mtm_assets": mtm_assets,
             "latest_target_date": max(target_dates) if target_dates else None,
         }
 
@@ -596,8 +597,9 @@ def build_window_metrics_from_records(
                         "is_provisional": bool(fwd.get("is_provisional", False)),
                         "tickers": list(fwd.get("tickers") or []),
                         "evaluated_assets": list(fwd.get("evaluated_assets") or []),
+                        "mtm_assets": list(fwd.get("mtm_assets") or []),
                         "latest_target_date": fwd.get("latest_target_date"),
-                        "forwarded_from": str(fwd.get("date", "")),
+                        "forwarded_from": str(fwd.get("date", "")),  
                     }
                 )
                 spark.append(_to_float(fwd.get("avg_return_pct")) or 0.0)
@@ -627,6 +629,7 @@ def build_window_metrics_from_records(
                 "tickers": list(record.get("tickers") or []),
                 # context for tooltip: per-ticker entry/exit detail
                 "evaluated_assets": list(record.get("evaluated_assets") or []),
+                "mtm_assets": list(record.get("mtm_assets") or []),
                 "latest_target_date": record.get("latest_target_date"),
             }
         )

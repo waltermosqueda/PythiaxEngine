@@ -2018,6 +2018,7 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
     all_open_tickers: list[str] = []
     seen_open: set[str] = set()
     prov_rets: list[tuple[float, int]] = []   # (avg_ret_pct, n_tickers_in_entry)
+    ticker_mtm: dict[str, float | None] = {}  # ticker → individual provisional MTM %
 
     for e in reversed(cal_sorted):
         tickers_e   = list(e.get("tickers") or [])
@@ -2033,6 +2034,12 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
                     all_open_tickers.append(t)
             if ret_v is not None and tickers_e:
                 prov_rets.append((float(ret_v), len(tickers_e)))
+            # Collect individual ticker MTM (mtm_return is a ratio, ×100 for %)
+            for asset in (e.get("mtm_assets") or []):
+                tk = str(asset.get("ticker") or "")
+                mtm = asset.get("mtm_return")
+                if tk and tk not in ticker_mtm:
+                    ticker_mtm[tk] = float(mtm) * 100.0 if mtm is not None else None
         elif is_pending:
             for t in tickers_e:
                 if t not in seen_open:
@@ -2081,6 +2088,7 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
         # open picks (ALL unresolved across all open calendar entries)
         "open_tickers": open_tickers,
         "open_s":       " · ".join(open_tickers[:12]) or "Sin picks activos",
+        "ticker_mtm":   ticker_mtm,
         "prov_ret_s":   prov_ret_s,
         "prov_ret_css": prov_ret_css,
         # last closed session
@@ -2099,6 +2107,22 @@ def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str
     # ── Open picks block ────────────────────────────────────────────────────
     open_count   = len(d.get("open_tickers") or [])
     open_s       = _esc(d.get("open_s") or "Sin picks activos")
+    # Build per-ticker MTM HTML (individual provisional %)
+    _ticker_mtm   = d.get("ticker_mtm") or {}
+    _open_tickers = d.get("open_tickers") or []
+    if _open_tickers:
+        _parts = []
+        for _t in _open_tickers[:12]:
+            _mtm = _ticker_mtm.get(_t)
+            if _mtm is not None:
+                _css  = "pos" if _mtm >= 0 else "neg"
+                _sign = "+" if _mtm >= 0 else ""
+                _parts.append(f"{_esc(_t)}<small class='hc-tk-pct {_css}'> {_sign}{_mtm:.1f}%</small>")
+            else:
+                _parts.append(_esc(_t))
+        open_html = " &middot; ".join(_parts)
+    else:
+        open_html = "Sin picks activos"
     prov_ret_s   = d.get("prov_ret_s", "")
     prov_ret_css = d.get("prov_ret_css", "neu")
     prov_badge   = (
@@ -2147,7 +2171,7 @@ def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str
         f"<span class='hc-picks-lbl hc-open-lbl'>{open_lbl}</span>"
         f"{prov_badge}"
         f"</div>"
-        f"<div class='hc-picks-live'>{open_s}</div>"
+        f"<div class='hc-picks-live'>{open_html}</div>"
         f"</div>"
         # ── Last closed session (muted) ──
         f"<div class='hc-closed-row'>"
