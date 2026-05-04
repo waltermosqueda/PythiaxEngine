@@ -812,37 +812,35 @@ def _render_hero_panel(snap: dict) -> str:
     champion_ver = f"V{active.get('active_version')}"
     eq_days = _fmt_int(cr.get("equalized_days"))
     period_suffix = _competition_period_suffix(snap)
-    champion = next((row for row in league if row.get("version") == champion_ver), league[0])
-    leader_accuracy = league[0]
-    leader_return = _leader_by_return(league) or league[0]
+    rank1 = league[0] if len(league) > 0 else {}
+    rank2 = league[1] if len(league) > 1 else {}
+    rank3 = league[2] if len(league) > 2 else {}
     champion_live = _hero_live_tickers(snap)
     return (
         '<div class="panel-head">'
         '<div>'
         '<div class="panel-label">Podio de rendimiento</div>'
-        f'<h2 class="panel-title">Motor Exp. · Líder WR · Mayor retorno · Período competencia {eq_days} ruedas{period_suffix}</h2>'
+        f'<h2 class="panel-title">Top 3 ranking global · Período competencia {eq_days} ruedas{period_suffix}</h2>'
         "</div>"
         "</div>"
         '<div class="hero-row">'
         + _hero_card_html(
-            leader_accuracy,
-            label="🏆 Champion",
+            rank1,
+            label="🥇 Champion 1°",
             card_class="hc-green",
-            subtitle=f"Mayor WR · {eq_days} ruedas",
+            subtitle=f"Ranking #1 · {eq_days} ruedas",
         )
         + _hero_card_html(
-            leader_return,
-            label="🥇 Mayor Retorno",
+            rank2,
+            label="🥈 2°",
             card_class="hc-purple",
-            subtitle=f"Mejor ret/trade · {_fmt_int(_row_window(leader_return, 'equalized_recent').get('evaluated'))} picks",
+            subtitle=f"Ranking #2 · {eq_days} ruedas",
         )
         + _hero_card_html(
-            champion,
-            label="🔬 Motor Experimental",
+            rank3,
+            label="🥉 3°",
             card_class="hc-cyan",
-            subtitle="Scanner activo · 4 sleeves",
-            picks_override=len(champion_live),
-            live_override=champion_live,
+            subtitle=f"Ranking #3 · {eq_days} ruedas",
         )
         + "</div>"
     )
