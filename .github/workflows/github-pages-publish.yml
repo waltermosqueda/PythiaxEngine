@@ -69,6 +69,7 @@ jobs:
 
       - name: Report cloud-native pipeline failure
         if: steps.cloud_pipeline.outcome != 'success'
+        continue-on-error: true
         run: |
           python - <<'PY'
           import json
@@ -179,6 +180,7 @@ jobs:
 
       - name: Report dashboard build failure
         if: steps.dashboard_bundle.outcome != 'success'
+        continue-on-error: true
         run: |
           python - <<'PY'
           from infra.db import RuntimeDB, resolve_ci_run_id
