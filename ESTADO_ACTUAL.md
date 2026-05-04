@@ -1,90 +1,76 @@
-# ESTADO ACTUAL — PythiaxEngine
-> **LEER ESTO PRIMERO al inicio de cada sesión.**
-> **ACTUALIZAR ESTO ÚLTIMO al cerrar cada sesión.**
+﻿# ESTADO ACTUAL — PythiaxEngine
+
+*Archivo de handoff entre sesiones. Leer al inicio, actualizar al final.*
 
 ---
 
-## Estado operativo al 2026-05-03
+## LEER AL INICIO DE CADA SESION
 
-### Backfill brain_v10 — EN CURSO 🔄
-```
-Proceso: python herramientas/aprendizaje_operativo_legacy_ml_brain_v10.py backfill --from-date 2025-12-18
-Estado: CORRIENDO (terminal async, iniciado ~21:00 hs del 2026-05-03)
-Último checkpoint: 2025-12-26 (picks=2, saved=2 por día)
-Destino: 2026-04-29
-Progreso estimado: ~10% completado al momento de esta nota
-```
-> Si la sesión se reinicia, verificar con `python _check_backfill.py` antes de asumir nada.
-
-### Git — 2 commits por pushear
-```
-Commits locales no pusheados:
-  f1a819a  feat: ML_BRAIN_V10 (ml_trading_v23) — Ultra-Fast Edition
-  256a0df  feat: registrar ML_BRAIN_V10 en liga + script comparacion v22 vs v23
-
-Archivos modificados sin commitear:
-  - AGENTS.md  (nueva regla BACKFILL FAIR-START)
-  - CLAUDE.md  (nueva regla #11 ventana competitiva)
-  - analisis/preview_*.html  (11 archivos — pendientes de dashboard refresh)
-
-Archivos untracked (scripts de diagnóstico):
-  - _check_backfill.py, _clean_v10.py, _fix_sequence.py
-  - _compare_v22.py, _diag_v9.py, _probe_db.py, _rangos_db.py
-```
-
-### Pendiente DESPUÉS de que termine el backfill
-1. `python herramientas/refrescar_datos_dashboard.py` — regenerar dashboard con brain_v10
-2. Commitear todo: AGENTS.md, CLAUDE.md, analisis/preview_*.html, _fix_sequence.py
-3. `git push origin main`
+1. Verificar Docker: `docker ps` → contenedor `pythiax_staging_postgres` debe estar UP en puerto 5433
+2. Si acaba de reiniciar el PC: `docker start pythiax_staging_postgres`
+3. Verificar backfill pendiente (ver seccion "Backfill en curso" abajo)
 
 ---
 
-## Estado de la DB (a 2026-05-03)
+## Estado al 2026-05-03 (ultima sesion)
 
-| Familia | Prefijo DB | Desde | Hasta | Filas |
-|---|---|---|---|---|
-| Legacy ML (V37/V39/V97/BRAIN_V11) | `LEGACY_ML_*` | 2025-12-18 | 2026-04-29 | ~180 c/u |
-| brain_v10 (**en backfill**) | `LEGACY_ML_BRAIN_V10_BUY_D5` | 2025-12-18 | **en progreso** | creciendo |
-| INVERTIR serie A/D | `INVERTIR_V*` | 2025-12-18 | 2026-04-29 | varios |
-| INVERTIR Cx | `INVERTIR_V*_C*` | 2026-01-13 | 2026-04-28 | varios |
+### Backfill en curso: ML_BRAIN_V10
 
-**PostgreSQL:** Docker container `pythiax_staging_postgres`, puerto 5433.
-**Sequence fix:** `_fix_sequence.py` ya fue ejecutado (reset a 4182). No necesario correrlo de nuevo a menos que haya una interrupción brusca con inserciones parciales.
+**Terminal async ID:** `4a0cde5c-4936-41d9-97ee-ae60298110c4`  
+**Ultimo checkpoint visto:** `2026-03-06`  
+**Destino:** `2026-04-29` (igual que todos los Legacy ML)  
+**Progreso estimado:** ~75% completo  
+**Tasa:** 2 picks/dia, consistente
+
+**Si el backfill se interrumpio:**
+```powershell
+python _check_backfill.py
+# Toma nota del MAX(prediction_date)
+python herramientas/aprendizaje_operativo_legacy_ml_brain_v10.py backfill --from-date <MAX+1dia>
+```
+
+**NUNCA iniciar desde la fecha tecnica minima (2025-05-15). Siempre usar 2025-12-18 o continuar desde el checkpoint.**
+
+### Git status al cierre de sesion
+
+- Commits en local (no pusheados aun): `f1a819a`, `256a0df`, `69caed6`, `6fbfe33`
+- `analisis/preview_*.html` — PENDIENTE: refresh post-backfill, luego commit
+- Comando para pushear cuando todo este listo: `git push origin main`
+
+### DB state
+
+- Total predictions antes del backfill v10: ~4218
+- brain_v10 acumula 2 picks/dia desde 2025-12-18
+- Sequence OK: fue reseteada a 4182 en esta sesion con `_fix_sequence.py`
 
 ---
 
-## Decisiones tomadas esta sesión
+## Proximos pasos al reiniciar sesion
 
-- **brain_v10 backfill arranca desde 2025-12-18** (no desde 2025-05-15 técnico) — para competencia justa con los demás Legacy ML. Ver regla #11 en CLAUDE.md.
-- **v23 = v22 en lógica**: equivalencia probada 8/8 tickers 100% acuerdo, 8.7x más rápido. Aceptado.
-- **_fix_sequence.py**: script para resetear `predictions_id_seq` después de desincronías. Mantenerlo en el repo.
+1. Verificar backfill con `python _check_backfill.py`
+2. Si MAX(prediction_date) = 2026-04-29 → backfill completo
+3. `python herramientas/refrescar_datos_dashboard.py`
+4. `git add analisis/preview_*.html ESTADO_ACTUAL.md`
+5. `git commit -m "data: brain_v10 backfill complete + dashboard refresh"`
+6. `git push origin main`
 
 ---
 
 ## Infraestructura
 
-```
-Python: C:\Users\wmx_7\AppData\Local\Programs\Python\Python314\python.exe
-Repo local: C:\Users\wmx_7\OneDrive\Escritorio\Inversiones\PythiaxEngine
-Docker: pythiax_staging_postgres (puerto 5433) — iniciar con docker-compose up -d
-DB: pythiax / postgres / postgres_local
-Dashboard: https://waltermosqueda.github.io/PythiaxEngine/
-```
+| Componente | Detalle |
+|------------|---------|
+| Python | C:\Users\wmx_7\AppData\Local\Programs\Python\Python314\python.exe |
+| PostgreSQL | Docker local, puerto 5433, db=pythiax, user=postgres, pw=postgres_local |
+| Container | pythiax_staging_postgres |
+| DATABASE_URL | postgresql+psycopg://postgres:postgres_local@localhost:5433/pythiax |
+| Repo | C:\Users\wmx_7\OneDrive\Escritorio\Inversiones\PythiaxEngine |
+| Branch | main |
 
 ---
 
-## Protocolo de handoff (OBLIGATORIO)
+## Reglas criticas (ver AGENTS.md para lista completa)
 
-**Al INICIAR sesión:**
-1. Leer este archivo
-2. Correr `python _check_backfill.py` para ver estado real de la DB
-3. Correr `git status` para ver qué hay pendiente
-4. Si Docker no está corriendo: `Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"`
-
-**Al CERRAR sesión:**
-1. Actualizar la sección "Estado operativo" con lo que quedó en curso o pendiente
-2. Commitear este archivo junto con lo demás: `git add ESTADO_ACTUAL.md`
-
----
-
-*Última actualización: 2026-05-03 — sesión brain_v10 backfill*
+- **BACKFILL FAIR-START:** Antes de cualquier backfill, consultar `SELECT MIN(prediction_date) FROM predictions WHERE model_name LIKE '<familia>%'` y usar esa fecha como `--from-date`
+- **Sequence:** si hay UniqueViolation en PostgreSQL, correr `python _fix_sequence.py`
+- **Docker:** siempre verificar que el contenedor esta UP antes de correr cualquier script que toque DB
