@@ -26,3 +26,4 @@ def dashboard_relative_href(output_path: Path, target_path: Path) -> str:
     output_parent = output_path.resolve().parent
     target = target_path.resolve()
     return os.path.relpath(target, output_parent).replace("\\", "/")
+
