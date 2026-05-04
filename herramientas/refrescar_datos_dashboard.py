@@ -2195,75 +2195,111 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
     champion_ver = f"V{active.get('active_version', 13)}"
     league = _dashboard_league(snap)
 
-    def _prev_tk(row: dict) -> list[str]:
-        cal = (row.get("recent_30") or {}).get("calendar") or []
-        cal_s = sorted((e for e in cal if e.get("tickers") and e.get("date")), key=lambda e: e["date"])
-        seen: list[str] = []
-        for e in reversed(cal_s[:-1]):
-            for t in (e.get("tickers") or []):
-                if t not in seen:
-                    seen.append(t)
-            if len(seen) >= 5:
-                break
-        return seen[:5]
-
-    # ── Rank-ordered signal list (rank #1 = Champion, experimental in its position) ──
     rank_1_ver = league[0].get("version") if league else None
-    SIG_DEFS = [
-        ("D",    "#18e8c8", run.get("results_d") or []),
-        ("C5",   "#44e890", run.get("results_c5") or []),
-        ("A",    "#a882ff", run.get("results_a") or []),
-        ("E_HW", "#f5b833", run.get("results_e") or run.get("results_e_hw") or []),
-    ]
 
     rows_html: list[str] = []
     for row in league:
-        ver = row.get("version", "?")
-        role = row.get("role", "")
+        ver   = row.get("version", "?")
+        role  = row.get("role", "")
         color = ROLE_SPARK.get(role, "#6ea8cc")
-        eq = row.get("equalized_recent") or row.get("window") or {}
-        wr = eq.get("accuracy_pct")
-        ret = eq.get("avg_return_pct")
+        eq    = row.get("equalized_recent") or row.get("window") or {}
+        wr    = eq.get("accuracy_pct")
+        ret   = eq.get("avg_return_pct")
         ev_sv = _to_int(eq.get("evaluated"))
+
         if wr is not None and 0 < ev_sv < 15:
             wr_s2 = f"{float(wr):.0f}% ({ev_sv}p)"
         else:
-            wr_s2 = f"{float(wr):.0f}%" if wr is not None else "—"
-        ret_s2 = (("+" if float(ret) >= 0 else "") + f"{float(ret):.1f}%") if ret is not None else "—"
+            wr_s2 = f"{float(wr):.0f}%" if wr is not None else "\u2014"
+        ret_s2  = (("+" if float(ret) >= 0 else "") + f"{float(ret):.1f}%") if ret is not None else "\u2014"
         ret_css = "pos" if (ret is not None and float(ret) >= 0) else ("neg" if ret is not None else "neu")
+
         badges = ""
         if ver == rank_1_ver:
             badges += "<span class='svb-champ-badge' style='background:#f5b833;color:#111'>CHAMPION</span>"
         if ver == champion_ver:
             badges += "<span class='svb-champ-badge'>ACTIVO</span>"
 
-        if ver == champion_ver:
-            curr   = (row.get("latest_tickers") or [])[:5]
-            curr_s = " · ".join(_esc(t) for t in curr) if curr else "—"
-            prev   = _prev_tk(row)
-            prev_s = " · ".join(_esc(t) for t in prev) if prev else "—"
-            body_extra = (
-                f"<div class='svb-picks-now'><span class='svb-lbl'>Hoy</span><strong>{curr_s}</strong></div>"
-                f"<div class='svb-picks-prev'><span class='svb-lbl'>Ant</span>{prev_s}</div>"
+        # \u2500\u2500 Rich pick data (open tickers + MTM + last closed) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        d = _c1pro_card_data(row, color)
+
+        _ticker_mtm   = d.get("ticker_mtm") or {}
+        _open_tickers = d.get("open_tickers") or []
+        open_count    = len(_open_tickers)
+
+        # Open tickers with individual provisional MTM %
+        if _open_tickers:
+            _parts = []
+            for _t in _open_tickers[:10]:
+                _mtm = _ticker_mtm.get(_t)
+                if _mtm is not None:
+                    _mc  = "pos" if _mtm >= 0 else "neg"
+                    _ms  = "+" if _mtm >= 0 else ""
+                    _parts.append(
+                        f"{_esc(_t)}<small class='hc-tk-pct {_mc}'> {_ms}{_mtm:.1f}%</small>"
+                    )
+                else:
+                    _parts.append(_esc(_t))
+            open_tickers_html = " &middot; ".join(_parts)
+        else:
+            open_tickers_html = "<span class='svb-no-picks'>Sin picks activos</span>"
+
+        # Aggregate MTM badge
+        prov_ret_s   = d.get("prov_ret_s", "")
+        prov_ret_css = d.get("prov_ret_css", "neu")
+        if prov_ret_s:
+            mtm_badge = f"<span class='svb-mtm-badge {prov_ret_css}'>MTM {_esc(prov_ret_s)}</span>"
+        elif open_count > 0:
+            mtm_badge = "<span class='svb-mtm-badge neu'>en curso</span>"
+        else:
+            mtm_badge = ""
+
+        open_count_s = f"{open_count}p" if open_count > 0 else ""
+        open_lbl = "&#x26a1; Abiertos"
+        if open_count_s:
+            open_lbl += f" <span class='svb-pk-count'>{open_count_s}</span>"
+
+        open_section = (
+            f"<div class='svb-open-row'>"
+            f"<div class='svb-section-hd'>"
+            f"<span class='svb-lbl svb-lbl-open'>{open_lbl}</span>"
+            f"{mtm_badge}"
+            f"</div>"
+            f"<div class='svb-open-tickers'>{open_tickers_html}</div>"
+            f"</div>"
+        )
+
+        # Last closed session
+        closed_tickers_s = d.get("closed_tickers_s", "")
+        closed_ret_s     = d.get("closed_ret_s", "\u2014")
+        closed_ret_css   = d.get("closed_ret_css", "neu")
+        closed_date_s    = d.get("closed_date_s", "")
+
+        if closed_tickers_s and closed_tickers_s != "\u2014":
+            closed_lbl = "&#x2713; Cerrado"
+            if closed_date_s:
+                closed_lbl += f" {closed_date_s}"
+            closed_section = (
+                f"<div class='svb-closed-row'>"
+                f"<div class='svb-closed-hd'>"
+                f"<span class='svb-lbl svb-lbl-closed'>{closed_lbl}</span>"
+                f"<span class='svb-closed-ret {closed_ret_css}'>{_esc(closed_ret_s)}</span>"
+                f"</div>"
+                f"<div class='svb-closed-tickers'>{_esc(closed_tickers_s)}</div>"
+                f"</div>"
             )
         else:
-            curr   = (row.get("latest_tickers") or [])[:5]
-            curr_s = " · ".join(_esc(t) for t in curr) if curr else "—"
-            prev   = _prev_tk(row)
-            prev_s = " · ".join(_esc(t) for t in prev) if prev else "—"
-            body_extra = (
-                f"<div class='svb-picks-now'><span class='svb-lbl'>Hoy</span><strong>{curr_s}</strong></div>"
-                f"<div class='svb-picks-prev'><span class='svb-lbl'>Ant</span>{prev_s}</div>"
-            )
+            closed_section = ""
 
         rows_html.append(
             f"<div class='svb-row'>"
             f"<div class='svb-row-head'>"
             f"<span class='svb-rver' style='color:{color}'>{_esc(ver)}</span>"
             f"{badges}"
-            f"<span class='svb-rkpi'>{_esc(wr_s2)} · <span class='{ret_css}'>{_esc(ret_s2)}</span></span>"
+            f"<span class='svb-rkpi'>{_esc(wr_s2)} &middot; <span class='{ret_css}'>{_esc(ret_s2)}</span></span>"
             f"</div>"
-            + body_extra
+            + open_section
+            + closed_section
             + "</div>"
         )
 
@@ -2277,7 +2313,6 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
         "<div class='svb-list'>" + "".join(rows_html) + "</div>"
         "</div>"
     )
-
 
 def _build_c1pro_hero_row(snap: dict) -> str:
     """Build the 4 hero cards: champion, WR leader, return leader, Señales Vivas."""
