@@ -385,10 +385,19 @@ jobs:
         run: python -m infra.publish.record_pages_publish --site-dir dist/github-pages --page-url "${{ steps.deployment.outputs.page_url }}"
 
       - name: Sync dashboard HTML back to repo (for Cloudflare Pages)
-        if: success()
+        if: always()
         run: |
+          if [ ! -f dist/github-pages/preview_c1_pro.html ]; then
+            echo "No generated HTML found, skipping sync"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           cp dist/github-pages/preview_c1_pro.html analisis/preview_c1_pro.html
           git add analisis/preview_c1_pro.html
-          git diff --staged --quiet || git commit -m "chore(auto): sync dashboard HTML [skip ci]" && git push
+          if git diff --staged --quiet; then
+            echo "No changes to sync"
+          else
+            git commit -m "chore(auto): sync dashboard HTML [skip ci]"
+            git push
+          fi
