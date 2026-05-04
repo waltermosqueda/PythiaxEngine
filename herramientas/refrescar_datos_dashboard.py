@@ -2007,15 +2007,50 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
             }
             break
 
-    # ── Provisional MTM return for currently open picks ───────────────────────
-    open_tickers: list[str] = list(row.get("latest_tickers") or [])
-    prov_ret_s, prov_ret_css = "", "neu"
+    # ── ALL currently open/pending tickers across the full calendar ──────────
+    # A calendar entry is "open" if:
+    #   a) is_provisional=True  → pick active, has intraday MTM
+    #   b) is_provisional=False AND avg_return_pct=None AND tickers → pending,
+    #      no price yet (e.g. D10 pick opened today, close price not yet in DB)
+    # We scan backwards and collect all unique tickers from open entries.
+    # Weighted-average MTM is computed only over provisional entries (those with
+    # an actual avg_return_pct).  Pending entries contribute tickers but no MTM.
+    all_open_tickers: list[str] = []
+    seen_open: set[str] = set()
+    prov_rets: list[tuple[float, int]] = []   # (avg_ret_pct, n_tickers_in_entry)
+
     for e in reversed(cal_sorted):
-        if e.get("is_provisional") is True and e.get("avg_return_pct") is not None:
-            ret_v = float(e["avg_return_pct"])
-            prov_ret_s = ("+" if ret_v >= 0 else "") + f"{ret_v:.2f}%"
-            prov_ret_css = "pos" if ret_v >= 0 else "neg"
+        tickers_e   = list(e.get("tickers") or [])
+        ret_v       = e.get("avg_return_pct")
+        is_prov     = e.get("is_provisional") is True
+        is_pending  = (not is_prov) and (ret_v is None) and bool(tickers_e)
+        is_closed   = (not is_prov) and (ret_v is not None)
+
+        if is_prov:
+            for t in tickers_e:
+                if t not in seen_open:
+                    seen_open.add(t)
+                    all_open_tickers.append(t)
+            if ret_v is not None and tickers_e:
+                prov_rets.append((float(ret_v), len(tickers_e)))
+        elif is_pending:
+            for t in tickers_e:
+                if t not in seen_open:
+                    seen_open.add(t)
+                    all_open_tickers.append(t)
+        elif is_closed:
+            # First truly closed entry going backwards → nothing older can be open
             break
+
+    open_tickers = all_open_tickers or list(row.get("latest_tickers") or [])
+
+    # Weighted-average MTM across all provisional entries
+    prov_ret_s, prov_ret_css = "", "neu"
+    if prov_rets:
+        total_n = sum(n for _, n in prov_rets)
+        weighted = sum(r * n for r, n in prov_rets) / total_n if total_n else 0.0
+        prov_ret_s  = ("+" if weighted >= 0 else "") + f"{weighted:.2f}%"
+        prov_ret_css = "pos" if weighted >= 0 else "neg"
 
     # ── Previous closed picks (for the history line) ──────────────────────────
     prev_tickers: list[str] = []
@@ -2041,9 +2076,9 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
         "lr_s":         lr_s,
         "ld":           ld,
         "lr_css":       lr_css,
-        # open picks
+        # open picks (ALL unresolved across all open calendar entries)
         "open_tickers": open_tickers,
-        "open_s":       " · ".join(open_tickers[:6]) or "Sin picks activos",
+        "open_s":       " · ".join(open_tickers[:12]) or "Sin picks activos",
         "prov_ret_s":   prov_ret_s,
         "prov_ret_css": prov_ret_css,
         # last closed session
