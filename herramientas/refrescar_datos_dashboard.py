@@ -2642,9 +2642,9 @@ def main() -> int:
 
     # Keep local preview in sync (dashboards/maquina_pensante/preview_c1_pro.html)
     LOCAL_PREVIEW = ROOT / "dashboards" / "maquina_pensante" / "preview_c1_pro.html"
-    if LOCAL_PREVIEW.exists():
-        LOCAL_PREVIEW.write_text(html, encoding="utf-8")
-        print("  [sync] Local preview updated")
+    LOCAL_PREVIEW.parent.mkdir(parents=True, exist_ok=True)
+    LOCAL_PREVIEW.write_text(html, encoding="utf-8")
+    print("  [sync] Local preview updated")
 
     lm = latest_market_date(snap)
     gen = snap.get("generated_at", "?")
