@@ -8192,3 +8192,51 @@ Definir con evidencia un `top N` fijo por modelo para la liga/dashboard final y 
   - `ML_BRAIN_V11_OPT -> ASML, GOLD`
 
 ---
+
+---
+
+## 2026-05-03 — ML_BRAIN_V10 integration + documentation overhaul
+
+### Objetivo de la sesion
+Integrar ML_BRAIN_V10 (ml_trading_v23, ultra-fast edition) al sistema de competencia con backfill historico completo, y formalizar la documentacion del proyecto a nivel profesional.
+
+### ML_BRAIN_V10 — ml_trading_v23
+
+Creado en sesion anterior (commits f1a819a, 256a0df). Equivalencia con v22 probada: 8/8 tickers 100% acuerdo, 8.7x speedup. Registrado en `aprendizaje_operativo/legacy_ml_models.json`.
+
+Arquitectura: `FastStackedEnsemble` — HistGBC(150) + RF(80) + ET(80) + XGB(100 hist) + LR. Triple Barrier vectorizado. 3-fold WF. 62 features identicas al v22.
+
+### Backfill brain_v10
+
+- Primer intento: arrancado desde 2025-05-15 (fecha tecnica minima con min_rows=260). Alcanzó 2025-08-22 antes de ser detenido.
+- Decision: reiniciar desde 2025-12-18 para alinear con el resto de la familia Legacy ML (fair-start). 83 registros eliminados antes del reinicio.
+- Segundo intento (activo al cierre de sesion): corriendo desde 2025-12-18. Progreso: ~2026-03 estimado al cierre.
+
+### Correcciones operativas
+
+- `_fix_sequence.py`: script para resetear `predictions_id_seq` tras desincronias. Sequence reseteada a 4182 antes del backfill.
+- `_check_backfill.py`, `_rangos_db.py`, `_clean_v10.py`: scripts diagnosticos creados y comprometidos.
+
+### Reglas nuevas (AGENTS.md + CLAUDE.md regla #11)
+
+**BACKFILL FAIR-START**: antes de cualquier backfill, consultar `SELECT MIN(prediction_date)` de la familia para usar como `--from-date`. Nunca usar la fecha tecnica minima.
+
+### Documentacion renovada (commit de esta sesion)
+
+Todos los archivos MD del proyecto reescritos o creados desde cero:
+- `README.md`: reescrito completamente. Presentacion profesional, standings actuales, stack, estructura, principios.
+- `docs/ARCHITECTURE.md`: nuevo. Arquitectura completa, componentes, modelos, pipeline, evaluacion.
+- `docs/MODELS.md`: nuevo. Catalogo completo con performance de cada modelo, filosofia de diseno, checklist para agregar modelos.
+- `docs/ESTRUCTURA.md`: reescrito. Estructura actual del repo sin referencias obsoletas.
+- `docs/cloud/README.md`: reencuadrado como ADR index (decisiones completadas, no migracion pendiente).
+- `AGENTS.md`: regla BACKFILL FAIR-START agregada al inicio.
+- `CLAUDE.md`: regla #11 (alineacion ventana competitiva) agregada.
+- `ESTADO_ACTUAL.md`: nuevo. Archivo de handoff entre sesiones.
+
+### Estado al cierre
+
+- Backfill brain_v10: EN PROGRESO (terminal async)
+- Git: 1 commit pendiente de push (docs overhaul)
+- HTML analisis/: pendiente refresh post-backfill
+- Proximos pasos: esperar fin de backfill → `python herramientas/refrescar_datos_dashboard.py` → commit HTML → `git push`
+
