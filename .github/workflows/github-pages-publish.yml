@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
-      contents: read
+      contents: write
       pages: write
       id-token: write
     environment:
@@ -383,3 +383,12 @@ jobs:
 
       - name: Record publish in pipeline ledger
         run: python -m infra.publish.record_pages_publish --site-dir dist/github-pages --page-url "${{ steps.deployment.outputs.page_url }}"
+
+      - name: Sync dashboard HTML back to repo (for Cloudflare Pages)
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          cp dist/github-pages/preview_c1_pro.html analisis/preview_c1_pro.html
+          git add analisis/preview_c1_pro.html
+          git diff --staged --quiet || git commit -m "chore(auto): sync dashboard HTML [skip ci]" && git push
