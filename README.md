@@ -42,21 +42,7 @@ GitHub Pages  (estático, público 24/7)
 
 ---
 
-## Competencia de Modelos — Tabla de Posiciones
-
-> Ventana: 44 ruedas, al 2026-05-01
-
-| Rank | Modelo | Familia | Win Rate | Retorno Medio | Picks |
-|------|--------|---------|----------|---------------|-------|
-| 1 | V11 | Reglas | 100.00% | +6.61% | 19 |
-| 2 | ML_V97 | Legacy ML | 78.57% | +4.07% | 84 |
-| 3 | ML_V39 | Legacy ML | 63.95% | +0.52% | 86 |
-| 4 | V13 | Reglas | 62.12% | +5.06% | 66 |
-| 5 | ML_V39FULL | Legacy ML | 58.82% | +0.40% | 85 |
-| 6 | ML_BRAIN_V11 | Legacy ML | 51.25% | +1.64% | 80 |
-| 7 | ML_BRAIN_V11_OPT | Legacy ML | 51.25% | +1.40% | 80 |
-| 8 | ML_V37 | Legacy ML | 40.74% | -0.16% | 81 |
-| 9 | ML_BRAIN_V10 | Legacy ML | 38.16% | -1.17% | 76 |
+## Competencia de Modelos — 
 
 ---
 
