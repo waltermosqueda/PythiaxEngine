@@ -2039,8 +2039,10 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
                     seen_open.add(t)
                     all_open_tickers.append(t)
         elif is_closed:
-            # First truly closed entry going backwards → nothing older can be open
-            break
+            # Skip closed entries — keep scanning for older batches still open
+            # (overlapping hold periods: e.g. D10 batch from 04/25 still open
+            # even though a 04/20 batch already closed on 04/30)
+            continue
 
     open_tickers = all_open_tickers or list(row.get("latest_tickers") or [])
 
