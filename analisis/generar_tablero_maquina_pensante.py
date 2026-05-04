@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Genera tableros visuales del estado operativo del proyecto.
+Modelos soportados: V11, V13, ML_V97, ML_V39, ML_V39FULL, ML_BRAIN_V11, ML_BRAIN_V11_OPT, ML_V37, ML_BRAIN_V10.
 """
 
 from __future__ import annotations
