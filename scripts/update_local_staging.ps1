@@ -17,7 +17,7 @@
       .\scripts\register_local_staging_task.ps1
 #>
 
-$ProjectDir = "C:\Users\wmx_7\OneDrive\Escritorio\Inversiones\PythiaxEngine"
+$ProjectDir = "C:\repos\PythiaxEngine"
 $Python     = "C:\Users\wmx_7\AppData\Local\Programs\Python\Python314\python.exe"
 $Container  = "pythiax_staging_postgres"
 $DockerUrl  = "postgresql+psycopg://postgres:postgres_local@localhost:5433/pythiax"

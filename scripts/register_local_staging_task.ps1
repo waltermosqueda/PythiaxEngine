@@ -14,7 +14,7 @@
 #>
 
 $TaskName   = "TITAN_UpdateLocalStaging"
-$ScriptPath = "C:\Users\wmx_7\OneDrive\Escritorio\Inversiones\PythiaxEngine\scripts\update_local_staging.ps1"
+$ScriptPath = "C:\repos\PythiaxEngine\scripts\update_local_staging.ps1"
 
 $Action = New-ScheduledTaskAction `
     -Execute "powershell.exe" `
@@ -43,7 +43,7 @@ Register-ScheduledTask `
 Write-Host ""
 Write-Host "[OK] Tarea '$TaskName' registrada." -ForegroundColor Green
 Write-Host "     Corre: lunes a viernes a las 20:00 AR"
-Write-Host "     Log:   C:\Users\wmx_7\OneDrive\Escritorio\Inversiones\PythiaxEngine\logs\update_local_staging.log"
+Write-Host "     Log:   C:\repos\PythiaxEngine\logs\update_local_staging.log"
 Write-Host ""
 Write-Host "Para ejecutar manualmente ahora:"
 Write-Host "  Start-ScheduledTask -TaskName '$TaskName'"
