@@ -1999,11 +1999,23 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
         if e.get("is_provisional") is not True and e.get("avg_return_pct") is not None and e.get("tickers"):
             ret_v = float(e["avg_return_pct"])
             p = e.get("date", "").split("-")
+            # Per-ticker actual returns (actual_return is a ratio, ×100 = %)
+            ev_assets = e.get("evaluated_assets") or []
+            closed_tk_rets: dict[str, float] = {
+                str(a["ticker"]): float(a["actual_return"]) * 100.0
+                for a in ev_assets
+                if a.get("ticker") and a.get("actual_return") is not None
+            }
+            # latest_target_date = evaluation/closing date of this batch
+            ltgt = e.get("latest_target_date") or ""
+            ptgt = ltgt.split("-")
             closed_info = {
                 "tickers": list(e["tickers"])[:6],
                 "ret_s": ("+" if ret_v >= 0 else "") + f"{ret_v:.2f}%",
                 "ret_css": "pos" if ret_v >= 0 else "neg",
                 "date_s": f"{p[2]}/{p[1]}" if len(p) == 3 else e.get("date", ""),
+                "ticker_rets": closed_tk_rets,
+                "latest_target_date_s": f"{ptgt[2]}/{ptgt[1]}" if len(ptgt) == 3 else ltgt,
             }
             break
 
@@ -2019,6 +2031,7 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
     seen_open: set[str] = set()
     prov_rets: list[tuple[float, int]] = []   # (avg_ret_pct, n_tickers_in_entry)
     ticker_mtm: dict[str, float | None] = {}  # ticker → individual provisional MTM %
+    ticker_target_date: dict[str, str] = {}   # ticker → expected evaluation date (DD/MM)
 
     for e in reversed(cal_sorted):
         tickers_e   = list(e.get("tickers") or [])
@@ -2028,10 +2041,16 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
         is_closed   = (not is_prov) and (ret_v is not None)
 
         if is_prov:
+            # Format this entry's target date (when picks will be evaluated)
+            _ltgt = e.get("latest_target_date") or ""
+            _ptgt = _ltgt.split("-")
+            _tgt_s = f"{_ptgt[2]}/{_ptgt[1]}" if len(_ptgt) == 3 else _ltgt
             for t in tickers_e:
                 if t not in seen_open:
                     seen_open.add(t)
                     all_open_tickers.append(t)
+                    if _tgt_s and t not in ticker_target_date:
+                        ticker_target_date[t] = _tgt_s
             if ret_v is not None and tickers_e:
                 prov_rets.append((float(ret_v), len(tickers_e)))
             # Collect individual ticker MTM (mtm_return is a ratio, ×100 for %)
@@ -2092,14 +2111,40 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
         "prov_ret_s":   prov_ret_s,
         "prov_ret_css": prov_ret_css,
         # last closed session
-        "closed_tickers_s": " · ".join(closed_info.get("tickers", [])[:6]) or "—",
-        "closed_ret_s":     closed_info.get("ret_s", "—"),
-        "closed_ret_css":   closed_info.get("ret_css", "neu"),
-        "closed_date_s":    closed_info.get("date_s", ""),
+        "closed_tickers_s":     " · ".join(closed_info.get("tickers", [])[:6]) or "—",
+        "closed_ret_s":         closed_info.get("ret_s", "—"),
+        "closed_ret_css":       closed_info.get("ret_css", "neu"),
+        "closed_date_s":        closed_info.get("date_s", ""),
+        "closed_target_date_s": closed_info.get("latest_target_date_s", ""),
+        "closed_ticker_rets":   closed_info.get("ticker_rets") or {},
+        # open picks dates
+        "ticker_target_date":   ticker_target_date,
         # history (keep for backwards compat)
         "prev":   ", ".join(prev_tickers[:4]) or "—",
         "picks":  " · ".join(open_tickers[:5]) or "Sin picks",
     }
+
+
+def _build_open_tickers_html(d: dict) -> str:
+    """Render open/provisional tickers with individual MTM % and target date."""
+    tickers: list[str] = d.get("open_tickers") or []
+    ticker_mtm: dict[str, float | None] = d.get("ticker_mtm") or {}
+    ticker_target_date: dict[str, str] = d.get("ticker_target_date") or {}
+    if not tickers:
+        return "Sin picks activos"
+    parts = []
+    for t in tickers[:12]:
+        mtm = ticker_mtm.get(t)
+        tgt = ticker_target_date.get(t, "")
+        piece = _esc(t)
+        if mtm is not None:
+            _css  = "pos" if mtm >= 0 else "neg"
+            _sign = "+" if mtm >= 0 else ""
+            piece += f"<small class='hc-tk-pct {_css}'> {_sign}{mtm:.1f}%</small>"
+        if tgt:
+            piece += f"<small class='hc-tk-date'> \u2192{tgt}</small>"
+        parts.append(piece)
+    return " &middot; ".join(parts)
 
 
 def _build_closed_tickers_html(d: dict) -> str:
@@ -2126,22 +2171,7 @@ def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str
     # ── Open picks block ────────────────────────────────────────────────────
     open_count   = len(d.get("open_tickers") or [])
     open_s       = _esc(d.get("open_s") or "Sin picks activos")
-    # Build per-ticker MTM HTML (individual provisional %)
-    _ticker_mtm   = d.get("ticker_mtm") or {}
-    _open_tickers = d.get("open_tickers") or []
-    if _open_tickers:
-        _parts = []
-        for _t in _open_tickers[:12]:
-            _mtm = _ticker_mtm.get(_t)
-            if _mtm is not None:
-                _css  = "pos" if _mtm >= 0 else "neg"
-                _sign = "+" if _mtm >= 0 else ""
-                _parts.append(f"{_esc(_t)}<small class='hc-tk-pct {_css}'> {_sign}{_mtm:.1f}%</small>")
-            else:
-                _parts.append(_esc(_t))
-        open_html = " &middot; ".join(_parts)
-    else:
-        open_html = "Sin picks activos"
+    open_html = _build_open_tickers_html(d)
     prov_ret_s   = d.get("prov_ret_s", "")
     prov_ret_css = d.get("prov_ret_css", "neu")
     prov_badge   = (
@@ -2160,8 +2190,11 @@ def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str
     closed_ret_s  = d.get("closed_ret_s", "—")
     closed_ret_css = d.get("closed_ret_css", "neu")
     closed_date_s = d.get("closed_date_s", "")
-    closed_lbl_parts = ["\u2713 Cerrados"]
-    if closed_date_s:
+    closed_target_date_s = d.get("closed_target_date_s", "")
+    closed_lbl_parts = ["\u2713 Cerrado"]
+    if closed_date_s and closed_target_date_s and closed_date_s != closed_target_date_s:
+        closed_lbl_parts.append(f"{closed_date_s}\u2192{closed_target_date_s}")
+    elif closed_date_s:
         closed_lbl_parts.append(closed_date_s)
     closed_lbl = " &middot; ".join(closed_lbl_parts)
 
@@ -2242,24 +2275,12 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
         # \u2500\u2500 Rich pick data (open tickers + MTM + last closed) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
         d = _c1pro_card_data(row, color)
 
-        _ticker_mtm   = d.get("ticker_mtm") or {}
         _open_tickers = d.get("open_tickers") or []
         open_count    = len(_open_tickers)
 
-        # Open tickers with individual provisional MTM %
+        # Open tickers with MTM % + target dates
         if _open_tickers:
-            _parts = []
-            for _t in _open_tickers[:10]:
-                _mtm = _ticker_mtm.get(_t)
-                if _mtm is not None:
-                    _mc  = "pos" if _mtm >= 0 else "neg"
-                    _ms  = "+" if _mtm >= 0 else ""
-                    _parts.append(
-                        f"{_esc(_t)}<small class='hc-tk-pct {_mc}'> {_ms}{_mtm:.1f}%</small>"
-                    )
-                else:
-                    _parts.append(_esc(_t))
-            open_tickers_html = " &middot; ".join(_parts)
+            open_tickers_html = _build_open_tickers_html(d)
         else:
             open_tickers_html = "<span class='svb-no-picks'>Sin picks activos</span>"
 
@@ -2294,9 +2315,12 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
         closed_ret_css   = d.get("closed_ret_css", "neu")
         closed_date_s    = d.get("closed_date_s", "")
 
+        closed_target_date_s = d.get("closed_target_date_s", "")
         if closed_tickers_s and closed_tickers_s != "\u2014":
             closed_lbl = "&#x2713; Cerrado"
-            if closed_date_s:
+            if closed_date_s and closed_target_date_s and closed_date_s != closed_target_date_s:
+                closed_lbl += f" {closed_date_s}\u2192{closed_target_date_s}"
+            elif closed_date_s:
                 closed_lbl += f" {closed_date_s}"
             closed_section = (
                 f"<div class='svb-closed-row'>"
