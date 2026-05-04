@@ -1,0 +1,105 @@
+name: Intraday MTM Refresh
+
+# ── Corridas automáticas intraday (horario Argentina = UTC-3, sin DST) ──────
+# 11:15 AR = 14:15 UTC  →  apertura + 1h45m (mercado abierto, primer vistazo)
+# 14:00 AR = 17:00 UTC  →  mediodía bursátil
+# 16:30 AR = 19:30 UTC  →  30 min antes del cierre NYSE (16:00 ET = 19:00 UTC verano / 20:00 UTC invierno)
+#
+# Nota: NYSE cierra 16:00 ET. En verano (EDT, UTC-4) eso es 20:00 UTC.
+# En invierno (EST, UTC-5) es 21:00 UTC. Las 19:30 UTC cubren la sesión
+# regular en ambos horarios (captura el valor ~30-60 min antes del cierre).
+# Las actualizaciones post-cierre definitivas siguen siendo responsabilidad
+# del workflow cloud-daily-operations (cron 22:30 UTC = 19:30 AR).
+
+on:
+  schedule:
+    - cron: "15 14 * * 1-5"   # 11:15 AR — apertura + 1h45m
+    - cron: "0 17 * * 1-5"    # 14:00 AR — mediodía bursátil
+    - cron: "30 19 * * 1-5"   # 16:30 AR — pre-cierre NYSE
+  workflow_dispatch:           # permite trigger manual para testing
+
+concurrency:
+  group: intraday-mtm-refresh
+  cancel-in-progress: true     # si hay uno corriendo, el nuevo lo cancela
+
+jobs:
+  mtm-refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20        # liviano: no debe tomar más de 5 min reales
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PYTHIAX_REQUIRE_CLOUD_DB: "1"
+      TZ: America/Buenos_Aires
+      PYTHIAX_COMMIT_SHA: ${{ github.sha }}
+      PYTHIAX_RUN_ID: ${{ github.run_id }}
+      PYTHIAX_RUN_ATTEMPT: ${{ github.run_attempt }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate required secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is missing."
+            exit 1
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-prod.txt
+
+      # ── PASO 1: Upsert precios intraday para tickers con picks abiertos ──
+      - name: Update intraday prices (MTM)
+        id: mtm_prices
+        run: |
+          python herramientas/mtm_intraday.py --days-back 10
+
+      # ── PASO 2: Regenerar snapshot + HTML del dashboard ──────────────────
+      # Usa el mismo comando que cloud-daily-operations. El snapshot recalcula
+      # el MTM provisional automáticamente desde la tabla prices actualizada.
+      - name: Build dashboard bundle
+        run: python analisis/generar_tablero_maquina_pensante.py --variant all
+
+      # ── PASO 3: Staging del sitio ─────────────────────────────────────────
+      - name: Stage GitHub Pages site
+        run: |
+          python -m infra.publish.dashboard_site \
+            --source-dir dashboards/maquina_pensante \
+            --output-dir dist/github-pages
+
+      # ── PASO 4: Validación mínima ─────────────────────────────────────────
+      - name: Validate staged site
+        run: |
+          test -f dist/github-pages/index.html
+          test -f dist/github-pages/preview_c1_pro.html
+          test -f dist/github-pages/tablero_maquina_pensante_snapshot.json
+          test -f dist/github-pages/.nojekyll
+          cmp -s dist/github-pages/index.html dist/github-pages/preview_c1_pro.html
+
+      # ── PASO 5: Deploy ────────────────────────────────────────────────────
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/github-pages
+          include-hidden-files: true
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
