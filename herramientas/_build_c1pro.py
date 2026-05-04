@@ -167,32 +167,24 @@ def _hero_card_data(row, color):
         'picks': ', '.join((row.get('latest_tickers') or [])[:5]) or 'Sin picks',
     }
 
-# Obtener los 3 modelos para hero cards
-def _find_row(ver): return next((m for m in league if m.get('version')==ver), None)
-def _leader_ret():
-    valid = [m for m in league if (m.get('equalized_recent') or m.get('window') or {}).get('avg_return_pct') is not None]
-    if not valid: return league[0] if league else None
-    return max(valid, key=lambda m: float((m.get('equalized_recent') or m.get('window') or {}).get('avg_return_pct') or -1e18))
+# Top 3 del ranking global (siempre posiciones 1°, 2°, 3°)
+rank1 = league[0] if len(league) > 0 else {}
+rank2 = league[1] if len(league) > 1 else {}
+rank3 = league[2] if len(league) > 2 else {}
 
-champ_row  = _find_row(champion_ver) or (league[0] if league else {})
-leader_wr  = league[0] if league else {}
-leader_ret = _leader_ret() or (league[0] if league else {})
-
-# Picks vivos del champion
+# Picks vivos del scanner activo
 champ_live_tickers = []
 for k in ['results_d','results_e','results_e_hw','results_c5','results_a']:
     for p in (run.get(k) or []):
         t = p.get('ticker')
         if t and t not in champ_live_tickers: champ_live_tickers.append(t)
 
-# Override champion picks con live tickers
-if champ_row and champ_live_tickers:
-    champ_data = _hero_card_data(champ_row, '#18e8c8')
-    champ_data['picks'] = ', '.join(champ_live_tickers[:5])
-else:
-    champ_data = _hero_card_data(champ_row, '#18e8c8') if champ_row else {}
-wr_data  = _hero_card_data(leader_wr, '#44e890') if leader_wr else {}
-ret_data = _hero_card_data(leader_ret, '#a882ff') if leader_ret else {}
+# Inyectar picks vivos en rank1 si coincide con el scanner activo
+rank1_data = _hero_card_data(rank1, '#44e890') if rank1 else {}
+if rank1 and champ_live_tickers and rank1.get('version') == champion_ver:
+    rank1_data['picks'] = ', '.join(champ_live_tickers[:5])
+rank2_data = _hero_card_data(rank2, '#a882ff') if rank2 else {}
+rank3_data = _hero_card_data(rank3, '#18e8c8') if rank3 else {}
 
 def _hc(row, data, card_class, color, label):
     ver = row.get('version', '?') if row else '?'
@@ -866,9 +858,9 @@ HERO_ROW = f"""
   <!-- HERO ROW ─────────────────────────────────────────────────────────────── -->
   <section class="hero-row hero-row-4" id="hero">
 {MARK_HERO_S}
-{_hc(champ_row, champ_data, 'hc-cyan', '#18e8c8', '\U0001f3c6 Champion activo')}
-{_hc(leader_wr, wr_data,    'hc-green', '#44e890', '\U0001f3af Mayor Win Rate')}
-{_hc(leader_ret,ret_data,   'hc-purple', '#a882ff', '\U0001f4c8 Mayor Retorno')}
+{_hc(rank1, rank1_data, 'hc-green',  '#44e890', '\U0001f947 Champion 1\u00b0')}
+{_hc(rank2, rank2_data, 'hc-purple', '#a882ff', '\U0001f948 2\u00b0')}
+{_hc(rank3, rank3_data, 'hc-cyan',   '#18e8c8', '\U0001f949 3\u00b0')}
 {_senales_vivas_card()}
 {MARK_HERO_E}
   </section>
