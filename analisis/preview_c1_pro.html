@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>C1 Pro · Dashboard Operativo</title>
+  <title>Pythiax · Trading Algorítmico</title>
   <style>
 /* ── RESET & BASE ──────────────────────────────────────── */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -109,7 +109,6 @@ body.sidebar-collapsed .sidebar-tab{
   font-weight:800;
   letter-spacing:-.03em;
 }
-.tb-meta{display:none}
 .tb-pill{
   display:inline-flex;align-items:center;
   padding:4px 9px;border-radius:999px;
@@ -1486,8 +1485,7 @@ body.sidebar-collapsed .plain-side-btn .psb-icon{font-size:14px;color:rgba(255,2
   <!-- TOPBAR ──────────────────────────────────── -->
   <header class="topbar" id="overview">
     <div class="tb-left">
-      <div class="tb-title">C1 Pro · Dashboard Operativo</div>
-      <div class="tb-meta"><span class="tb-pill" id="generated-at-pill" data-ts="2026-05-05T19:03:54Z">Generado 05/05/26 19:03</span><span class="tb-pill" id="meta-mercado">Mercado 2026-05-04</span><span class="tb-pill" id="meta-target">Target 2026-05-05</span><span class="tb-pill tb-pill-regime regime-seguro" id="meta-regime">SEGURO</span></div>
+      <div class="tb-title">Pythiax · Trading Algorítmico</div>
     </div>
     <div class="tb-right">
       <a class="tb-btn" href="#league">Ver liga</a>
@@ -1498,7 +1496,7 @@ body.sidebar-collapsed .plain-side-btn .psb-icon{font-size:14px;color:rgba(255,2
   </header>
 
   <!-- KPI STRIP ───────────────────────────────── -->
-  <section class="kpi-strip editable-block" data-bid="kpi-strip" data-blabel="Franja KPI"><div class="kpi-card accent-cyan editable-block" data-bid="kpi-champion" data-blabel="KPI Champion"><div class="kc-label">Motor Experimental</div><div class="kc-value">V13</div><div class="kc-sub">WR 61.43% · ret +5.279% · #8</div></div><div class="kpi-card accent-gold editable-block" data-bid="kpi-leader" data-blabel="KPI Líder"><div class="kc-label">Champion #1</div><div class="kc-value">V11</div><div class="kc-sub">WR 90.48% · ret +5.861%</div></div><div class="kpi-card accent-green editable-block" data-bid="kpi-picks" data-blabel="KPI Picks"><div class="kc-label">Picks hoy</div><div class="kc-value">0</div><div class="kc-sub">SEGURO · breadth 52.8%</div></div><div class="kpi-card accent-rose editable-block" data-bid="kpi-db" data-blabel="KPI DB"><div class="kc-label">Outcomes DB</div><div class="kc-value">4,416</div><div class="kc-sub">4,652 pred · 93 regimes</div></div><div class="kpi-card editable-block" data-bid="kpi-integrity" data-blabel="KPI Integridad"><div class="kc-label">Integridad</div><div class="kc-value">30/30</div><div class="kc-sub">cobertura pred ultimas 30 ruedas</div></div><div class="kpi-card editable-block" id="kpi-actualizacion" data-bid="kpi-actualizacion" data-blabel="KPI Actualización"><div class="kc-label">Actualización</div><div class="kc-value" id="kpi-fresh-value">—</div><div class="kc-sub" id="kpi-fresh-sub" style="margin-top:2px">gen. 05/05/26 19:03</div><div class="kc-sub" id="kpi-fresh-meta" style="margin-top:2px;opacity:.75">—</div><div class="kc-sub" id="kpi-fresh-regime" style="margin-top:2px;font-weight:700">—</div></div></section>
+  <section class="kpi-strip editable-block" data-bid="kpi-strip" data-blabel="Franja KPI"><div class="kpi-card accent-cyan editable-block" data-bid="kpi-champion" data-blabel="KPI Champion"><div class="kc-label">Motor Experimental</div><div class="kc-value">V13</div><div class="kc-sub">WR 61.43% · ret +5.279% · #8</div></div><div class="kpi-card accent-gold editable-block" data-bid="kpi-leader" data-blabel="KPI Líder"><div class="kc-label">Champion #1</div><div class="kc-value">V11</div><div class="kc-sub">WR 90.48% · ret +5.861%</div></div><div class="kpi-card accent-green editable-block" data-bid="kpi-picks" data-blabel="KPI Picks"><div class="kc-label">Picks hoy</div><div class="kc-value">0</div><div class="kc-sub">SEGURO · breadth 52.8%</div></div><div class="kpi-card accent-rose editable-block" data-bid="kpi-db" data-blabel="KPI DB"><div class="kc-label">Outcomes DB</div><div class="kc-value">4,416</div><div class="kc-sub">4,652 pred · 93 regimes</div></div><div class="kpi-card editable-block" data-bid="kpi-integrity" data-blabel="KPI Integridad"><div class="kc-label">Integridad</div><div class="kc-value">30/30</div><div class="kc-sub">cobertura pred ultimas 30 ruedas</div></div><div class="kpi-card editable-block" id="kpi-actualizacion" data-bid="kpi-actualizacion" data-blabel="KPI Actualización" data-ts="2026-05-05T19:03:54Z"><div class="kc-label">Actualización</div><div class="kc-value" id="kpi-fresh-value">—</div><div class="kc-sub" id="kpi-fresh-sub" style="margin-top:2px">gen. 05/05/26 19:03</div><div class="kc-sub" id="kpi-fresh-meta" style="margin-top:2px;opacity:.75">Mercado 2026-05-04 · Target 2026-05-05</div><div class="kc-sub" id="kpi-fresh-regime" style="margin-top:2px;font-weight:700;color:var(--green)">SEGURO</div></div></section>
 
 
   <!-- HERO ROW ─────────────────────────────────────────────────────────────── -->
@@ -3213,7 +3211,6 @@ initLigaExpand();
   .topbar { padding: 10px 12px !important; gap: 8px !important; flex-wrap: nowrap !important; }
   .tb-left { flex: 1; min-width: 0; overflow: hidden; }
   .tb-title { font-size: 14px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tb-meta { display: none !important; }
   .tb-right { gap: 6px !important; flex-shrink: 0; }
   .tb-edit-btn, .login-btn { display: none !important; }
   .tb-right .tb-btn { display: none !important; }
@@ -3397,13 +3394,10 @@ initLigaExpand();
 <script id="c1pro-freshness-updater">
 (function() {
   function updateFreshness() {
-    var pill    = document.getElementById('generated-at-pill');
+    var kpiCard = document.getElementById('kpi-actualizacion');
     var kpiVal  = document.getElementById('kpi-fresh-value');
     var kpiSub  = document.getElementById('kpi-fresh-sub');
-    var kpiMeta = document.getElementById('kpi-fresh-meta');
-    var kpiReg  = document.getElementById('kpi-fresh-regime');
-    var kpiCard = document.getElementById('kpi-actualizacion');
-    var ts = pill ? pill.dataset.ts : null;
+    var ts = kpiCard ? kpiCard.dataset.ts : null;
     if (!ts) return;
     var gen = new Date(ts);
     var now = new Date();
@@ -3424,19 +3418,6 @@ initLigaExpand();
     var tsShort = ts.replace('T',' ').replace('Z','').substring(0,16);
     if (kpiVal) kpiVal.textContent = dot + ' hace ' + label;
     if (kpiSub) kpiSub.textContent = 'gen. ' + tsShort;
-    var mercEl = document.getElementById('meta-mercado');
-    var tgtEl  = document.getElementById('meta-target');
-    if (kpiMeta) {
-      var merc = mercEl ? mercEl.textContent.trim() : '';
-      var tgt  = tgtEl  ? tgtEl.textContent.trim()  : '';
-      kpiMeta.textContent = merc + (tgt ? ' · ' + tgt : '');
-    }
-    var regEl = document.getElementById('meta-regime');
-    if (kpiReg && regEl) {
-      kpiReg.textContent = regEl.textContent.trim();
-      kpiReg.style.color = regEl.classList.contains('regime-seguro')  ? 'var(--green)' :
-                           regEl.classList.contains('regime-peligro') ? '#f5b833' : 'var(--muted)';
-    }
     if (kpiCard) {
       kpiCard.classList.remove('accent-green','accent-gold','accent-rose');
       kpiCard.classList.add(accent);

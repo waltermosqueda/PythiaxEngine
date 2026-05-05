@@ -515,13 +515,10 @@ _FRESHNESS_SCRIPT_ID = "c1pro-freshness-updater"
 _FRESHNESS_SCRIPT = """<script id="c1pro-freshness-updater">
 (function() {
   function updateFreshness() {
-    var pill    = document.getElementById('generated-at-pill');
+    var kpiCard = document.getElementById('kpi-actualizacion');
     var kpiVal  = document.getElementById('kpi-fresh-value');
     var kpiSub  = document.getElementById('kpi-fresh-sub');
-    var kpiMeta = document.getElementById('kpi-fresh-meta');
-    var kpiReg  = document.getElementById('kpi-fresh-regime');
-    var kpiCard = document.getElementById('kpi-actualizacion');
-    var ts = pill ? pill.dataset.ts : null;
+    var ts = kpiCard ? kpiCard.dataset.ts : null;
     if (!ts) return;
     var gen = new Date(ts);
     var now = new Date();
@@ -542,19 +539,6 @@ _FRESHNESS_SCRIPT = """<script id="c1pro-freshness-updater">
     var tsShort = ts.replace('T',' ').replace('Z','').substring(0,16);
     if (kpiVal) kpiVal.textContent = dot + ' hace ' + label;
     if (kpiSub) kpiSub.textContent = 'gen. ' + tsShort;
-    var mercEl = document.getElementById('meta-mercado');
-    var tgtEl  = document.getElementById('meta-target');
-    if (kpiMeta) {
-      var merc = mercEl ? mercEl.textContent.trim() : '';
-      var tgt  = tgtEl  ? tgtEl.textContent.trim()  : '';
-      kpiMeta.textContent = merc + (tgt ? ' \u00B7 ' + tgt : '');
-    }
-    var regEl = document.getElementById('meta-regime');
-    if (kpiReg && regEl) {
-      kpiReg.textContent = regEl.textContent.trim();
-      kpiReg.style.color = regEl.classList.contains('regime-seguro')  ? 'var(--green)' :
-                           regEl.classList.contains('regime-peligro') ? '#f5b833' : 'var(--muted)';
-    }
     if (kpiCard) {
       kpiCard.classList.remove('accent-green','accent-gold','accent-rose');
       kpiCard.classList.add(accent);

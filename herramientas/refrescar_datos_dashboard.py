@@ -722,6 +722,16 @@ def _render_kpi_strip(snap: dict) -> str:
     breadth = active_run.get("breadth_pct")
     regime = str(active_run.get("regime_label") or "GLOBAL").upper()
     generated_at = snap.get("generated_at", "")
+    ts_with_z = (generated_at if generated_at.endswith("Z") else generated_at + "Z") if generated_at else ""
+    generated_fmt = generated_at
+    if generated_at:
+        try:
+            generated_fmt = datetime.datetime.fromisoformat(generated_at.replace("Z", "")).strftime("%d/%m/%y %H:%M")
+        except ValueError:
+            pass
+    latest_market = latest_market_date(snap) or "\u2014"
+    target = active_run.get("prediction_for") or "\u2014"
+    regime_color = "var(--green)" if regime == "SEGURO" else "#f5b833" if regime == "PELIGRO" else "var(--muted)"
     return (
         '<div class="kpi-card accent-cyan editable-block" data-bid="kpi-champion" data-blabel="KPI Champion">'
         '<div class="kc-label">Motor Experimental</div>'
@@ -748,12 +758,12 @@ def _render_kpi_strip(snap: dict) -> str:
         f'<div class="kc-value">{_fmt_int(covered)}/{_fmt_int(expected)}</div>'
         '<div class="kc-sub">cobertura pred ultimas 30 ruedas</div>'
         "</div>"
-        '<div class="kpi-card editable-block" id="kpi-actualizacion" data-bid="kpi-actualizacion" data-blabel="KPI Actualizaci\u00f3n">'
+        f'<div class="kpi-card editable-block" id="kpi-actualizacion" data-bid="kpi-actualizacion" data-blabel="KPI Actualizaci\u00f3n" data-ts="{ts_with_z}">'
         '<div class="kc-label">Actualizaci\u00f3n</div>'
         '<div class="kc-value" id="kpi-fresh-value">\u2014</div>'
-        f'<div class="kc-sub" id="kpi-fresh-sub" style="margin-top:2px">{generated_at or ""}</div>'
-        '<div class="kc-sub" id="kpi-fresh-meta" style="margin-top:2px;opacity:.75">\u2014</div>'
-        '<div class="kc-sub" id="kpi-fresh-regime" style="margin-top:2px;font-weight:700"></div>'
+        f'<div class="kc-sub" id="kpi-fresh-sub" style="margin-top:2px">gen. {generated_fmt}</div>'
+        f'<div class="kc-sub" id="kpi-fresh-meta" style="margin-top:2px;opacity:.75">Mercado {latest_market} \u00b7 Target {target}</div>'
+        f'<div class="kc-sub" id="kpi-fresh-regime" style="margin-top:2px;font-weight:700;color:{regime_color}">{regime}</div>'
         "</div>"
     )
 
@@ -1002,7 +1012,6 @@ def _apply_snapshot_sections(html: str, snap: dict) -> str:
     live_tickers = _hero_live_tickers(snap)
     competition_period_suffix = _competition_period_suffix(snap)
 
-    html = _replace_once(html, r'(<div class="tb-meta">).*?(</div>)', r"\1" + _render_topbar_meta(snap) + r"\2")
     html = _replace_once(html, r'<div class="regime-pill [^"]*">.*?</div>', _render_regime_pill(snap))
     html = _replace_once(
         html,
