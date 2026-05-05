@@ -653,7 +653,7 @@ def _render_topbar_meta(snap: dict) -> str:
     regime = str(active_run.get("regime_label") or "GLOBAL").upper()
     regime_cls = {"PELIGRO": "regime-peligro", "SEGURO": "regime-seguro"}.get(regime, "regime-global")
     return (
-        f'<span class="tb-pill" id="generated-at-pill" data-ts="{generated_at}">Generado {generated_fmt}</span>'
+        f'<span class="tb-pill" id="generated-at-pill" data-ts="{generated_at if generated_at.endswith("Z") else generated_at + "Z"}">Generado {generated_fmt}</span>'
         f'<span class="tb-pill">Mercado {latest_market}</span>'
         f'<span class="tb-pill">Target {target or "—"}</span>'
         f'<span class="tb-pill tb-pill-regime {regime_cls}">{regime}</span>'
