@@ -2164,6 +2164,48 @@ def _build_open_tickers_html(d: dict) -> str:
     return " &middot; ".join(parts)
 
 
+def _build_open_tickers_table(d: dict) -> str:
+    """Render open tickers as a table row per ticker (Option B layout)."""
+    tickers: list[str] = d.get("open_tickers") or []
+    ticker_mtm: dict[str, float | None] = d.get("ticker_mtm") or {}
+    ticker_target_date: dict[str, str] = d.get("ticker_target_date") or {}
+    if not tickers:
+        return "<div class='svb-no-picks'>Sin picks activos</div>"
+    rows = ""
+    for t in tickers[:12]:
+        mtm = ticker_mtm.get(t)
+        tgt = ticker_target_date.get(t, "")
+        pct_cell = ""
+        if mtm is not None:
+            _css  = "pos" if mtm >= 0 else "neg"
+            _sign = "+" if mtm >= 0 else ""
+            pct_cell = f"<td class='svb-tk-pct {_css}'>{_sign}{mtm:.1f}%</td>"
+        else:
+            pct_cell = "<td class='svb-tk-pct neu'>\u2014</td>"
+        date_cell = f"<td class='svb-tk-date'>\u2192{_esc(tgt)}</td>" if tgt else "<td class='svb-tk-date'></td>"
+        rows += f"<tr><td class='svb-tk-name'>{_esc(t)}</td>{pct_cell}{date_cell}</tr>"
+    return f"<table class='svb-tickers-table'>{rows}</table>"
+
+
+def _build_closed_tickers_compact(d: dict) -> str:
+    """Render last-closed tickers as compact inline line (Option B layout)."""
+    tickers_s = d.get("closed_tickers_s") or ""
+    ticker_rets: dict[str, float] = d.get("closed_ticker_rets") or {}
+    tickers = [t.strip() for t in tickers_s.split(" \u00b7 ") if t.strip() and t.strip() != "\u2014"]
+    if not tickers:
+        return ""
+    parts = []
+    for t in tickers:
+        ret = ticker_rets.get(t)
+        if ret is not None:
+            css  = "pos" if ret >= 0 else "neg"
+            sign = "+" if ret >= 0 else ""
+            parts.append(f"{_esc(t)} <span class='{css}'>{sign}{ret:.1f}%</span>")
+        else:
+            parts.append(_esc(t))
+    return "<div class='svb-closed-line'>" + " &middot; ".join(parts) + "</div>"
+
+
 def _build_closed_tickers_html(d: dict) -> str:
     """Render last-closed tickers with individual actual return %."""
     tickers_s = d.get("closed_tickers_s") or ""
@@ -2266,11 +2308,15 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
 
     rank_1_ver = league[0].get("version") if league else None
 
+    # Map color → left-border CSS class for Option B design
+    _BORDER_CLS = {"#6ea8cc": "ver-base", "#18e8c8": "ver-v13", "#a882ff": "ver-ml"}
+
     rows_html: list[str] = []
-    for row in league:
+    for rank, row in enumerate(league, start=1):
         ver   = row.get("version", "?")
         role  = row.get("role", "")
         color = ROLE_SPARK.get(role, "#6ea8cc")
+        border_cls = _BORDER_CLS.get(color, "ver-ml")
         eq    = row.get("equalized_recent") or row.get("window") or {}
         wr    = eq.get("accuracy_pct")
         ret   = eq.get("avg_return_pct")
@@ -2285,23 +2331,17 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
 
         badges = ""
         if ver == rank_1_ver:
-            badges += "<span class='svb-champ-badge' style='background:#f5b833;color:#111'>CHAMPION</span>"
+            badges += "<span class='svb-badge-champ'>CHAMPION</span>"
         if ver == champion_ver:
-            badges += "<span class='svb-champ-badge'>ACTIVO</span>"
+            badges += "<span class='svb-badge-activo'>ACTIVO</span>"
 
-        # \u2500\u2500 Rich pick data (open tickers + MTM + last closed) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        # ── Rich pick data (open tickers + MTM + last closed) ──────────────
         d = _c1pro_card_data(row, color)
 
         _open_tickers = d.get("open_tickers") or []
         open_count    = len(_open_tickers)
 
-        # Open tickers with MTM % + target dates
-        if _open_tickers:
-            open_tickers_html = _build_open_tickers_html(d)
-        else:
-            open_tickers_html = "<span class='svb-no-picks'>Sin picks activos</span>"
-
-        # Aggregate MTM badge
+        # MTM badge
         prov_ret_s   = d.get("prov_ret_s", "")
         prov_ret_css = d.get("prov_ret_css", "neu")
         if prov_ret_s:
@@ -2311,52 +2351,49 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
         else:
             mtm_badge = ""
 
+        # Open section: separator + table of tickers
         open_count_s = f"{open_count}p" if open_count > 0 else ""
-        open_lbl = "&#x26a1; Abiertos"
-        if open_count_s:
-            open_lbl += f" <span class='svb-pk-count'>{open_count_s}</span>"
-
+        open_sep_lbl = f"&#x26a1; Abiertos {open_count_s}" if open_count_s else "&#x26a1; Abiertos"
         open_section = (
-            f"<div class='svb-open-row'>"
-            f"<div class='svb-section-hd'>"
-            f"<span class='svb-lbl svb-lbl-open'>{open_lbl}</span>"
-            f"{mtm_badge}"
-            f"</div>"
-            f"<div class='svb-open-tickers'>{open_tickers_html}</div>"
-            f"</div>"
+            f"<div class='svb-section-sep svb-sep-open'>"
+            f"<span>{open_sep_lbl}</span><span class='svb-sep-line'></span></div>"
+            + _build_open_tickers_table(d)
         )
 
-        # Last closed session
+        # Closed section: separator + compact inline line
         closed_tickers_s = d.get("closed_tickers_s", "")
         closed_ret_s     = d.get("closed_ret_s", "\u2014")
         closed_ret_css   = d.get("closed_ret_css", "neu")
         closed_date_s    = d.get("closed_date_s", "")
-
         closed_target_date_s = d.get("closed_target_date_s", "")
+
         if closed_tickers_s and closed_tickers_s != "\u2014":
-            closed_lbl = "&#x2713; Cerrado"
+            closed_lbl = "Cerrado"
             if closed_date_s and closed_target_date_s and closed_date_s != closed_target_date_s:
-                closed_lbl += f" {closed_date_s}\u2192{closed_target_date_s}"
+                closed_lbl += f" {closed_date_s}\u202f\u2192\u202f{closed_target_date_s}"
             elif closed_date_s:
                 closed_lbl += f" {closed_date_s}"
             closed_section = (
-                f"<div class='svb-closed-row'>"
-                f"<div class='svb-closed-hd'>"
-                f"<span class='svb-lbl svb-lbl-closed'>{closed_lbl}</span>"
-                f"<span class='svb-closed-ret {closed_ret_css}'>{_esc(closed_ret_s)}</span>"
+                f"<div class='svb-section-sep svb-sep-closed'>"
+                f"<span>&#x2713; {_esc(closed_lbl)}</span>"
+                f"<span class='svb-sep-line'></span>"
+                f"<span class='svb-sep-ret {closed_ret_css}'>{_esc(closed_ret_s)}</span>"
                 f"</div>"
-                f"<div class='svb-closed-tickers'>{_build_closed_tickers_html(d)}</div>"
-                f"</div>"
+                + _build_closed_tickers_compact(d)
             )
         else:
             closed_section = ""
 
         rows_html.append(
-            f"<div class='svb-row'>"
+            f"<div class='svb-row {border_cls}'>"
             f"<div class='svb-row-head'>"
+            f"<span class='svb-rank-lbl'>{rank}&#xb0;</span>"
             f"<span class='svb-rver' style='color:{color}'>{_esc(ver)}</span>"
             f"{badges}"
-            f"<span class='svb-rkpi'>{_esc(wr_s2)} &middot; <span class='{ret_css}'>{_esc(ret_s2)}</span></span>"
+            f"<div class='svb-head-right'>"
+            f"<span class='svb-kpi-line'>{_esc(wr_s2)} &middot; <span class='{ret_css}'>{_esc(ret_s2)}</span></span>"
+            f"{mtm_badge}"
+            f"</div>"
             f"</div>"
             + open_section
             + closed_section
