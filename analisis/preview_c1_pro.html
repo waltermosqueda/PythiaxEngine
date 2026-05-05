@@ -874,24 +874,26 @@ body.sidebar-collapsed .sn-tag{ display:none !important; }
 
 /* ── LIGHT THEME (crema minimalista, contraste alto) ─────────────────────── */
 body.theme-white{
-  --bg:#f2efe8;
-  --bg-gradient:linear-gradient(155deg,#f5f2ec 0%,#eceae2 100%);
+  --bg:#f0ede6;
+  --bg-gradient:linear-gradient(155deg,#f4f1eb 0%,#ece8e0 100%);
   --panel:#ffffff;
+  --panel-2:#f7f4ef;
   --border:#dedad1;
   --line:#dedad1;
   --ink:#1a1c21;
   --muted:#6b6a74;
   --shadow:0 2px 10px rgba(0,0,0,.07);
   --panel-hover:#f9f7f2;
+  --inset:rgba(0,0,0,.04);
   --kpi-bg:#ffffff;
   --cyan:#0bb69b;
   --green:#1fa862;
   --rose:#c84150;
   --gold:#b07c12;
-  --accent-cyan-bg:rgba(11,182,155,.07);
-  --accent-green-bg:rgba(31,168,98,.07);
-  --accent-gold-bg:rgba(176,124,18,.07);
-  --accent-rose-bg:rgba(200,65,80,.07);
+  --accent-cyan-bg:rgba(11,182,155,.09);
+  --accent-green-bg:rgba(31,168,98,.08);
+  --accent-gold-bg:rgba(176,124,18,.09);
+  --accent-rose-bg:rgba(200,65,80,.09);
 }
 body.theme-white .sidebar{
   background:#1d2030;
@@ -929,6 +931,147 @@ body.theme-white .heat-tt{
 }
 body.theme-white .hm-table td{
   border-radius:5px;
+}
+
+/* ── LIGHT MODE: comprehensive component overrides ─────────────────────────── */
+
+/* Topbar background */
+body.theme-white .topbar{ background:#ffffff; color:#1a1c21; }
+body.theme-white .tb-title{ color:#1a1c21; }
+
+/* Model cards (uses --panel-2 dark gradient in dark mode) */
+body.theme-white .model-card{ background:var(--panel-2); }
+
+/* kl row separators (hardcoded rgba-white in dark mode) */
+body.theme-white .kl{ border-top-color:rgba(0,0,0,.08); }
+
+/* Panel label color */
+body.theme-white .panel-label{ color:#0bb69b; }
+
+/* SVB panel rows (señales vivas hero card) */
+body.theme-white .svb-row{
+  background:rgba(0,0,0,.025);
+  border-top-color:rgba(0,0,0,.10);
+  border-right-color:rgba(0,0,0,.10);
+  border-bottom-color:rgba(0,0,0,.10);
+}
+body.theme-white .svb-row:hover{ background:rgba(0,0,0,.05); }
+body.theme-white .svb-tickers-table tr{ border-bottom-color:rgba(0,0,0,.07); }
+body.theme-white .svb-sep-closed{ color:rgba(0,0,0,.45); }
+body.theme-white .svb-mtm-badge{ background:rgba(0,0,0,.07); }
+
+/* Hero card ticker dates */
+body.theme-white .hc-tk-date{ color:rgba(0,0,0,.45); }
+
+/* Señales vivas ticker box + hc-picks-next */
+body.theme-white .sv-tickers,
+body.theme-white .hc-picks-next{ background:rgba(0,0,0,.05); }
+
+/* ba-base + ba-muted badges (hardcoded white backgrounds) */
+body.theme-white .badge.ba-base{ background:rgba(0,0,0,.08); color:#5a5870; }
+body.theme-white .badge.ba-muted{ background:rgba(0,0,0,.07); color:#5a6880; }
+
+/* Liga table hover rows */
+body.theme-white #league .data-table tbody tr.liga-main-row:hover td,
+body.theme-white #league .data-table tbody tr.leag-row-clickable:hover td{
+  background:rgba(0,0,0,.04);
+}
+
+/* Liga detail signal box */
+body.theme-white .liga-detail-signal{ background:rgba(0,0,0,.035); }
+body.theme-white .liga-detail-signal b{ color:#0bb69b; }
+
+/* Heatmap summary row */
+body.theme-white .hm-table tr.hm-summary td{
+  background:rgba(0,0,0,.055);
+  border-top-color:rgba(0,0,0,.11);
+}
+
+/* Heatmap pending columns */
+body.theme-white .hm-pending{
+  border-color:rgba(0,0,0,.11)!important;
+  background:rgba(0,0,0,.025)!important;
+}
+body.theme-white .hm-pending .hm-ret{ color:var(--muted); }
+
+/* Heatmap trend table rows */
+body.theme-white .hm-trend-table td{ background:rgba(0,0,0,.035); }
+
+/* Heatmap tooltip row separators */
+body.theme-white .htt-row{ border-bottom-color:rgba(0,0,0,.08); }
+
+/* ── SIDEBAR: retains dark theme — force light text back ─────────────────── */
+body.theme-white .brand-name{ color:rgba(238,244,251,.92); }
+body.theme-white .brand-sub{ color:rgba(238,244,251,.45); }
+body.theme-white .side-section-label{ color:rgba(238,244,251,.40); }
+body.theme-white .sn-link{ color:rgba(238,244,251,.52); }
+body.theme-white .sn-link:hover{
+  color:rgba(238,244,251,.88);
+  background:rgba(255,255,255,.05);
+  border-color:rgba(255,255,255,.10);
+}
+body.theme-white .sn-link.active{
+  color:#18e8c8;
+  background:rgba(24,232,200,.12);
+  border-color:rgba(24,232,200,.22);
+}
+body.theme-white .sn-link.active .sn-tag{ color:#18e8c8; }
+body.theme-white .sn-tag{ color:rgba(238,244,251,.35); }
+body.theme-white .sv-btn{
+  background:rgba(255,255,255,.04);
+  border-color:rgba(255,255,255,.12);
+  color:rgba(238,244,251,.55);
+}
+body.theme-white .sv-btn:hover{
+  background:rgba(255,255,255,.09);
+  color:rgba(238,244,251,.85);
+}
+body.theme-white .side-drawer summary{ color:rgba(238,244,251,.50); }
+body.theme-white .side-drawer summary:hover{ color:rgba(238,244,251,.85); }
+body.theme-white .sd-body{ color:rgba(238,244,251,.50); }
+body.theme-white .sd-body code{ background:rgba(255,255,255,.08); }
+body.theme-white .regime-pill.regime-seguro{ color:#18e8c8; }
+body.theme-white .regime-pill.regime-peligro{ color:#f5b833; }
+body.theme-white .rp-breadth{ color:rgba(238,244,251,.40); }
+
+/* ── FOOTER: light mode adaptations ─────────────────────────────────────── */
+body.theme-white .ft-footer{
+  border-top:1px solid rgba(0,130,110,.20);
+  background:linear-gradient(180deg,rgba(0,130,110,.05) 0%,transparent 45%);
+}
+body.theme-white .ft-topbar{
+  border-bottom-color:rgba(0,0,0,.08);
+}
+body.theme-white .ft-sym{ color:#0bb69b; }
+body.theme-white .ft-pname{ color:#1a1c21; }
+body.theme-white .ft-psep{ color:#7b5ea8; opacity:.8; }
+body.theme-white .ft-ptag{ color:#5a5472; }
+body.theme-white .ft-dot.on{ background:#0a8060; }
+body.theme-white .ft-dot.dim{ background:#9a6408; }
+body.theme-white .ft-dot{ border-radius:50%; }
+body.theme-white .ft-title{ color:#1a1c21; }
+body.theme-white .ft-title span{ color:#0bb69b; }
+body.theme-white .ft-col-hd{ color:rgba(55,48,72,.60); }
+body.theme-white .ft-links a{ color:rgba(26,20,38,.52); }
+body.theme-white .ft-links a::before{ color:#7b5ea8; opacity:.7; }
+body.theme-white .ft-links a:hover{ color:#1a1c21; }
+body.theme-white .ft-soc{ color:rgba(26,20,38,.52); }
+body.theme-white .ft-soc:hover{
+  color:#1a1c21;
+  background:rgba(0,0,0,.04);
+  border-color:rgba(0,0,0,.10);
+}
+body.theme-white .ft-soc-arr{ color:#5a5472; opacity:.7; }
+body.theme-white .ft-bottom{
+  border-top-color:rgba(0,0,0,.07);
+  background:rgba(0,0,0,.025);
+}
+body.theme-white .ft-copy{ color:rgba(28,22,42,.48); }
+body.theme-white .ft-copy strong{ color:rgba(28,22,42,.68); }
+body.theme-white .ft-ts{ color:rgba(28,22,42,.35); }
+body.theme-white .ft-logomark{
+  background:rgba(8,16,30,.88);
+  border-color:rgba(0,120,100,.35);
 }
 
 /* ── HERO ROW ─────────────────────────────────────────────────────────────── */
@@ -1511,7 +1654,6 @@ body.sidebar-collapsed .plain-side-btn .psb-icon{font-size:14px;color:rgba(255,2
       <a class="tb-btn" href="#league">Ver liga</a>
       <button class="login-btn" id="loginBtn" title="Login">⊙ Login</button>
       <button class="theme-toggle-btn" id="themeToggle">☀ Claro</button>
-      <button class="tb-edit-btn" id="editModeBtn" title="Activar modo edición">✎ Editar</button>
     </div>
   </header>
 
