@@ -2685,17 +2685,19 @@ document.querySelectorAll('.sn-link').forEach(function(link){
 
   /* --- toggle edit mode --- */
   const editBtn = document.getElementById('editModeBtn');
-  editBtn.addEventListener('click', function(){
-    editMode = !editMode;
-    document.body.classList.toggle('edit-mode', editMode);
-    document.getElementById('editorPanel').classList.toggle('ep-open', editMode);
-    editBtn.textContent = editMode ? '✓ Salir editor' : '✎ Editar';
-  });
+  if (editBtn) {
+    editBtn.addEventListener('click', function(){
+      editMode = !editMode;
+      document.body.classList.toggle('edit-mode', editMode);
+      document.getElementById('editorPanel').classList.toggle('ep-open', editMode);
+      editBtn.textContent = editMode ? '✓ Salir editor' : '✎ Editar';
+    });
+  }
   document.getElementById('editorClose').addEventListener('click', function(){
     editMode = false;
     document.body.classList.remove('edit-mode');
     document.getElementById('editorPanel').classList.remove('ep-open');
-    editBtn.textContent = '✎ Editar';
+    if (editBtn) editBtn.textContent = '✎ Editar';
     deselectAll();
   });
 
