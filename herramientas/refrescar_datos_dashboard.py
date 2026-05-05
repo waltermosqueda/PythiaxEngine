@@ -1108,8 +1108,8 @@ def _apply_snapshot_sections(html: str, snap: dict) -> str:
     source_label = "Postgres/Supabase" if db_backend.startswith("postgres") else "runtime no cloud"
     html = _replace_once(
         html,
-        r"(Titan Machine Dashboard · generado )[\dT:\-]+(?: · datos desde [^<]+)?",
-        rf"\g<1>{gen_ts} · datos desde {source_label}",
+        r"(gen\. )[\dT:\-]+(?: · [^<]+)?",
+        rf"\g<1>{gen_ts} · {source_label}",
     )
     return html
 
