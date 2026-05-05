@@ -511,6 +511,45 @@ _MOBILE_RESPONSIVE_JS = """
 _MOBILE_STYLE_ID = "c1pro-mobile-responsive"
 _MOBILE_SCRIPT_ID = "c1pro-mobile-js"
 
+_FRESHNESS_SCRIPT_ID = "c1pro-freshness-updater"
+_FRESHNESS_SCRIPT = """<script id="c1pro-freshness-updater">
+(function() {
+  function updateFreshness() {
+    var pill = document.getElementById('generated-at-pill');
+    var kpiVal = document.getElementById('kpi-fresh-value');
+    var kpiSub = document.getElementById('kpi-fresh-sub');
+    var kpiCard = document.getElementById('kpi-actualizacion');
+    var ts = pill ? pill.dataset.ts : (kpiSub ? kpiSub.textContent.trim() : null);
+    if (!ts) return;
+    var gen = new Date(ts);
+    var now = new Date();
+    var diffMin = Math.round((now - gen) / 60000);
+    var label, dot, accent;
+    if (diffMin < 180) {
+      dot = '🟢'; accent = 'accent-green';
+      label = diffMin < 60 ? diffMin + 'm' : Math.floor(diffMin/60) + 'h' + (diffMin%60 > 0 ? (diffMin%60) + 'm' : '');
+    } else if (diffMin < 360) {
+      dot = '🟡'; accent = 'accent-gold';
+      var h = Math.floor(diffMin/60), m = diffMin%60;
+      label = h + 'h' + (m > 0 ? m + 'm' : '');
+    } else {
+      dot = '🔴'; accent = 'accent-rose';
+      label = Math.floor(diffMin/60) + 'h';
+    }
+    var friendly = dot + ' hace ' + label;
+    if (pill) pill.textContent = dot + ' Generado ' + ts.replace('T',' ').substring(0,16) + ' (' + label + ')';
+    if (kpiVal) kpiVal.textContent = friendly;
+    if (kpiSub) kpiSub.textContent = 'gen. ' + ts.replace('T',' ').substring(0,16);
+    if (kpiCard) {
+      kpiCard.classList.remove('accent-green','accent-gold','accent-rose');
+      kpiCard.classList.add(accent);
+    }
+  }
+  updateFreshness();
+  setInterval(updateFreshness, 60000);
+})();
+</script>"""
+
 
 def _inject_mobile_responsive(html: str) -> str:
     """Inject (or replace) mobile-responsive CSS + JS block before </body>."""
@@ -543,6 +582,13 @@ def build_c1_pro_outputs() -> list[Path]:
     local_html = C1_PRO_TEMPLATE_HTML.read_text(encoding="utf-8")
     published_html = rewrite_dashboard_variant_hrefs(local_html, C1_PRO_BUNDLE_HTML)
     published_html = _inject_mobile_responsive(published_html)
+    # Inject (or replace) freshness updater script idempotently
+    script_tag = f'<script id="{_FRESHNESS_SCRIPT_ID}">'
+    if script_tag in published_html:
+        start = published_html.index(script_tag)
+        end = published_html.index("</script>", start) + len("</script>")
+        published_html = published_html[:start] + published_html[end:]
+    published_html = published_html.replace("</body>", _FRESHNESS_SCRIPT + "\n</body>", 1)
     C1_PRO_BUNDLE_HTML.write_text(published_html, encoding="utf-8")
     return [C1_PRO_BUNDLE_HTML]
 
@@ -3743,6 +3789,43 @@ def render_index(payload: dict[str, Any]) -> str:
   </div>
   <script>{render_chart_interaction_script()}</script>
   <script>{render_builder_script()}</script>
+  <script>
+  (function() {{
+    function updateFreshness() {{
+      var pill = document.getElementById('generated-at-pill');
+      var kpiVal = document.getElementById('kpi-fresh-value');
+      var kpiSub = document.getElementById('kpi-fresh-sub');
+      var kpiCard = document.getElementById('kpi-actualizacion');
+      var ts = pill ? pill.dataset.ts : (kpiSub ? kpiSub.textContent.trim() : null);
+      if (!ts) return;
+      var gen = new Date(ts);
+      var now = new Date();
+      var diffMin = Math.round((now - gen) / 60000);
+      var label, dot, accent;
+      if (diffMin < 180) {{
+        dot = '🟢'; accent = 'accent-green';
+        label = diffMin < 60 ? diffMin + 'm' : Math.floor(diffMin/60) + 'h' + (diffMin%60 > 0 ? (diffMin%60) + 'm' : '');
+      }} else if (diffMin < 360) {{
+        dot = '🟡'; accent = 'accent-gold';
+        var h = Math.floor(diffMin/60), m = diffMin%60;
+        label = h + 'h' + (m > 0 ? m + 'm' : '');
+      }} else {{
+        dot = '🔴'; accent = 'accent-rose';
+        label = Math.floor(diffMin/60) + 'h';
+      }}
+      var friendly = dot + ' hace ' + label;
+      if (pill) pill.textContent = dot + ' Generado ' + ts.replace('T',' ').substring(0,16) + ' (' + label + ')';
+      if (kpiVal) kpiVal.textContent = friendly;
+      if (kpiSub) kpiSub.textContent = 'gen. ' + ts.replace('T',' ').substring(0,16);
+      if (kpiCard) {{
+        kpiCard.classList.remove('accent-green','accent-gold','accent-rose');
+        kpiCard.classList.add(accent);
+      }}
+    }}
+    updateFreshness();
+    setInterval(updateFreshness, 60000);
+  }})();
+  </script>
 </body>
 </html>"""
 
