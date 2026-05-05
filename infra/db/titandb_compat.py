@@ -15,6 +15,18 @@ from infra.db.session import create_db_engine
 import infra.db.models  # noqa: F401
 
 
+# Tables that use a PostgreSQL SERIAL/sequence PK named {table}_id_seq.
+# These sequences can drift behind MAX(id) if rows were inserted manually or
+# via a different path.  We repair them lazily before any upsert operation.
+TABLES_WITH_SERIAL_PK: frozenset[str] = frozenset({
+    "model_metrics",
+    "model_run_snapshots",
+    "outcomes",
+    "predictions",
+    "prices",
+    "pipeline_runs",
+})
+
 UPSERT_RULES: dict[str, dict[str, tuple[str, ...]]] = {
     "prices": {
         "conflict_columns": ("ticker", "date"),
@@ -199,12 +211,45 @@ class TitanCompatCursor:
 class TitanCompatConnection:
     def __init__(self, connection: Connection):
         self._connection = connection
+        self._seq_repaired: set[str] = set()  # tables whose sequences were already checked this session
+
+    def _repair_sequence_if_needed(self, table: str) -> None:
+        """Ensure the PostgreSQL SERIAL sequence for *table* is >= MAX(id).
+
+        PostgreSQL calls ``nextval(seq)`` BEFORE evaluating the ON CONFLICT
+        clause, so if the sequence is behind MAX(id) the generated id will
+        collide with an existing PK row and raise a ``UniqueViolation`` that
+        bypasses our ON CONFLICT DO UPDATE logic entirely.
+
+        We repair lazily (once per table per connection lifetime) to keep the
+        overhead to a single SELECT per table per session.
+        """
+        if table not in TABLES_WITH_SERIAL_PK:
+            return
+        if table in self._seq_repaired:
+            return
+        try:
+            seq_name = f"{table}_id_seq"
+            self._connection.execute(
+                text(
+                    f"SELECT setval('{seq_name}',"
+                    f" COALESCE((SELECT MAX(id) FROM {table}), 1))"
+                )
+            )
+            self._seq_repaired.add(table)
+        except Exception:
+            # Non-PostgreSQL backend or table without a sequence: ignore silently.
+            self._seq_repaired.add(table)
 
     def _normalize_sql(self, sql: str) -> str:
         return rewrite_insert_or_replace(sql)
 
     def _execute(self, sql: str, params: Any = ()) -> CursorResult[Any]:
         normalized_sql = self._normalize_sql(sql)
+        # Auto-repair sequence before any INSERT upsert on serial-PK tables
+        _m = INSERT_OR_REPLACE_RE.match(sql.strip().rstrip(";"))
+        if _m:
+            self._repair_sequence_if_needed(_m.group("table").lower())
         adapted_sql, adapted_params = adapt_qmark_sql(normalized_sql, params)
         return self._connection.execute(text(adapted_sql), adapted_params)
 
@@ -212,6 +257,11 @@ class TitanCompatConnection:
         rows = list(seq_of_params)
         if not rows:
             return None
+
+        # Auto-repair sequence before any INSERT upsert on serial-PK tables
+        _m = INSERT_OR_REPLACE_RE.match(sql.strip().rstrip(";"))
+        if _m:
+            self._repair_sequence_if_needed(_m.group("table").lower())
 
         normalized_sql = self._normalize_sql(sql)
         adapted_sql, _ = adapt_qmark_sql(normalized_sql, rows[0])
