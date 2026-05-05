@@ -447,20 +447,14 @@ def verify_competition_invariants(
         )
 
         if row.get("latest_snapshot_date") == latest_market_date and int(row.get("latest_snapshot_signal_count") or 0) == 0:
-            record_check(
-                checks,
-                failures,
-                label=f"competition[{version}].recent_15.zero_signal_picks",
-                actual=latest_calendar_entry_picks(row, "recent_15"),
-                expected=0,
-            )
-            record_check(
-                checks,
-                failures,
-                label=f"competition[{version}].recent_30.zero_signal_picks",
-                actual=latest_calendar_entry_picks(row, "recent_30"),
-                expected=0,
-            )
+            # NOTE: We intentionally do NOT check that competition calendar picks == 0
+            # when signal_count == 0. The calendar's `picks` field counts ACTIVE positions
+            # (including carry-over positions from previous signal dates), so a model in
+            # SEGURO/HOLD regime with no new signals today can legitimately show picks > 0
+            # due to positions entered on previous days still being open.
+            # The signal-count consistency is already validated by
+            # competition[{version}].latest_snapshot_signal_count_from_db above.
+            pass
 
 
 def compare_competition_sample(
