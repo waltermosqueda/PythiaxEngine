@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-05-01T00:00:00",
+  "updated_at": "2026-05-04T22:00:00",
   "legacy_ml_models": [
     {
       "model_id": "legacy_ml_brain_v11",
@@ -111,13 +111,13 @@
       "label": "ML_BRAIN_V9",
       "model_prefix": "LEGACY_ML_BRAIN_V9",
       "signal_code": "BUY",
-      "status": "enabled",
+      "status": "disabled",
       "role": "legacy_ml_observed",
       "source_path": "ml_investigacion/ml_trading_v22.py",
       "runner_script": "herramientas/aprendizaje_operativo_legacy_ml_brain_v9.py",
       "native_horizon": 5,
       "evaluation_mode": "close_on_target",
-      "notes": "ML Trading Brain v9.0 original (Quant Professional Edition v20/v22). 62 features, Triple Barrier labels, Purged Walk-Forward CV, Dynamic IC weights. Carga el archivo original via importlib con datos de titan DB — bypasses yfinance, corre en minutos. XGB/LGBM desactivados para compatibilidad CI."
+      "notes": "Deshabilitado 2026-05-04: entrenamiento Purged WF de 62 features x 285 tickers excede el timeout de 30min del pipeline TODOS los dias. Reemplazado funcionalmente por ML_BRAIN_V10 (8.7x mas rapido, 100% acuerdo en backtests)."
     },
     {
       "model_id": "legacy_ml_brain_v10",
