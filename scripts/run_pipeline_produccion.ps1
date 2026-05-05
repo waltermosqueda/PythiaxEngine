@@ -69,4 +69,11 @@ if ($LASTEXITCODE -ne 0) {
     Log "Dashboard health check: OK"
 }
 
+# --------------------------------------------------------------------------
+# Recolector de errores graves (alimenta logs/errores_criticos.json)
+# --------------------------------------------------------------------------
+Log "Recolectando errores criticos del pipeline..."
+$CollectorScript = Join-Path $ProjectDir "scripts\collect_pipeline_errors.py"
+& $Python $CollectorScript 2>&1 | ForEach-Object { Log $_ }
+
 exit $exit
