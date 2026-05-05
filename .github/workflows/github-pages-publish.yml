@@ -10,6 +10,7 @@ on:
       - 'tests/**'
       - 'bitacora/**'
       - '.cache/**'
+      - 'analisis/preview_c1_pro.html'
   workflow_dispatch:
 
 concurrency:
@@ -408,6 +409,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to sync"
           else
-            git commit -m "chore(auto): sync dashboard HTML [skip ci]"
+            git commit -m "chore(auto): sync dashboard HTML"
             git push
           fi
