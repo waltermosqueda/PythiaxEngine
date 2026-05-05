@@ -653,7 +653,7 @@ def _render_topbar_meta(snap: dict) -> str:
     regime = str(active_run.get("regime_label") or "GLOBAL").upper()
     regime_cls = {"PELIGRO": "regime-peligro", "SEGURO": "regime-seguro"}.get(regime, "regime-global")
     return (
-        f'<span class="tb-pill">Generado {generated_fmt}</span>'
+        f'<span class="tb-pill" id="generated-at-pill" data-ts="{generated_at}">Generado {generated_fmt}</span>'
         f'<span class="tb-pill">Mercado {latest_market}</span>'
         f'<span class="tb-pill">Target {target or "—"}</span>'
         f'<span class="tb-pill tb-pill-regime {regime_cls}">{regime}</span>'
@@ -721,6 +721,7 @@ def _render_kpi_strip(snap: dict) -> str:
     active_run = active.get("active_run") or {}
     breadth = active_run.get("breadth_pct")
     regime = str(active_run.get("regime_label") or "GLOBAL").upper()
+    generated_at = snap.get("generated_at", "")
     return (
         '<div class="kpi-card accent-cyan editable-block" data-bid="kpi-champion" data-blabel="KPI Champion">'
         '<div class="kc-label">Motor Experimental</div>'
@@ -746,6 +747,11 @@ def _render_kpi_strip(snap: dict) -> str:
         '<div class="kc-label">Integridad</div>'
         f'<div class="kc-value">{_fmt_int(covered)}/{_fmt_int(expected)}</div>'
         '<div class="kc-sub">cobertura pred ultimas 30 ruedas</div>'
+        "</div>"
+        '<div class="kpi-card editable-block" id="kpi-actualizacion" data-bid="kpi-actualizacion" data-blabel="KPI Actualizaci\u00f3n">'
+        '<div class="kc-label">Actualizaci\u00f3n</div>'
+        '<div class="kc-value" id="kpi-fresh-value">\u2014</div>'
+        f'<div class="kc-sub" id="kpi-fresh-sub">{generated_at or ""}</div>'
         "</div>"
     )
 
