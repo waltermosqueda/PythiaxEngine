@@ -173,13 +173,23 @@ jobs:
           raise SystemExit(1)
           PY
 
+      - name: Decide cloud refresh
+        id: refresh
+        run: |
+          FORCE_ARGS=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            FORCE_ARGS="--force"
+          fi
+          python -m infra.cloud.decide_cloud_refresh --github-output "$GITHUB_OUTPUT" --max-stale-hours 20 $FORCE_ARGS
+
       - name: Build dashboard bundle
         id: dashboard_bundle
+        if: steps.refresh.outputs.should_refresh == 'true'
         continue-on-error: true
         run: python -u analisis/generar_tablero_maquina_pensante.py --variant all
 
       - name: Report dashboard build failure
-        if: steps.dashboard_bundle.outcome != 'success'
+        if: steps.refresh.outputs.should_refresh == 'true' && steps.dashboard_bundle.outcome != 'success'
         continue-on-error: true
         run: |
           python - <<'PY'
@@ -385,7 +395,7 @@ jobs:
         run: python -m infra.publish.record_pages_publish --site-dir dist/github-pages --page-url "${{ steps.deployment.outputs.page_url }}"
 
       - name: Sync dashboard HTML back to repo (for Cloudflare Pages)
-        if: always()
+        if: steps.refresh.outputs.should_refresh == 'true'
         run: |
           if [ ! -f dist/github-pages/preview_c1_pro.html ]; then
             echo "No generated HTML found, skipping sync"
