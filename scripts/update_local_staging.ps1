@@ -72,4 +72,18 @@ Log "Ejecutando pipeline contra Docker local ($DockerUrl)..."
 
 $exit = $LASTEXITCODE
 Log "===== Fin update_local_staging  exit=$exit ====="
+
+# --------------------------------------------------------------------------
+# 4. Health check del dashboard (post-pipeline)
+# --------------------------------------------------------------------------
+Log "Ejecutando health check del dashboard..."
+$HealthScript = Join-Path $ProjectDir "scripts\check_dashboard_health.py"
+$HealthLog    = Join-Path $LogDir "dashboard_health.log"
+& $Python $HealthScript 2>&1 | Tee-Object -Append -FilePath $HealthLog
+if ($LASTEXITCODE -ne 0) {
+    Log "ALERTA: Dashboard health check detecto problemas. Ver $HealthLog"
+} else {
+    Log "Dashboard health check: OK"
+}
+
 exit $exit

@@ -3,8 +3,14 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import sys
 from pathlib import Path
 from typing import Any
+
+# Ensure repo root is on sys.path regardless of CWD when invoked as subprocess
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 from analisis.generar_tablero_maquina_pensante import (
     _inject_mobile_responsive,
