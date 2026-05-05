@@ -23,7 +23,6 @@ TABLES_WITH_SERIAL_PK: frozenset[str] = frozenset({
     "model_run_snapshots",
     "outcomes",
     "predictions",
-    "prices",
     "pipeline_runs",
 })
 
