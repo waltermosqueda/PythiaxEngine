@@ -3449,6 +3449,10 @@ def render_index(payload: dict[str, Any]) -> str:
         value_format="pct",
     )
 
+    _total_open = len(set(t for row in league_all for t in (row.get("latest_tickers") or [])))
+    _models_with_picks = sum(1 for row in league_all if row.get("latest_picks", 0) > 0)
+    _champion_picks_str = ", ".join(sorted(champion_latest)[:5]) or "-"
+
     return f"""<!doctype html>
 <html lang="es">
 <head>
@@ -3543,12 +3547,12 @@ def render_index(payload: dict[str, Any]) -> str:
       </header>
 
       <section class="kpi-grid editable-block" data-block-id="section-kpi-grid" data-block-label="Franja KPI" data-container-id="kpi-grid">
-        <div class="stat-card accent-cyan editable-block" data-block-id="kpi-champion" data-block-label="KPI Champion"><div class="stat-label">Motor Experimental</div><div class="stat-value">{safe(champion_label)} | {fmt_pct(champion_equalized.get('accuracy_pct'))}</div><div class="stat-subtitle">ret {fmt_pct(champion_equalized.get('avg_return_pct'), 3, signed=True)} | rank #{fmt_int(champion_rank_equalized)}</div></div>
-        <div class="stat-card accent-green editable-block" data-block-id="kpi-lider" data-block-label="KPI Lider actual"><div class="stat-label">Champion #1</div><div class="stat-value">{safe(leader_equalized.get('version') or '-')}</div><div class="stat-subtitle">{fmt_pct(leader_window.get('accuracy_pct'))} | {fmt_pct(leader_window.get('avg_return_pct'), 3, signed=True)}</div></div>
-        <div class="stat-card accent-gold editable-block" data-block-id="kpi-picks" data-block-label="KPI Picks vivos"><div class="stat-label">Picks vivos</div><div class="stat-value">{fmt_int(len(live_results))} | {safe(active_run.get('regime_label', '-'))}</div><div class="stat-subtitle">breadth {fmt_pct(active_run.get('breadth_pct'), 1)} | target {fmt_date(active_run.get('prediction_for'))}</div></div>
-        <div class="stat-card accent-rose editable-block" data-block-id="kpi-db" data-block-label="KPI DB viva"><div class="stat-label">DB viva</div><div class="stat-value">{fmt_int(integrity['outcomes_count'])}</div><div class="stat-subtitle">outcomes | pred {fmt_int(integrity['predictions_count'])}</div></div>
-        <div class="stat-card editable-block" data-block-id="kpi-divergencia" data-block-label="KPI familias visibles"><div class="stat-label">Familias scanner</div><div class="stat-value">{fmt_int(len(historical_rows))}</div><div class="stat-subtitle">{fmt_int(len(hidden_redundant_scanners))} clones ocultos por redundancia</div></div>
-        <div class="stat-card editable-block" data-block-id="kpi-integridad" data-block-label="KPI Integridad"><div class="stat-label">Integridad</div><div class="stat-value">{coverage_ratio_text(integrity['coverage_last_30']['predictions'])}</div><div class="stat-subtitle">{safe(coverage_triplet_text(integrity))}</div></div>
+        <div class="stat-card accent-cyan editable-block" data-block-id="kpi-champion" data-block-label="KPI Champion"><div class="stat-label">Motor Experimental</div><div class="stat-value">{safe(champion_label)} | {fmt_pct(champion_equalized.get('accuracy_pct'))}</div><div class="stat-subtitle">{fmt_int(champion_equalized.get('hits'))}/{fmt_int(champion_equalized.get('evaluated'))} hits · ret {fmt_pct(champion_equalized.get('avg_return_pct'), 3, signed=True)} · #{fmt_int(champion_rank_equalized)}</div></div>
+        <div class="stat-card accent-green editable-block" data-block-id="kpi-lider" data-block-label="KPI Lider actual"><div class="stat-label">Champion #1</div><div class="stat-value">{safe(leader_equalized.get('version') or '-')}</div><div class="stat-subtitle">WR {fmt_pct(leader_window.get('accuracy_pct'))} · ret {fmt_pct(leader_window.get('avg_return_pct'), 3, signed=True)} · {fmt_int(leader_window.get('hits'))}/{fmt_int(leader_window.get('evaluated'))} hits</div></div>
+        <div class="stat-card accent-gold editable-block" data-block-id="kpi-picks" data-block-label="KPI Picks vivos"><div class="stat-label">Picks {safe(champion_label)} · {safe(active_run.get('regime_label', '-'))}</div><div class="stat-value">{fmt_int(len(live_results))} picks</div><div class="stat-subtitle">{safe(_champion_picks_str)} · target {fmt_date(active_run.get('prediction_for'))}</div></div>
+        <div class="stat-card accent-rose editable-block" data-block-id="kpi-db" data-block-label="KPI Mercado"><div class="stat-label">Mercado</div><div class="stat-value">{fmt_date(integrity['latest_market_date'])}</div><div class="stat-subtitle">{fmt_int(integrity['outcomes_count'])} outcomes · {fmt_int(integrity['predictions_count'])} pred · {fmt_int(integrity['regimes_count'])} regimes</div></div>
+        <div class="stat-card accent-cyan editable-block" data-block-id="kpi-mtm" data-block-label="KPI MTM abiertos"><div class="stat-label">MTM abiertos</div><div class="stat-value">{fmt_int(_total_open)} tickers</div><div class="stat-subtitle">en {fmt_int(_models_with_picks)} modelos · scanner + legacy</div></div>
+        <div class="stat-card editable-block" id="kpi-actualizacion" data-block-id="kpi-actualizacion" data-block-label="KPI Actualizacion"><div class="stat-label">Actualización</div><div class="stat-value" id="kpi-fresh-value">—</div><div class="stat-subtitle" id="kpi-fresh-sub">{safe(payload['generated_at'])}</div></div>
       </section>
 
       <section class="prime-grid" data-container-id="champion-league-grid" id="champion">
@@ -4032,26 +4036,35 @@ def render_lab(payload: dict[str, Any]) -> str:
   <script>
   (function() {{
     function updateFreshness() {{
-      var el = document.getElementById('generated-at-pill');
-      if (!el) return;
-      var ts = el.dataset.ts;
+      var pill = document.getElementById('generated-at-pill');
+      var kpiVal = document.getElementById('kpi-fresh-value');
+      var kpiSub = document.getElementById('kpi-fresh-sub');
+      var kpiCard = document.getElementById('kpi-actualizacion');
+      var ts = pill ? pill.dataset.ts : (kpiSub ? kpiSub.textContent.trim() : null);
       if (!ts) return;
       var gen = new Date(ts);
       var now = new Date();
       var diffMin = Math.round((now - gen) / 60000);
-      var label, dot;
+      var label, dot, accent;
       if (diffMin < 180) {{
-        dot = '\ud83d\udfe2';
+        dot = '\ud83d\udfe2'; accent = 'accent-green';
         label = diffMin < 60 ? diffMin + 'm' : Math.floor(diffMin/60) + 'h' + (diffMin%60 > 0 ? (diffMin%60) + 'm' : '');
       }} else if (diffMin < 360) {{
-        dot = '\ud83d\udfe1';
+        dot = '\ud83d\udfe1'; accent = 'accent-gold';
         var h = Math.floor(diffMin/60), m = diffMin%60;
         label = h + 'h' + (m > 0 ? m + 'm' : '');
       }} else {{
-        dot = '\ud83d\udd34';
+        dot = '\ud83d\udd34'; accent = 'accent-rose';
         label = Math.floor(diffMin/60) + 'h';
       }}
-      el.textContent = dot + ' Generado ' + ts.replace('T',' ').substring(0,16) + ' (hace ' + label + ')';
+      var friendly = dot + ' hace ' + label;
+      if (pill) pill.textContent = dot + ' Generado ' + ts.replace('T',' ').substring(0,16) + ' (' + label + ')';
+      if (kpiVal) kpiVal.textContent = friendly;
+      if (kpiSub) kpiSub.textContent = 'gen. ' + ts.replace('T',' ').substring(0,16);
+      if (kpiCard) {{
+        kpiCard.classList.remove('accent-green','accent-gold','accent-rose');
+        kpiCard.classList.add(accent);
+      }}
     }}
     updateFreshness();
     setInterval(updateFreshness, 60000);
