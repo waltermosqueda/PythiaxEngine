@@ -4047,14 +4047,14 @@ def render_lab(payload: dict[str, Any]) -> str:
       var diffMin = Math.round((now - gen) / 60000);
       var label, dot, accent;
       if (diffMin < 180) {{
-        dot = '\ud83d\udfe2'; accent = 'accent-green';
+        dot = '🟢'; accent = 'accent-green';
         label = diffMin < 60 ? diffMin + 'm' : Math.floor(diffMin/60) + 'h' + (diffMin%60 > 0 ? (diffMin%60) + 'm' : '');
       }} else if (diffMin < 360) {{
-        dot = '\ud83d\udfe1'; accent = 'accent-gold';
+        dot = '🟡'; accent = 'accent-gold';
         var h = Math.floor(diffMin/60), m = diffMin%60;
         label = h + 'h' + (m > 0 ? m + 'm' : '');
       }} else {{
-        dot = '\ud83d\udd34'; accent = 'accent-rose';
+        dot = '🔴'; accent = 'accent-rose';
         label = Math.floor(diffMin/60) + 'h';
       }}
       var friendly = dot + ' hace ' + label;
