@@ -13,6 +13,8 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from analisis.generar_tablero_maquina_pensante import (
+    _FRESHNESS_SCRIPT,
+    _FRESHNESS_SCRIPT_ID,
     _inject_mobile_responsive,
     build_run_snapshot_from_db,
     build_dashboard_payload,
@@ -547,12 +549,19 @@ def verify_dashboard_html(
                 }
             )
         else:
-            expected_preview_html = _inject_mobile_responsive(
+            _preview_base = _inject_mobile_responsive(
                 rewrite_dashboard_variant_hrefs(
                     expected_template_html,
                     dashboard_dir / C1_PRO_BUNDLE_HTML.name,
                 )
             )
+            # Apply the same idempotent freshness script injection as build_c1_pro_outputs()
+            _script_tag = f'<script id="{_FRESHNESS_SCRIPT_ID}">'
+            if _script_tag in _preview_base:
+                _s = _preview_base.index(_script_tag)
+                _e = _preview_base.index("</script>", _s) + len("</script>")
+                _preview_base = _preview_base[:_s] + _preview_base[_e:]
+            expected_preview_html = _preview_base.replace("</body>", _FRESHNESS_SCRIPT + "\n</body>", 1)
 
     preview_path = dashboard_dir / C1_PRO_BUNDLE_HTML.name
     if not preview_path.exists():
