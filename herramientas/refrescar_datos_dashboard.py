@@ -654,9 +654,9 @@ def _render_topbar_meta(snap: dict) -> str:
     regime_cls = {"PELIGRO": "regime-peligro", "SEGURO": "regime-seguro"}.get(regime, "regime-global")
     return (
         f'<span class="tb-pill" id="generated-at-pill" data-ts="{generated_at if generated_at.endswith("Z") else generated_at + "Z"}">Generado {generated_fmt}</span>'
-        f'<span class="tb-pill">Mercado {latest_market}</span>'
-        f'<span class="tb-pill">Target {target or "—"}</span>'
-        f'<span class="tb-pill tb-pill-regime {regime_cls}">{regime}</span>'
+        f'<span class="tb-pill" id="meta-mercado">Mercado {latest_market}</span>'
+        f'<span class="tb-pill" id="meta-target">Target {target or "—"}</span>'
+        f'<span class="tb-pill tb-pill-regime {regime_cls}" id="meta-regime">{regime}</span>'
     )
 
 
@@ -751,7 +751,9 @@ def _render_kpi_strip(snap: dict) -> str:
         '<div class="kpi-card editable-block" id="kpi-actualizacion" data-bid="kpi-actualizacion" data-blabel="KPI Actualizaci\u00f3n">'
         '<div class="kc-label">Actualizaci\u00f3n</div>'
         '<div class="kc-value" id="kpi-fresh-value">\u2014</div>'
-        f'<div class="kc-sub" id="kpi-fresh-sub">{generated_at or ""}</div>'
+        f'<div class="kc-sub" id="kpi-fresh-sub" style="margin-top:2px">{generated_at or ""}</div>'
+        '<div class="kc-sub" id="kpi-fresh-meta" style="margin-top:2px;opacity:.75">\u2014</div>'
+        '<div class="kc-sub" id="kpi-fresh-regime" style="margin-top:2px;font-weight:700"></div>'
         "</div>"
     )
 
