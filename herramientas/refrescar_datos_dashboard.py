@@ -2,6 +2,7 @@
 """
 Refresca la plantilla canonica C1 Pro a partir del snapshot JSON.
 Se invoca al final del pipeline diario (auto_actualizar.py).
+Soporta footer .ft-footer (Quant Terminal, topbar + 3-col).
 
 Qué hace:
   - Reemplaza heatmap, liga y cards visibles con datos frescos del snapshot auditado
