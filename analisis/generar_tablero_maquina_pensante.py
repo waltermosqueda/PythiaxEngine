@@ -3527,7 +3527,7 @@ def render_index(payload: dict[str, Any]) -> str:
           <div class="eyebrow">Dashboard operativo</div>
           <h1>Liga de modelos · Motor Experimental y performance</h1>
           <div class="header-meta">
-            <span class="pill">Generado {safe(payload["generated_at"])}</span>
+            <span class="pill" id="generated-at-pill" data-ts="{safe(payload['generated_at'])}">Generado {safe(payload["generated_at"])}</span>
             <span class="pill">Build {safe(build_status_label(payload))}</span>
             <span class="pill">Mercado {fmt_date(integrity["latest_market_date"])}</span>
             <span class="pill">Muestra igualada {fmt_int(equalized_days)} ruedas</span>
@@ -4029,6 +4029,34 @@ def render_lab(payload: dict[str, Any]) -> str:
     </section>
   </main>
   <script>{render_chart_interaction_script()}</script>
+  <script>
+  (function() {{
+    function updateFreshness() {{
+      var el = document.getElementById('generated-at-pill');
+      if (!el) return;
+      var ts = el.dataset.ts;
+      if (!ts) return;
+      var gen = new Date(ts);
+      var now = new Date();
+      var diffMin = Math.round((now - gen) / 60000);
+      var label, dot;
+      if (diffMin < 180) {{
+        dot = '\ud83d\udfe2';
+        label = diffMin < 60 ? diffMin + 'm' : Math.floor(diffMin/60) + 'h' + (diffMin%60 > 0 ? (diffMin%60) + 'm' : '');
+      }} else if (diffMin < 360) {{
+        dot = '\ud83d\udfe1';
+        var h = Math.floor(diffMin/60), m = diffMin%60;
+        label = h + 'h' + (m > 0 ? m + 'm' : '');
+      }} else {{
+        dot = '\ud83d\udd34';
+        label = Math.floor(diffMin/60) + 'h';
+      }}
+      el.textContent = dot + ' Generado ' + ts.replace('T',' ').substring(0,16) + ' (hace ' + label + ')';
+    }}
+    updateFreshness();
+    setInterval(updateFreshness, 60000);
+  }})();
+  </script>
 </body>
 </html>"""
 
