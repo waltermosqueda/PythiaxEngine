@@ -794,3 +794,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+# ci-trigger: semaforo 97% — 2026-05-06
