@@ -152,6 +152,7 @@ body.sidebar-collapsed .sidebar-tab{
 .kc-label{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);font-weight:700}
 .kc-value{font-size:22px;font-weight:800;letter-spacing:-.03em;margin-top:5px;line-height:1.05}
 .kc-sub{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35}
+#kpi-fresh-value{font-size:13px!important;font-weight:600!important;letter-spacing:0!important;margin-top:6px!important}
 .accent-cyan{border-top:2px solid var(--cyan);background:var(--accent-cyan-bg)}
 .accent-gold{border-top:2px solid var(--gold);background:var(--accent-gold-bg)}
 .accent-green{border-top:2px solid var(--green);background:var(--accent-green-bg)}
@@ -3620,24 +3621,28 @@ initLigaExpand();
     var now = new Date();
     var diffMin = Math.round((now - gen) / 60000);
     if (diffMin < 0) diffMin = 0;
-    var label, dot, accent;
-    if (diffMin < 180) {
-      dot = '🟢'; accent = 'accent-green';
+    // Umbrales calibrados para pipeline diario (corre 1x/dia a las 19:30 AR)
+    // <4h  = recien actualizado  -> verde
+    // 4-23h = stale normal diario -> neutro (sin alarma visual en el card)
+    // >23h  = perdio un dia real  -> rojo
+    var label, dot, accent, color;
+    if (diffMin < 240) {
+      dot = '🟢'; accent = 'accent-green'; color = 'var(--green)';
       label = diffMin < 60 ? diffMin + 'm' : Math.floor(diffMin/60) + 'h' + (diffMin%60 > 0 ? (diffMin%60) + 'm' : '');
-    } else if (diffMin < 360) {
-      dot = '🟡'; accent = 'accent-gold';
+    } else if (diffMin < 1380) {
+      dot = '🟡'; accent = ''; color = 'var(--gold)';
       var h = Math.floor(diffMin/60), m = diffMin%60;
       label = h + 'h' + (m > 0 ? m + 'm' : '');
     } else {
-      dot = '🔴'; accent = 'accent-rose';
+      dot = '🔴'; accent = 'accent-rose'; color = 'var(--rose)';
       label = Math.floor(diffMin/60) + 'h';
     }
     var tsShort = ts.replace('T',' ').replace('Z','').substring(0,16);
-    if (kpiVal) kpiVal.textContent = dot + ' hace ' + label;
+    if (kpiVal) { kpiVal.textContent = dot + ' hace ' + label; kpiVal.style.color = color; }
     if (kpiSub) kpiSub.textContent = 'gen. ' + tsShort;
     if (kpiCard) {
       kpiCard.classList.remove('accent-green','accent-gold','accent-rose');
-      kpiCard.classList.add(accent);
+      if (accent) kpiCard.classList.add(accent);
     }
   }
   updateFreshness();
