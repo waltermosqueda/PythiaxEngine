@@ -1,3 +1,4 @@
+# build: 2026-05-06
 #!/usr/bin/env python3
 """
 Refresca la plantilla canonica C1 Pro a partir del snapshot JSON.
