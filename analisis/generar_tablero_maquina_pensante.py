@@ -524,24 +524,30 @@ _FRESHNESS_SCRIPT = """<script id="c1pro-freshness-updater">
     var now = new Date();
     var diffMin = Math.round((now - gen) / 60000);
     if (diffMin < 0) diffMin = 0;
-    var label, dot, accent;
-    if (diffMin < 180) {
-      dot = '🟢'; accent = 'accent-green';
+    var label, dot, accent, color;
+    if (diffMin < 240) {
+      dot = '🟢'; accent = 'accent-green'; color = 'var(--green)';
       label = diffMin < 60 ? diffMin + 'm' : Math.floor(diffMin/60) + 'h' + (diffMin%60 > 0 ? (diffMin%60) + 'm' : '');
-    } else if (diffMin < 360) {
-      dot = '🟡'; accent = 'accent-gold';
+    } else if (diffMin < 1380) {
+      dot = '🟡'; accent = ''; color = 'var(--gold)';
       var h = Math.floor(diffMin/60), m = diffMin%60;
       label = h + 'h' + (m > 0 ? m + 'm' : '');
     } else {
-      dot = '🔴'; accent = 'accent-rose';
+      dot = '🔴'; accent = 'accent-rose'; color = 'var(--rose)';
       label = Math.floor(diffMin/60) + 'h';
     }
-    var tsShort = ts.replace('T',' ').replace('Z','').substring(0,16);
-    if (kpiVal) kpiVal.textContent = dot + ' hace ' + label;
-    if (kpiSub) kpiSub.textContent = 'gen. ' + tsShort;
+    var utcDate = ts.substring(0,10);
+    var utcTime = String(gen.getUTCHours()).padStart(2,'0') + ':' + String(gen.getUTCMinutes()).padStart(2,'0');
+    var arShift = new Date(gen.getTime() - 3*3600000);
+    var arDate  = arShift.getUTCFullYear() + '-' + String(arShift.getUTCMonth()+1).padStart(2,'0') + '-' + String(arShift.getUTCDate()).padStart(2,'0');
+    var arTime  = String(arShift.getUTCHours()).padStart(2,'0') + ':' + String(arShift.getUTCMinutes()).padStart(2,'0');
+    var sameDayAR = (arDate === utcDate);
+    var subText = 'gen. ' + utcDate + ' ' + utcTime + ' UTC  ·  ' + arTime + ' AR' + (sameDayAR ? '' : ' (' + arDate + ')');
+    if (kpiVal) { kpiVal.textContent = dot + ' hace ' + label; kpiVal.style.color = color; }
+    if (kpiSub) kpiSub.textContent = subText;
     if (kpiCard) {
       kpiCard.classList.remove('accent-green','accent-gold','accent-rose');
-      kpiCard.classList.add(accent);
+      if (accent) kpiCard.classList.add(accent);
     }
   }
   updateFreshness();
@@ -3801,10 +3807,10 @@ def render_index(payload: dict[str, Any]) -> str:
       var now = new Date();
       var diffMin = Math.round((now - gen) / 60000);
       var label, dot, accent;
-      if (diffMin < 180) {{
+      if (diffMin < 240) {{
         dot = '🟢'; accent = 'accent-green';
         label = diffMin < 60 ? diffMin + 'm' : Math.floor(diffMin/60) + 'h' + (diffMin%60 > 0 ? (diffMin%60) + 'm' : '');
-      }} else if (diffMin < 360) {{
+      }} else if (diffMin < 1380) {{
         dot = '🟡'; accent = 'accent-gold';
         var h = Math.floor(diffMin/60), m = diffMin%60;
         label = h + 'h' + (m > 0 ? m + 'm' : '');
@@ -4128,10 +4134,10 @@ def render_lab(payload: dict[str, Any]) -> str:
       var now = new Date();
       var diffMin = Math.round((now - gen) / 60000);
       var label, dot, accent;
-      if (diffMin < 180) {{
+      if (diffMin < 240) {{
         dot = '🟢'; accent = 'accent-green';
         label = diffMin < 60 ? diffMin + 'm' : Math.floor(diffMin/60) + 'h' + (diffMin%60 > 0 ? (diffMin%60) + 'm' : '');
-      }} else if (diffMin < 360) {{
+      }} else if (diffMin < 1380) {{
         dot = '🟡'; accent = 'accent-gold';
         var h = Math.floor(diffMin/60), m = diffMin%60;
         label = h + 'h' + (m > 0 ? m + 'm' : '');
