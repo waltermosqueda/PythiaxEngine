@@ -4,7 +4,51 @@ Este archivo se sincroniza via Google Drive y puede usarse desde cualquier PC.
 
 ---
 
-## 2026-05-06 | Sesion — Bug 7: pipeline post-mercado siempre fallaba (root cause confirmado y corregido)
+## 2026-05-07 | Sesion — Freshness badge UX fix completo (3 archivos)
+
+### Contexto
+Continuacion de sesion anterior. El freshness badge del dashboard mostraba
+"hace 6h" en 22px negrita color rojo — false positive permanente para un pipeline
+diario que corre 1x/dia. Ademas sin labels de timezone (UTC vs AR ambiguo).
+
+### Root causes
+1. Thresholds calibrados para pipeline cada hora (180m=3h, 360m=6h), NO para pipeline diario
+2. Font-size 22px + bold — demasiado prominente para metadata secundaria
+3. Sin label de timezone — "22:53" podia ser UTC o AR, ambiguo
+
+### Fix aplicado (3 archivos)
+
+**`analisis/preview_c1_pro.html`** (commits `3eaa133`, `0ef66eb`):
+- Umbrales recalibrados: verde < 4h (240m), neutro 4-23h (1380m), rojo > 23h
+- Rango neutro: card sin accent-rose, solo emoji 🟡 + color dorado en texto
+- Labels UTC/AR: `2026-05-05 22:53 UTC  ·  19:53 AR` (JS computa AR = UTC-3)
+- Font-size badge: 22px → 13px via CSS override en `#kpi-fresh-value`
+
+**`herramientas/refrescar_datos_dashboard.py`** (commit `0ef66eb`):
+- `_render_topbar_meta` y `_render_kpi_strip`: nuevo formato Python UTC/AR
+- `dt_ar = dt_utc - timedelta(hours=3)` + labels humanos UTC y AR
+- Manejo cross-midnight AR (si arDate != utcDate → agrega fecha AR)
+
+**`analisis/generar_tablero_maquina_pensante.py`** (commit `e400063`):
+- `_FRESHNESS_SCRIPT`: reemplazado completo con JS nuevo (240/1380, UTC/AR, color var, neutral card)
+- `render_index` y `render_lab`: umbrales f-string 180→240, 360→1380 por consistencia
+- Verificado: 20/20 checks OK (script manual)
+
+### Clave tecnica: por que los 3 archivos
+- `generar_tablero_maquina_pensante.py` genera el bundle desde cero en pipeline full → inyecta `_FRESHNESS_SCRIPT`
+- `refrescar_datos_dashboard.py` refresca regiones de datos en el HTML → escribe sub-labels Python
+- `preview_c1_pro.html` es el HTML live que Cloudflare sirve directamente
+
+Si solo se parchea el HTML, el proximo CI full pipeline overwrites con JS viejo. Deben mantenerse sincronizados los 3.
+
+### Commits de esta sesion
+- `3eaa133` — fix(ui): badge freshness 13px + umbrales 4h/23h
+- `0ef66eb` — fix(ui): UTC/AR labels en badge JS + Python template
+- `e400063` — fix(ui): _FRESHNESS_SCRIPT umbrales 4h/23h y labels UTC/AR — alinear con preview_c1_pro
+
+---
+
+
 
 ### Contexto
 Investigacion multi-sesion del patron de fallo sistematico: cada dia a las 19:30 AR (primer cron post-cierre NYSE) el workflow `cloud-daily-operations` fallaba. Los runs de las 22:00 AR y 08:00 AR del dia siguiente pasaban sin problemas. Se confirmo el root cause leyendo el log en vivo del job (run #35, step 8).

@@ -12,7 +12,26 @@
 
 ---
 
-## Estado al 2026-05-06 (sesion actual)
+## Estado al 2026-05-07 (sesion actual)
+
+### Freshness badge UX — COMPLETO (commits sesion 2026-05-06 / 2026-05-07)
+
+**Problema:** Badge mostraba "hace 6h" en 22px negrita rojo — alarmante pero falso
+positivo para pipeline diario. Sin labels de timezone.
+
+**Fix aplicado en 3 archivos:**
+- `analisis/preview_c1_pro.html`: umbrales 180→240, 360→1380; card neutral 4-23h;
+  labels `2026-05-05 22:53 UTC  ·  19:53 AR`; font-size 13px (commits `3eaa133`, `0ef66eb`)
+- `herramientas/refrescar_datos_dashboard.py`: `_render_topbar_meta` y
+  `_render_kpi_strip` ambas con formato UTC/AR (commit `0ef66eb`)
+- `analisis/generar_tablero_maquina_pensante.py`: `_FRESHNESS_SCRIPT` + umbrales
+  en `render_index`/`render_lab` — todos 240/1380, UTC/AR labels (commit `e400063`)
+
+**Verificacion:** 20/20 checks OK (script manual run 2026-05-07).
+
+---
+
+## Estado anterior 2026-05-06 (archivado)
 
 ### Bug 7 — RESUELTO (commit `a77a2e1`)
 
@@ -37,10 +56,9 @@ actual. El pipeline de 19:30 AR veia `faltantes=0` y saltaba la descarga EOD.
 
 ### Git status
 
-- Branch: `main`
-- Ultimo commit pusheado: `124cde3` (docs: bitacora sesion 2026-05-06)
-- Commits de esta sesion: `a77a2e1` (Bug 7), `124cde3` (bitacora)
-- Todo pusheado, rama limpia
+- Ultimo commit pusheado: `e400063` (fix: _FRESHNESS_SCRIPT umbrales 4h/23h)
+- Commits de esta sesion: `3eaa133`, `0ef66eb`, `e400063`
+- Todo pusheado (pendiente push de estado), rama limpia
 
 ### DB state (Supabase)
 
@@ -54,8 +72,8 @@ actual. El pipeline de 19:30 AR veia `faltantes=0` y saltaba la descarga EOD.
 ## Proximos pasos al reiniciar sesion
 
 1. Leer `logs/errores_criticos.json` (regla de inicio)
-2. Verificar que el cron de 19:30 AR del 2026-05-06 haya pasado con exito
-   → `https://github.com/waltermosqueda/PythiaxEngine/actions` → ultimo run "Cloud Daily Operations"
+2. Verificar que el cron de 19:30 AR haya pasado con exito
+   → `https://github.com/waltermosqueda/PythiaxEngine/actions` → "Cloud Daily Operations"
 3. Investigar `outcomes_v12` timeout (unica entrada pendiente en errores_criticos.json)
 4. El 2026-05-11: migrar LEGACY_ML_V94_BUY_D5 a Supabase (2 rows: ARM + INTC)
 
