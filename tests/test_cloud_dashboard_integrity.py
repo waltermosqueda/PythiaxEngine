@@ -149,6 +149,13 @@ def write_human_dashboard_artifacts(payload: dict[str, object], dashboard_dir: P
     published_html = dashboard._inject_mobile_responsive(
         dashboard.rewrite_dashboard_variant_hrefs(rendered_html, dashboard_dir / C1_PRO_BUNDLE_HTML.name)
     )
+    # Idempotent freshness script injection — mirrors build_c1_pro_outputs() exactly
+    _script_tag = f'<script id="{dashboard._FRESHNESS_SCRIPT_ID}">'
+    if _script_tag in published_html:
+        _s = published_html.index(_script_tag)
+        _e = published_html.index("</script>", _s) + len("</script>")
+        published_html = published_html[:_s] + published_html[_e:]
+    published_html = published_html.replace("</body>", dashboard._FRESHNESS_SCRIPT + "\n</body>", 1)
     (dashboard_dir / C1_PRO_BUNDLE_HTML.name).write_text(published_html, encoding="utf-8")
 
 
