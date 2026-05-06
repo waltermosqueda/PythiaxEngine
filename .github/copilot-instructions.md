@@ -6,7 +6,10 @@
 
 **FIRST ACTION — Al iniciar CUALQUIER sesión:**
 1. Leer `ESTADO_ACTUAL.md` — estado, pendientes, git status de la última sesión
-2. Leer `logs/errores_criticos.json` — si hay `"status": "pendiente"`, reportar y proponer fix sin esperar que el usuario lo pida
+2. Leer `logs/errores_criticos.json` — si hay `"status": "pendiente"`, listar cuáles son
+3. Presentar resumen al usuario y **ESPERAR su dirección** — NO abrir Actions, NO investigar fallos de CI de forma autónoma, NO generar agenda sin que el usuario lo pida
+
+> ⚠️ La lectura inicial es solo de esos dos archivos. No navegar al browser, no correr comandos, no buscar más información sin que el usuario lo solicite.
 
 **LAST ACTION — Al finalizar CUALQUIER sesión:**
 1. Actualizar `ESTADO_ACTUAL.md` (qué se hizo, pendientes, git/DB state)
@@ -37,7 +40,8 @@
 - `actual_return` en DB = ratio (0.05 = 5%). El dashboard multiplica ×100 para mostrar.
 - Timestamps UTC expuestos a JS DEBEN tener sufijo `Z` o `+00:00`. Sin timezone → browser parsea como local → tiempo negativo.
 - Commits que tocan solo `.md`/`docs/`/`tests/`/`bitacora/` NO disparan `cloud-daily-operations.yml` (paths-ignore).
-- `ci.yml` siempre falla — es pre-existente, ignorar.
+- `ci.yml` SIEMPRE FALLA — es pre-existente. NUNCA reportarlo como bug nuevo, NUNCA investigarlo, ignorar completamente.
+- **Regla Actions**: Antes de diagnosticar cualquier fallo de Actions como bug nuevo, verificar que el `created_at` del run sea **POSTERIOR** al commit del fix relevante. Si el run es anterior al fix → es fallo esperado → no investigar.
 - Log `logs/pipeline_run.log`: encoding **UTF-16 LE** (PowerShell Tee-Object) — leer con `read_bytes()` + BOM `\xff\xfe`.
 - `ml_trading_v22.py` es archivo FUENTE ORIGINAL — NUNCA modificar.
 
