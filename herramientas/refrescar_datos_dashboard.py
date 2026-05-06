@@ -196,8 +196,8 @@ body.theme-white .hm-legend{background:rgba(99,102,241,0.06);border-color:rgba(9
 body.theme-white .hm-legend-step .hm-ls-num{background:#ede9fe;color:#4338ca}
 /* heatmap corner label */
 .hm-corner-lbl{display:block;font-size:7.5px;color:rgba(99,102,241,0.70);text-transform:uppercase;letter-spacing:.07em;margin-top:3px;font-weight:600}
-/* ── KPI STRIP: 5 cards (champion · leader · picks · semáforo · actualización) */
-.kpi-strip{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+/* ── KPI STRIP: 4 cards (champion · leader · picks · sistema/semáforo) */
+.kpi-strip{grid-template-columns:repeat(4,minmax(0,1fr))!important}
 """
 
 ROLE_ICON = {"activo": "OBS", "referencia": "REF", "base": "BASE", "observado": "OBS", "legacy_ml": "ML"}
