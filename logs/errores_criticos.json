@@ -31,9 +31,9 @@
     "source": "pipeline_run.log",
     "category": "pipeline_critical_alert",
     "line": "2026-05-05 00:00  [CRITICAL ALERT] pipeline_step_timeout_outcomes_v12 | El paso outcomes_v12 del pipeline diario expiro por timeout.",
-    "status": "pendiente",
-    "resolved_at": null,
-    "resolution": null
+    "status": "resuelto",
+    "resolved_at": "2026-05-06T00:00:00-03:00",
+    "resolution": "Fix commit 76615e3: override evaluate_due_predictions en OperationalLearningV12 — 3500 queries Supabase reducidas a 3 (bulk SELECT + precios in-memory desde self.prepared + executemany). 62s vs 600s timeout. Verificado: 1080 evaluadas, 0 errores. Dos alertas totales: 2026-05-05T00:00:31 y 2026-05-05T22:22:17 (segunda no estaba en este log)."
   },
   {
     "timestamp": "2026-05-05T19:16:07.357280-03:00",
