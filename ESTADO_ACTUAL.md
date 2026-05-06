@@ -6,53 +6,66 @@
 
 ## LEER AL INICIO DE CADA SESION
 
-1. Verificar Docker: `docker ps` → contenedor `pythiax_staging_postgres` debe estar UP en puerto 5433
-2. Si acaba de reiniciar el PC: `docker start pythiax_staging_postgres`
-3. Verificar backfill pendiente (ver seccion "Backfill en curso" abajo)
+1. Leer `logs/errores_criticos.json` — si hay entradas `"status": "pendiente"`, reportar y proponer fix
+2. Verificar salud del dashboard en Cloudflare: `https://pythiaxengine.pages.dev/preview_c1_pro`
+3. Si es dia habil despues de las 21:00 AR, verificar que el cron de 19:30 AR haya pasado
 
 ---
 
-## Estado al 2026-05-03 (ultima sesion)
+## Estado al 2026-05-06 (sesion actual)
 
-### Backfill en curso: ML_BRAIN_V10
+### Bug 7 — RESUELTO (commit `a77a2e1`)
 
-**Terminal async ID:** `4a0cde5c-4936-41d9-97ee-ae60298110c4`  
-**Ultimo checkpoint visto:** `2026-03-06`  
-**Destino:** `2026-04-29` (igual que todos los Legacy ML)  
-**Progreso estimado:** ~75% completo  
-**Tasa:** 2 picks/dia, consistente
+**Root cause:** `intraday-mtm-refresh.yml` (cron 16:30 AR) hace upsert en `prices`
+para tickers con picks abiertos (no SPY/QQQ), adelantando `MAX(date)` a la fecha
+actual. El pipeline de 19:30 AR veia `faltantes=0` y saltaba la descarga EOD.
+`validate_market_data.py` detectaba SPY stale y fallaba. Steps 9-18 quedaban skipped.
 
-**Si el backfill se interrumpio:**
-```powershell
-python _check_backfill.py
-# Toma nota del MAX(prediction_date)
-python herramientas/aprendizaje_operativo_legacy_ml_brain_v10.py backfill --from-date <MAX+1dia>
-```
+**Fix:**
+- `herramientas/auto_actualizar.py`: `_get_ultima_fecha_sentinel()` — si SPY/QQQ
+  < MAX global, usa su fecha para forzar descarga EOD completa
+- `.github/workflows/cloud-daily-operations.yml`: `if: "!cancelled()"` en step
+  "Decide cloud refresh" para evitar cascade skip
 
-**NUNCA iniciar desde la fecha tecnica minima (2025-05-15). Siempre usar 2025-12-18 o continuar desde el checkpoint.**
+### Error pendiente — outcomes_v12 timeout
 
-### Git status al cierre de sesion
+- `logs/errores_criticos.json` tiene 1 entrada pendiente:
+  `2026-05-05 00:00 [CRITICAL ALERT] pipeline_step_timeout_outcomes_v12`
+- Causa probable: V12 tarda demasiado calculando outcomes a la medianoche
+- Accion recomendada proxima sesion: leer el log de V12 y evaluar si hay un
+  loop o query lenta; considerar agregar timeout explicito al paso
 
-- Commits en local (no pusheados aun): `f1a819a`, `256a0df`, `69caed6`, `6fbfe33`
-- `analisis/preview_*.html` — PENDIENTE: refresh post-backfill, luego commit
-- Comando para pushear cuando todo este listo: `git push origin main`
+### Git status
 
-### DB state
+- Branch: `main`
+- Ultimo commit pusheado: `124cde3` (docs: bitacora sesion 2026-05-06)
+- Commits de esta sesion: `a77a2e1` (Bug 7), `124cde3` (bitacora)
+- Todo pusheado, rama limpia
 
-- Total predictions antes del backfill v10: ~4218
-- brain_v10 acumula 2 picks/dia desde 2025-12-18
-- Sequence OK: fue reseteada a 4182 en esta sesion con `_fix_sequence.py`
+### DB state (Supabase)
+
+- LEGACY_ML_BRAIN_V10_BUY_D5: 182 predictions, 172 outcomes OK
+- LEGACY_ML_BRAIN_V9_BUY_D5: 0 rows — disabled, NO migrar
+- LEGACY_ML_V94_BUY_D5: 0 rows en Supabase / 2 rows local (ARM + INTC)
+  → migrar el 2026-05-11 cuando venza el target
 
 ---
 
 ## Proximos pasos al reiniciar sesion
 
-1. Verificar backfill con `python _check_backfill.py`
-2. Si MAX(prediction_date) = 2026-04-29 → backfill completo
-3. `python herramientas/refrescar_datos_dashboard.py`
-4. `git add analisis/preview_*.html ESTADO_ACTUAL.md`
-5. `git commit -m "data: brain_v10 backfill complete + dashboard refresh"`
-6. `git push origin main`
+1. Leer `logs/errores_criticos.json` (regla de inicio)
+2. Verificar que el cron de 19:30 AR del 2026-05-06 haya pasado con exito
+   → `https://github.com/waltermosqueda/PythiaxEngine/actions` → ultimo run "Cloud Daily Operations"
+3. Investigar `outcomes_v12` timeout (unica entrada pendiente en errores_criticos.json)
+4. El 2026-05-11: migrar LEGACY_ML_V94_BUY_D5 a Supabase (2 rows: ARM + INTC)
+
+---
+
+## Pendientes estructurales
+
+- **Cloudflare Access**: pagina `pythiaxengine.pages.dev` sigue publica
+  → cambiar Fail open → Fail closed en Workers & Pages → Settings → Runtime
+- **V94 migration**: esperar a 2026-05-11, correr outcomes, luego bulk insert
 
 ---
 
@@ -60,17 +73,20 @@ python herramientas/aprendizaje_operativo_legacy_ml_brain_v10.py backfill --from
 
 | Componente | Detalle |
 |------------|---------|
-| Python | C:\Users\wmx_7\AppData\Local\Programs\Python\Python314\python.exe |
-| PostgreSQL | Docker local, puerto 5433, db=pythiax, user=postgres, pw=postgres_local |
-| Container | pythiax_staging_postgres |
-| DATABASE_URL | postgresql+psycopg://postgres:postgres_local@localhost:5433/pythiax |
-| Repo | C:\Users\wmx_7\OneDrive\Escritorio\Inversiones\PythiaxEngine |
-| Branch | main |
+| Python CI  | `py` (Python 3.12 en Actions, 3.14.x local) |
+| DB cloud   | Supabase — URL en `.env` linea comentada `# DATABASE_URL=...` |
+| DB local   | Docker puerto 5433 (`pythiax_staging_postgres`) |
+| Repo       | `C:\repos\PythiaxEngine` |
+| Branch     | main |
+| Cloudflare | `https://pythiaxengine.pages.dev/` (rama main, dir `analisis/`) |
+| GitHub Pages | `https://waltermosqueda.github.io/PythiaxEngine/` |
 
 ---
 
-## Reglas criticas (ver AGENTS.md para lista completa)
+## Reglas criticas (ver AGENTS.md y copilot-instructions.md)
 
-- **BACKFILL FAIR-START:** Antes de cualquier backfill, consultar `SELECT MIN(prediction_date) FROM predictions WHERE model_name LIKE '<familia>%'` y usar esa fecha como `--from-date`
-- **Sequence:** si hay UniqueViolation en PostgreSQL, correr `python _fix_sequence.py`
-- **Docker:** siempre verificar que el contenedor esta UP antes de correr cualquier script que toque DB
+- **SENTINEL CHECK**: `_get_ultima_fecha_sentinel()` en auto_actualizar.py resuelve
+  el problema de MTM intraday parcial. NO revertir.
+- **BACKFILL FAIR-START**: Antes de backfill nuevo, `SELECT MIN(prediction_date) FROM predictions WHERE model_name LIKE '<familia>%'`
+- **Commits que no disparan CI**: los que solo tocan `.md`, `docs/`, `tests/`, `bitacora/`
+- **preview_c1_pro.html**: en rebase, usar `--theirs` (= nuestro local) para conservar version fresca
