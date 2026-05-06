@@ -6,10 +6,8 @@
 
 **FIRST ACTION — Al iniciar CUALQUIER sesión:**
 1. Leer `ESTADO_ACTUAL.md` — estado, pendientes, git status de la última sesión
-2. Leer `logs/errores_criticos.json` — si hay `"status": "pendiente"`, listar cuáles son
-3. Presentar resumen al usuario y **ESPERAR su dirección** — NO abrir Actions, NO investigar fallos de CI de forma autónoma, NO generar agenda sin que el usuario lo pida
-
-> ⚠️ La lectura inicial es solo de esos dos archivos. No navegar al browser, no correr comandos, no buscar más información sin que el usuario lo solicite.
+2. Leer `logs/errores_criticos.json` — listar entradas con `"status": "pendiente"`
+3. Presentar resumen al usuario y **ESPERAR su dirección** antes de tomar cualquier acción adicional
 
 **LAST ACTION — Al finalizar CUALQUIER sesión:**
 1. Actualizar `ESTADO_ACTUAL.md` (qué se hizo, pendientes, git/DB state)
@@ -40,9 +38,29 @@
 - `actual_return` en DB = ratio (0.05 = 5%). El dashboard multiplica ×100 para mostrar.
 - Timestamps UTC expuestos a JS DEBEN tener sufijo `Z` o `+00:00`. Sin timezone → browser parsea como local → tiempo negativo.
 - Commits que tocan solo `.md`/`docs/`/`tests/`/`bitacora/` NO disparan `cloud-daily-operations.yml` (paths-ignore).
-- `ci.yml` SIEMPRE FALLA — es pre-existente. NUNCA reportarlo como bug nuevo, NUNCA investigarlo, ignorar completamente.
-- **Regla Actions**: Antes de diagnosticar cualquier fallo de Actions como bug nuevo, verificar que el `created_at` del run sea **POSTERIOR** al commit del fix relevante. Si el run es anterior al fix → es fallo esperado → no investigar.
-- Log `logs/pipeline_run.log`: encoding **UTF-16 LE** (PowerShell Tee-Object) — leer con `read_bytes()` + BOM `\xff\xfe`.
+- Log `logs/pipeline_run.log`: encoding **UTF-16 LE**
+
+### 🧠 PROTOCOLO DE VALIDACIÓN ANTES DE ACTUAR
+
+Antes de diagnosticar cualquier fallo como bug nuevo o tomar cualquier acción significativa (editar código, hacer commit, proponer fix), ejecutar mentalmente este checklist en orden:
+
+**1. ¿El fallo es anterior o posterior al último fix relacionado?**
+- Obtener `created_at` del run fallido (API: `https://api.github.com/repos/waltermosqueda/PythiaxEngine/actions/runs?per_page=10`)
+- Obtener el timestamp del commit del fix más reciente relacionado con ese tipo de error
+- Si `run.created_at < fix_commit_timestamp` → **fallo esperado, pre-fix. No diagnosticar como bug nuevo.**
+- Si `run.created_at > fix_commit_timestamp` → bug nuevo o regresión. Continuar análisis.
+
+**2. ¿El error ya está en la tabla de bugs conocidos de este archivo?**
+- Revisar la sección `BUGS CONOCIDOS Y FIXES APLICADOS` más abajo
+- Si es idéntico a uno resuelto → reportar como regresión con el commit original del fix, no como bug nuevo
+
+**3. ¿El error está en `logs/errores_criticos.json` como ya resuelto?**
+- Si `"status": "resuelto"` y el mensaje coincide → es el mismo error. Confirmar al usuario, no investigar.
+
+**4. ¿El fallo es en `ci.yml`?**
+- `ci.yml` tiene fallos pre-existentes estructurales (test de URL de Supabase, IPv6 en GitHub Actions). Antes de reportarlo como bug nuevo, verificar si el error es diferente al histórico `test_validate_database_url_accepts_redactable_postgres_url`. Si es el mismo → no es bug nuevo.
+
+**Regla general**: No proponer un fix hasta completar los 4 pasos. Si alguno confirma que el fallo es esperado → comunicar la conclusión razonada al usuario y esperar dirección. (PowerShell Tee-Object) — leer con `read_bytes()` + BOM `\xff\xfe`.
 - `ml_trading_v22.py` es archivo FUENTE ORIGINAL — NUNCA modificar.
 
 ---
