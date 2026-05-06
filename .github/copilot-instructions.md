@@ -38,30 +38,105 @@
 - `actual_return` en DB = ratio (0.05 = 5%). El dashboard multiplica ×100 para mostrar.
 - Timestamps UTC expuestos a JS DEBEN tener sufijo `Z` o `+00:00`. Sin timezone → browser parsea como local → tiempo negativo.
 - Commits que tocan solo `.md`/`docs/`/`tests/`/`bitacora/` NO disparan `cloud-daily-operations.yml` (paths-ignore).
-- Log `logs/pipeline_run.log`: encoding **UTF-16 LE**
-
-### 🧠 PROTOCOLO DE VALIDACIÓN ANTES DE ACTUAR
-
-Antes de diagnosticar cualquier fallo como bug nuevo o tomar cualquier acción significativa (editar código, hacer commit, proponer fix), ejecutar mentalmente este checklist en orden:
-
-**1. ¿El fallo es anterior o posterior al último fix relacionado?**
-- Obtener `created_at` del run fallido (API: `https://api.github.com/repos/waltermosqueda/PythiaxEngine/actions/runs?per_page=10`)
-- Obtener el timestamp del commit del fix más reciente relacionado con ese tipo de error
-- Si `run.created_at < fix_commit_timestamp` → **fallo esperado, pre-fix. No diagnosticar como bug nuevo.**
-- Si `run.created_at > fix_commit_timestamp` → bug nuevo o regresión. Continuar análisis.
-
-**2. ¿El error ya está en la tabla de bugs conocidos de este archivo?**
-- Revisar la sección `BUGS CONOCIDOS Y FIXES APLICADOS` más abajo
-- Si es idéntico a uno resuelto → reportar como regresión con el commit original del fix, no como bug nuevo
-
-**3. ¿El error está en `logs/errores_criticos.json` como ya resuelto?**
-- Si `"status": "resuelto"` y el mensaje coincide → es el mismo error. Confirmar al usuario, no investigar.
-
-**4. ¿El fallo es en `ci.yml`?**
-- `ci.yml` tiene fallos pre-existentes estructurales (test de URL de Supabase, IPv6 en GitHub Actions). Antes de reportarlo como bug nuevo, verificar si el error es diferente al histórico `test_validate_database_url_accepts_redactable_postgres_url`. Si es el mismo → no es bug nuevo.
-
-**Regla general**: No proponer un fix hasta completar los 4 pasos. Si alguno confirma que el fallo es esperado → comunicar la conclusión razonada al usuario y esperar dirección. (PowerShell Tee-Object) — leer con `read_bytes()` + BOM `\xff\xfe`.
+- Log `logs/pipeline_run.log`: encoding **UTF-16 LE** (PowerShell Tee-Object) — leer con `read_bytes()` + BOM `\xff\xfe`.
 - `ml_trading_v22.py` es archivo FUENTE ORIGINAL — NUNCA modificar.
+
+---
+
+### 🧠 FRAMEWORK DE RAZONAMIENTO PROFUNDO
+
+Este no es un checklist. Es el modelo mental que debe activarse antes de cualquier diagnóstico, fix, o acción con efecto en el repo. Se aplica a situaciones conocidas y a situaciones que nadie anticipó.
+
+---
+
+#### Principio 1 — Reconstruir el estado del sistema *en el momento del evento*, no el estado actual
+
+El código actual puede tener fixes que no existían cuando ocurrió el fallo. Antes de diagnosticar:
+
+1. Obtener el timestamp del evento (run de Actions, error de pipeline, etc.)
+2. Correr mentalmente `git log --oneline --before="<evento.timestamp>"` — ¿qué commits existían?
+3. Si el fix relacionado tiene un `commit.timestamp` **posterior** al evento → el fix no existía entonces → el fallo era el comportamiento esperado en esa versión del código → no diagnosticar como bug activo.
+
+> Ejemplo: Run #35 falló el 2026-05-05 20:26. Fix `a77a2e1` fue pusheado a las 00:37 del 2026-05-06. El fix no existía cuando el run corrió → fallo pre-fix → caso cerrado.
+
+---
+
+#### Principio 2 — Construir la cadena causal completa antes de proponer cualquier fix
+
+La estructura obligatoria para cualquier diagnóstico:
+
+```
+Causa raíz → Mecanismo de propagación → Síntoma observable → Error reportado
+```
+
+No diagnosticar desde el error reportado hacia arriba con el primer encaje plausible. Cada eslabón de la cadena debe estar verificado con evidencia directa.
+
+**Anti-patrón**: Ver "SPY stale" → proponer "agregar SPY a la descarga forzada". Eso parchea el síntoma.  
+**Patrón correcto**: Ver "SPY stale" → encontrar por qué `faltantes=0` → encontrar que MTM adelantó `MAX(date)` → fix en la fuente (`_get_ultima_fecha_sentinel()`).
+
+La profundidad del fix debe ser la misma que la profundidad de la causa raíz.
+
+---
+
+#### Principio 3 — Falsificación activa: intentar destruir tu propia hipótesis antes de actuar
+
+Antes de proponer cualquier fix, formular explícitamente la pregunta inversa:
+> *"¿Qué tendría que ser verdad para que mi diagnóstico esté EQUIVOCADO?"*
+
+- Si podés responder esa pregunta y descartar esa posibilidad con evidencia concreta → diagnóstico sólido, proceder.
+- Si no podés descartarla → existe incertidumbre real. Decirlo al usuario, no inventar certeza.
+
+Ejemplo: Diagnosticás "el run falló por X". Pregunta inversa: "¿Pudo haber fallado por Y?". Si Y es posible y no lo verificaste → verificar antes de commitear el fix.
+
+---
+
+#### Principio 4 — Taxonomía de evidencia: no toda información tiene el mismo peso
+
+| Nivel | Confiabilidad | Fuente típica |
+|-------|--------------|---------------|
+| Verdad directa | ✅ Alta | Archivo leído en esta sesión, output de query SQL, log de CI expandido |
+| Inferencia lógica | ⚠️ Media | Deducción de hechos verificados ("si A y B, entonces C") |
+| Patrón conocido | ⚠️ Media-baja | "Este tipo de error suele ser X en este proyecto" |
+| Memoria de sesión anterior | ❌ Baja | El repo puede haber cambiado — verificar contra archivos actuales |
+
+Regla: ser explícito sobre qué nivel de evidencia respalda cada afirmación.  
+`"Confirmo que el bug es X"` (leí el log) ≠ `"Infiero que el bug podría ser X"` (patrón).  
+Nunca presentar inferencia como certeza.
+
+---
+
+#### Principio 5 — Mapa de blast radius antes de cualquier acción con efecto en el repo
+
+Antes de cualquier edición de archivo o `git commit`, responder:
+
+- ¿Qué workflows se disparan? (revisar `paths-ignore` en cada `.github/workflows/*.yml`)
+- ¿Este cambio toca datos de Supabase (producción)?
+- ¿La acción es reversible?
+  - Reversible (editar archivo, leer DB) → proceder libremente
+  - Parcialmente reversible (commit, push) → proceder con buen mensaje de commit
+  - Irreversible (`DROP TABLE`, `git push --force`, borrar branch) → pedir confirmación explícita al usuario
+
+---
+
+#### Principio 6 — Mínima intervención: el fix correcto es el más pequeño que ataca la causa raíz
+
+El objetivo nunca es refactorizar, mejorar la arquitectura, ni agregar features no solicitados.  
+Una línea que resuelve el root cause es mejor que 50 que resuelven el síntoma más varios extras.  
+Si el fix propuesto toca más de 3 archivos, preguntarse: ¿cada uno de estos cambios es estrictamente necesario para resolver la causa raíz, o estoy agregando cosas?
+
+---
+
+#### Aplicación a patrones frecuentes en este repo
+
+Estos no son reglas — son ejemplos de cómo los principios anteriores aplican a casos conocidos:
+
+| Observación | Principio que aplica | Razonamiento correcto |
+|-------------|---------------------|-----------------------|
+| Run de Actions con ❌ | P1: estado en momento del evento | ¿`run.created_at` > timestamp del último fix relacionado? Si no → pre-fix, cerrar. |
+| Mismo mensaje que un bug resuelto | P1 + P4: evidencia directa | Verificar que el fix commit estaba en el repo cuando corrió el run. No asumir. |
+| `ci.yml` falla con `test_validate_database_url` | P2: cadena causal | Causa raíz conocida: IPv6 + Direct Connection de Supabase en CI. Pre-existente estructural. |
+| Dashboard no se actualizó tras push | P5: blast radius | ¿El commit tocó algún `.py`? Si solo `.md` → paths-ignore lo filtró → hacer commit que toque `.py`. |
+| Modelo no aparece en live | P4: verdad directa | ¿Predictions/outcomes existen en Supabase? Verificar con query — no asumir que Docker local = Supabase. |
 
 ---
 
