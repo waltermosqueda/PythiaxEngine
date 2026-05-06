@@ -723,8 +723,8 @@ def _load_verify_payload() -> dict:
     return {}
 
 
-def _render_kpi_verify() -> str:
-    """Tarjeta única SEMÁFORO DE DATOS que reemplaza kpi-db + kpi-integrity."""
+def _render_kpi_verify(ts_with_z: str = "", regime: str = "SEGURO", regime_color: str = "var(--green)", generated_at: str = "") -> str:
+    """Card unificado Sistema (Datos + Sync) con tooltip hover."""
     vp = _load_verify_payload()
     if not vp:
         return (
@@ -832,16 +832,100 @@ def _render_kpi_verify() -> str:
         )
     detail_html = "<br>".join(detail_lines)
 
-    return (
-        f'<div class="kpi-card editable-block" data-bid="kpi-verify" data-blabel="KPI Datos" data-verify=\'{data_verify}\'>'
-        '<div class="kc-label">Datos</div>'
-        f'<div class="kc-value" style="color:{color}">{score:.0f}%</div>'
-        '<div class="kc-sub" style="font-size:0.6em;opacity:0.65;margin-top:-1px">integridad del sistema</div>'
-        f'<div class="kc-sub" style="text-align:left;margin-top:5px;line-height:1.75;font-size:0.68rem">{detail_html}</div>'
-        "</div>"
+    # ── Fecha en español para el tooltip ──────────────────────────────────────
+    _days_es_full = ["lunes","martes","mi\u00e9rcoles","jueves","viernes","s\u00e1bado","domingo"]
+    _months_es_full = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto",
+                       "septiembre","octubre","noviembre","diciembre"]
+    fecha_tooltip = "hoy"
+    fecha_footer = "\u2014"
+    if generated_at:
+        try:
+            _gdt = datetime.datetime.fromisoformat(generated_at.replace("Z",""))
+            _gar = _gdt - datetime.timedelta(hours=3)
+            _dia = f"{_days_es_full[_gar.weekday()]} {_gar.day} de {_months_es_full[_gar.month-1]}"
+            fecha_tooltip = (
+                f"{_dia} a las "
+                f'<b style="color:#eef4fb">{_gar.strftime("%H:%M")} AR</b>'
+                f" ({_gdt.strftime('%H:%M')} UTC)"
+            )
+            fecha_footer = (
+                f"{_gdt.strftime('%Y-%m-%d')} {_gdt.strftime('%H:%M')} UTC"
+                f" \u00b7 {_gar.strftime('%H:%M')} AR"
+            )
+        except Exception:
+            pass
+
+    # ── Pills ──────────────────────────────────────────────────────────────────
+    _ps = ('style="font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:20px;'
+           'background:rgba(68,232,144,0.12);color:var(--green,#44e890);'
+           'border:1px solid rgba(68,232,144,0.25)"')
+    pill_tickers = f'<span {_ps}>{open_v}/{open_v} &#10003; tickers</span>'
+    pill_hist    = f'<span {_ps}>{out_ok}/{out_v} hist.</span>' if out_v else ''
+
+    # ── Tooltip lines ──────────────────────────────────────────────────────────
+    _dg = ('<span style="width:6px;height:6px;border-radius:50%;'
+           'background:var(--green,#44e890);flex-shrink:0;margin-top:6px;display:inline-block"></span>')
+    _dm = ('<span style="width:6px;height:6px;border-radius:50%;'
+           'background:#6585a8;flex-shrink:0;margin-top:6px;display:inline-block"></span>')
+    _ro = '<div style="font-size:0.7rem;line-height:1.8;display:flex;align-items:flex-start;gap:8px'
+    tip = [
+        (f'<div style="font-size:0.65rem;color:var(--accent,#18e8c8);margin-bottom:10px;'
+         f'font-weight:700;letter-spacing:0.08em">'
+         f'{score:.0f}% &mdash; datos &iacute;ntegros y al d&iacute;a</div>'),
+        f'{_ro}">{_dg}<span>Cotizaciones al {fecha_tooltip}</span></div>',
+        (f'{_ro};margin-top:6px">{_dg}'
+         f'<span><b style="color:#eef4fb">{open_v} de {open_v} tickers activos</b>'
+         f' verificados contra precio real de mercado</span></div>'),
+    ]
+    if open_warn + open_crit > 0:
+        _wn = open_warn + open_crit
+        tip.append(
+            f'{_ro};margin-top:2px;padding-left:14px">{_dm}'
+            f'<span style="color:#6585a8">{_wn} ticker{"s" if _wn > 1 else ""}'
+            f' con diferencia &lt;1% &mdash; ruido normal de mercado</span></div>'
+        )
+    if out_v > 0:
+        tip.append(
+            f'{_ro};margin-top:6px">{_dg}'
+            f'<span><b style="color:#eef4fb">{out_ok} de {out_v} operaciones cerradas</b>'
+            f' tienen resultado final registrado (ganada\u00a0/\u00a0perdida)</span></div>'
+        )
+    tip.append(
+        f'<div style="margin-top:10px;padding-top:8px;border-top:1px solid #1e2d42;'
+        f'font-size:0.62rem;color:#6585a8">'
+        f'&Uacute;ltima verificaci\u00f3n \u00b7 {fecha_footer}'
+        f' \u00b7 r\u00e9gimen Mercado'
+        f' <b style="color:var(--green,#44e890)">{regime}</b></div>'
     )
+    tip_html = "".join(tip)
 
-
+    return (
+        f'<div class="kpi-card editable-block kpi-sistema-card" id="kpi-actualizacion"'
+        f' data-bid="kpi-sistema" data-blabel="KPI Sistema" data-ts="{ts_with_z}"'
+        f' data-verify=\'{data_verify}\'>'
+        '<div class="kc-label">Sistema'
+        ' <span style="font-size:0.58rem;color:var(--muted,#6585a8);'
+        'border:1px solid var(--border,#1e2d42);border-radius:50%;width:13px;height:13px;'
+        'display:inline-flex;align-items:center;justify-content:center;'
+        'vertical-align:middle;cursor:default" title="Hover para ver detalles">i</span>'
+        '</div>'
+        f'<div class="kc-value" style="color:{color}">{score:.0f}%</div>'
+        f'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px">'
+        f'{pill_tickers}{pill_hist}</div>'
+        '<div class="kc-sub" style="margin-top:5px;font-size:0.65rem">actualizado'
+        ' <span id="kpi-fresh-value" style="color:var(--green,#44e890)">&mdash;</span>'
+        ' &middot; Mercado &middot; r&eacute;gimen'
+        f' <span id="kpi-fresh-regime" style="font-weight:700;color:{regime_color}">{regime}</span>'
+        '</div>'
+        '<div class="kpi-sistema-tooltip" style="position:absolute;top:calc(100% + 8px);'
+        'left:50%;transform:translateX(-50%);width:310px;background:#141e30;'
+        'border:1px solid #1e2d42;border-radius:10px;padding:14px 16px;z-index:999;'
+        'opacity:0;pointer-events:none;transition:opacity 0.18s ease;'
+        'box-shadow:0 8px 32px rgba(0,0,0,0.55)">'
+        f'{tip_html}'
+        '</div>'
+        '</div>'
+    )
 def _render_kpi_strip(snap: dict) -> str:
     cr = snap.get("competition_recent") or {}
     league = _dashboard_league(snap)
@@ -903,7 +987,7 @@ def _render_kpi_strip(snap: dict) -> str:
         f'<div class="kc-sub" id="kpi-fresh-regime" style="margin-top:2px;font-weight:700;color:{regime_color}">{regime}</div>'
         "</div>"
     )
-    return _cards_before + _render_kpi_verify() + _card_actualizacion
+    return _cards_before + _render_kpi_verify(ts_with_z=ts_with_z, regime=regime, regime_color=regime_color, generated_at=generated_at)
 
 
 def _hero_card_html(row: dict, *, label: str, card_class: str, subtitle: str, picks_override: int | None = None, live_override: list[str] | None = None) -> str:
