@@ -388,7 +388,11 @@ def _load_operational_row_map(
                 o.hit,
                 CASE WHEN o.actual_return IS NULL AND lp.mx >= p.prediction_date
                     THEN (p_latest.close - p_entry.close) / NULLIF(p_entry.close, 0)
-                    ELSE NULL END AS mtm_return
+                    ELSE NULL END AS mtm_return,
+                p_entry.close AS entry_close,
+                p_entry.date  AS entry_date,
+                p_latest.close AS latest_close,
+                lp.mx          AS latest_price_date
             FROM predictions p
             LEFT JOIN outcomes o ON o.prediction_id = p.id
             LEFT JOIN prices p_entry
@@ -417,7 +421,11 @@ def _load_operational_row_map(
                 o.hit,
                 CASE WHEN o.actual_return IS NULL AND lp.mx >= p.prediction_date
                     THEN (p_latest.close - p_entry.close) / NULLIF(p_entry.close, 0)
-                    ELSE NULL END AS mtm_return
+                    ELSE NULL END AS mtm_return,
+                p_entry.close AS entry_close,
+                p_entry.date  AS entry_date,
+                p_latest.close AS latest_close,
+                lp.mx          AS latest_price_date
             FROM predictions p
             LEFT JOIN outcomes o ON o.prediction_id = p.id
             LEFT JOIN prices p_entry
@@ -503,6 +511,10 @@ def _build_day_records(
                         "mtm_return": mtm,
                         "confidence": confidence,
                         "target_date": str(row.get("target_date") or ""),
+                        "entry_close": _to_float(row.get("entry_close")),
+                        "entry_date": str(row.get("entry_date") or ""),
+                        "latest_close": _to_float(row.get("latest_close")),
+                        "latest_price_date": str(row.get("latest_price_date") or ""),
                     })
                 continue
 

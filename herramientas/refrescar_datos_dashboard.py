@@ -195,6 +195,8 @@ body.theme-white .hm-legend{background:rgba(99,102,241,0.06);border-color:rgba(9
 body.theme-white .hm-legend-step .hm-ls-num{background:#ede9fe;color:#4338ca}
 /* heatmap corner label */
 .hm-corner-lbl{display:block;font-size:7.5px;color:rgba(99,102,241,0.70);text-transform:uppercase;letter-spacing:.07em;margin-top:3px;font-weight:600}
+/* ── KPI STRIP: 5 cards (champion · leader · picks · semáforo · actualización) */
+.kpi-strip{grid-template-columns:repeat(5,minmax(0,1fr))!important}
 """
 
 ROLE_ICON = {"activo": "OBS", "referencia": "REF", "base": "BASE", "observado": "OBS", "legacy_ml": "ML"}
@@ -706,6 +708,97 @@ def _render_sidebar_config(snap: dict) -> str:
     )
 
 
+# ── SEMÁFORO DE DATOS ─────────────────────────────────────────────────────────
+
+_VERIFY_PAYLOAD_PATH = ROOT / "analisis" / "verify_payload.json"
+
+
+def _load_verify_payload() -> dict:
+    """Lee el payload de auditoría si existe. Retorna dict vacío si no está listo."""
+    try:
+        if _VERIFY_PAYLOAD_PATH.exists():
+            return json.loads(_VERIFY_PAYLOAD_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def _render_kpi_verify() -> str:
+    """Tarjeta única SEMÁFORO DE DATOS que reemplaza kpi-db + kpi-integrity."""
+    vp = _load_verify_payload()
+    if not vp:
+        return (
+            '<div class="kpi-card editable-block" data-bid="kpi-verify" data-blabel="KPI Semáforo Datos">'
+            '<div class="kc-label">Semáforo Datos</div>'
+            '<div class="kc-value" style="color:var(--muted)">—</div>'
+            '<div class="kc-sub">Auditoría pendiente</div>'
+            "</div>"
+        )
+    score = vp.get("confidence_score", 0)
+    status = vp.get("status", "error")
+    summary = vp.get("summary") or {}
+    checks = vp.get("checks") or {}
+
+    # Color según score
+    if score >= 85:
+        color = "var(--green)"
+        dot = "🟢"
+    elif score >= 65:
+        color = "#f5b833"
+        dot = "🟡"
+    else:
+        color = "var(--red, #fc5c7d)"
+        dot = "🔴"
+
+    # Texto de sublínea resumida
+    fresh_days = summary.get("freshness_stale_days")
+    fresh_date = summary.get("freshness_latest_date") or "—"
+    open_ok = summary.get("open_mtm_ok", 0)
+    open_v = summary.get("open_mtm_verified", 0)
+    out_ok = summary.get("outcomes_ok", 0)
+    out_v = summary.get("outcomes_verified", 0)
+    unclosed = summary.get("unclosed_count", 0)
+
+    fresh_label = (
+        f"precios hoy" if fresh_days == 0
+        else f"+{fresh_days}d atraso" if fresh_days
+        else "—"
+    )
+    mtm_label = f"MTM {open_ok}/{open_v} ok" if open_v else "sin abiertos"
+    out_label = f"hist {out_ok}/{out_v} ok" if out_v else ""
+    orphan_label = f"· {unclosed} sin cerrar" if unclosed else ""
+
+    sub1 = f"{fresh_date} ({fresh_label})"
+    sub2 = mtm_label + (f" · {out_label}" if out_label else "") + orphan_label
+
+    # data-verify para que JS del dashboard pueda expandir detalle
+    data_verify = json.dumps({
+        "score": score,
+        "status": status,
+        "freshness": {
+            "date": fresh_date,
+            "stale": fresh_days,
+        },
+        "open_mtm": {"ok": open_ok, "verified": open_v,
+                     "warn": summary.get("open_mtm_warn", 0),
+                     "crit": summary.get("open_mtm_crit", 0)},
+        "outcomes": {"ok": out_ok, "verified": out_v,
+                     "warn": summary.get("outcomes_warn", 0),
+                     "crit": summary.get("outcomes_crit", 0)},
+        "unclosed": unclosed,
+        "cross_inconsistencies": summary.get("cross_inconsistencies", 0),
+    }, separators=(",", ":"))
+
+    return (
+        f'<div class="kpi-card editable-block" data-bid="kpi-verify" data-blabel="KPI Semáforo Datos" data-verify=\'{data_verify}\'>'
+        '<div class="kc-label">Semáforo Datos</div>'
+        f'<div class="kc-value" style="color:{color}">{score:.0f}%</div>'
+        f'<div class="kc-sub">{sub1}</div>'
+        f'<div class="kc-sub" style="margin-top:2px;opacity:.82">{sub2}</div>'
+        "</div>"
+    )
+
+
 def _render_kpi_strip(snap: dict) -> str:
     cr = snap.get("competition_recent") or {}
     league = _dashboard_league(snap)
@@ -741,7 +834,7 @@ def _render_kpi_strip(snap: dict) -> str:
     latest_market = latest_market_date(snap) or "\u2014"
     target = active_run.get("prediction_for") or "\u2014"
     regime_color = "var(--green)" if regime == "SEGURO" else "#f5b833" if regime == "PELIGRO" else "var(--muted)"
-    return (
+    _cards_before = (
         '<div class="kpi-card accent-cyan editable-block" data-bid="kpi-champion" data-blabel="KPI Champion">'
         '<div class="kc-label">Motor Experimental</div>'
         f'<div class="kc-value">{_esc(champion_ver)}</div>'
@@ -757,16 +850,8 @@ def _render_kpi_strip(snap: dict) -> str:
         f'<div class="kc-value">{_fmt_int(len(live_tickers))}</div>'
         f'<div class="kc-sub">{_esc(regime)} · breadth {_fmt_ratio(breadth, 1)}%</div>'
         "</div>"
-        '<div class="kpi-card accent-rose editable-block" data-bid="kpi-db" data-blabel="KPI DB">'
-        '<div class="kc-label">Outcomes DB</div>'
-        f'<div class="kc-value">{_fmt_int(integrity.get("outcomes_count"))}</div>'
-        f'<div class="kc-sub">{_fmt_int(integrity.get("predictions_count"))} pred · {_fmt_int(integrity.get("regimes_count"))} regimes</div>'
-        "</div>"
-        '<div class="kpi-card editable-block" data-bid="kpi-integrity" data-blabel="KPI Integridad">'
-        '<div class="kc-label">Integridad</div>'
-        f'<div class="kc-value">{_fmt_int(covered)}/{_fmt_int(expected)}</div>'
-        '<div class="kc-sub">cobertura pred ultimas 30 ruedas</div>'
-        "</div>"
+    )
+    _card_actualizacion = (
         f'<div class="kpi-card editable-block" id="kpi-actualizacion" data-bid="kpi-actualizacion" data-blabel="KPI Actualizaci\u00f3n" data-ts="{ts_with_z}">'
         '<div class="kc-label">Actualizaci\u00f3n</div>'
         '<div class="kc-value" id="kpi-fresh-value">\u2014</div>'
@@ -775,6 +860,7 @@ def _render_kpi_strip(snap: dict) -> str:
         f'<div class="kc-sub" id="kpi-fresh-regime" style="margin-top:2px;font-weight:700;color:{regime_color}">{regime}</div>'
         "</div>"
     )
+    return _cards_before + _render_kpi_verify() + _card_actualizacion
 
 
 def _hero_card_html(row: dict, *, label: str, card_class: str, subtitle: str, picks_override: int | None = None, live_override: list[str] | None = None) -> str:
@@ -2674,6 +2760,25 @@ def render_dashboard_html(html: str, snap: dict, *, verbose: bool = False) -> st
             print("  [c1pro] Predicción Viva injected")
 
     html = _apply_snapshot_sections(html, snap)
+
+    # ── Embed verify payload (SEMÁFORO DE DATOS) como JSON inline ──────────────
+    vp = _load_verify_payload()
+    vp_json = json.dumps(vp, ensure_ascii=False, separators=(",", ":"))
+    verify_tag = (
+        f'<script id="verify-payload" type="application/json">{vp_json}</script>'
+    )
+    if '<script id="verify-payload"' in html:
+        # Reemplazar el existente
+        html = re.sub(
+            r'<script id="verify-payload"[^>]*>.*?</script>',
+            verify_tag,
+            html,
+            count=1,
+            flags=re.DOTALL,
+        )
+    else:
+        # Insertar antes de </body>
+        html = html.replace("</body>", verify_tag + "\n</body>", 1)
 
     # Update dates
     return update_dates(html, snap)

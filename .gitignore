@@ -64,6 +64,7 @@ analisis/auditorias/sentinel_status.json
 analisis/staging/*.html
 analisis/tablero_maquina_pensante*.html
 analisis/tablero_maquina_pensante*.json
+analisis/verify_payload.json
 backtests/resultados/*.txt
 bitacora/auto_actualizar.log
 dashboards/maquina_pensante/*.html

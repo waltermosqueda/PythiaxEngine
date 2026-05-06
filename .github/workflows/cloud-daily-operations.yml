@@ -71,6 +71,15 @@ jobs:
           fi
           python -m infra.cloud.decide_cloud_refresh --github-output "$GITHUB_OUTPUT" --max-stale-hours 20 $FORCE_ARGS
 
+      - name: Audit prices live
+        if: steps.refresh.outputs.should_refresh == 'true'
+        continue-on-error: true
+        run: |
+          python herramientas/audit_precios_live.py \
+            --output analisis/verify_payload.json \
+            --max-open 30 \
+            --max-closed 12
+
       - name: Build dashboard bundle
         if: steps.refresh.outputs.should_refresh == 'true'
         run: python analisis/generar_tablero_maquina_pensante.py --variant all
