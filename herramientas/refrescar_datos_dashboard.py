@@ -768,10 +768,10 @@ def _render_kpi_verify() -> str:
     out_label = f"hist {out_ok}/{out_v} ok" if out_v else ""
     orphan_label = f"· {unclosed} sin cerrar" if unclosed else ""
 
-    sub1 = f"{fresh_date} ({fresh_label})"
-    sub2 = mtm_label + (f" · {out_label}" if out_label else "") + orphan_label
-
     # data-verify para que JS del dashboard pueda expandir detalle
+    open_warn = summary.get("open_mtm_warn", 0)
+    open_crit = summary.get("open_mtm_crit", 0)
+    cross = summary.get("cross_inconsistencies", 0)
     data_verify = json.dumps({
         "score": score,
         "status": status,
@@ -780,21 +780,64 @@ def _render_kpi_verify() -> str:
             "stale": fresh_days,
         },
         "open_mtm": {"ok": open_ok, "verified": open_v,
-                     "warn": summary.get("open_mtm_warn", 0),
-                     "crit": summary.get("open_mtm_crit", 0)},
+                     "warn": open_warn,
+                     "crit": open_crit},
         "outcomes": {"ok": out_ok, "verified": out_v,
                      "warn": summary.get("outcomes_warn", 0),
                      "crit": summary.get("outcomes_crit", 0)},
         "unclosed": unclosed,
-        "cross_inconsistencies": summary.get("cross_inconsistencies", 0),
+        "cross_inconsistencies": cross,
     }, separators=(",", ":"))
 
+    # ── Fecha legible en español (hoy 6 may) ──────────────────────────────────
+    _months_es = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]
+    if fresh_days == 0:
+        try:
+            _dt = datetime.date.fromisoformat(str(fresh_date))
+            fresh_human = f"hoy {_dt.day} {_months_es[_dt.month - 1]}"
+        except Exception:
+            fresh_human = "hoy"
+    elif fresh_days:
+        fresh_human = f"+{fresh_days} d&iacute;as de atraso"
+    else:
+        fresh_human = "—"
+
+    # ── Líneas de detalle C1 ───────────────────────────────────────────────────
+    _ok  = '<span style="color:var(--green,#44e890)">&#10003;</span>'
+    _wrn = '<span style="color:#f5b833">&#9888;</span>'
+    _crt = '<span style="color:var(--red,#fc5c7d)">&#9888;</span>'
+    detail_lines = [
+        f'{_ok} Precios al d&iacute;a ({fresh_human}) &mdash; todos los modelos',
+        f'{_ok} {open_ok}/{open_v} picks activos verificados',
+    ]
+    if open_crit > 0:
+        detail_lines.append(
+            f'<span style="color:var(--red,#fc5c7d)">&nbsp;&nbsp;&nbsp;{_crt} {open_crit} con diferencia importante (revisar)</span>'
+        )
+    elif open_warn > 0:
+        detail_lines.append(
+            f'<span style="color:#f5b833">&nbsp;&nbsp;&nbsp;{_wrn} {open_warn} con dif. menor de precio (&lt;1%)</span>'
+        )
+    if out_v > 0:
+        detail_lines.append(f'{_ok} {out_ok}/{out_v} operaciones cerradas confirmadas')
+    if unclosed == 0:
+        detail_lines.append(f'{_ok} Sin picks pendientes de cerrar')
+    else:
+        detail_lines.append(
+            f'<span style="color:#f5b833">&nbsp;&nbsp;&nbsp;{_wrn} {unclosed} picks sin cerrar (revisar)</span>'
+        )
+    if cross > 0:
+        detail_lines.append(
+            f'<span style="color:#f5b833">&nbsp;&nbsp;&nbsp;{_wrn} {cross} conflictos entre modelos</span>'
+        )
+    detail_html = "<br>".join(detail_lines)
+
     return (
-        f'<div class="kpi-card editable-block" data-bid="kpi-verify" data-blabel="KPI Semáforo Datos" data-verify=\'{data_verify}\'>'
-        '<div class="kc-label">Semáforo Datos</div>'
+        f'<div class="kpi-card editable-block" data-bid="kpi-verify" data-blabel="KPI Datos" data-verify=\'{data_verify}\'>'
+        '<div class="kc-label">Datos</div>'
         f'<div class="kc-value" style="color:{color}">{score:.0f}%</div>'
-        f'<div class="kc-sub">{sub1}</div>'
-        f'<div class="kc-sub" style="margin-top:2px;opacity:.82">{sub2}</div>'
+        '<div class="kc-sub" style="font-size:0.6em;opacity:0.65;margin-top:-1px">integridad del sistema</div>'
+        f'<div class="kc-sub" style="text-align:left;margin-top:5px;line-height:1.75;font-size:0.68rem">{detail_html}</div>'
         "</div>"
     )
 
