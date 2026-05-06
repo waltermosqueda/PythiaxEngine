@@ -4,6 +4,59 @@ Este archivo se sincroniza via Google Drive y puede usarse desde cualquier PC.
 
 ---
 
+## 2026-05-06 | Sesion — Bug 7: pipeline post-mercado siempre fallaba (root cause confirmado y corregido)
+
+### Contexto
+Investigacion multi-sesion del patron de fallo sistematico: cada dia a las 19:30 AR (primer cron post-cierre NYSE) el workflow `cloud-daily-operations` fallaba. Los runs de las 22:00 AR y 08:00 AR del dia siguiente pasaban sin problemas. Se confirmo el root cause leyendo el log en vivo del job (run #35, step 8).
+
+### Root cause confirmado
+El workflow `intraday-mtm-refresh.yml` corre a las 16:30 AR (antes del cierre NYSE) y hace upsert en la tabla `prices` solo para los tickers con picks abiertos (ej. INTC, ARM). Esto adelanta `MAX(date) FROM prices` a la fecha actual aunque SPY y la mayoria de los tickers operativos sigan en la fecha anterior.
+
+Cadena de fallo:
+1. 16:30 AR: `intraday-mtm-refresh` upserta precios intraday para tickers de picks → `MAX(date) = 2026-05-05`
+2. 19:30 AR: `cloud-daily-operations` corre → `get_ultima_fecha_db()` = `2026-05-05` → `faltantes = 0`
+3. Pipeline salta la descarga EOD completa porque "la DB ya esta al dia"
+4. `validate_market_data.py --expected-date 2026-05-05` detecta: `SPY no tiene la ultima fecha global` → `[FAIL]`
+5. Exit code 1 → todos los steps downstream (incluyendo `decide_cloud_refresh`) quedan **skipped** (0s)
+6. Dashboard no se actualiza, el workflow falla → todos los dias sin excepcion
+
+Confirmado en logs del run #35 (step 8, linea 58):
+`[FAIL] Cobertura ultimo cierre: SPY no tiene la ultima fecha global; el scanner no es confiable.`
+
+Bug secundario: `continue-on-error: true` en step 8 no es suficiente para prevenir el cascade skip de steps con condicion default `success()`.
+
+### Por que pasaba solo en el cron de 19:30 AR (no en 08:00 AR)
+A las 08:00 AR, `fecha_objetivo_mercado()` devuelve el dia ANTERIOR (hour < 19 < MARKET_CLOSE_HOUR). Los datos de ayer estan completos y estables en Supabase → validacion pasa sin problemas.
+
+### Cambios aplicados — commit `a77a2e1`
+
+**`herramientas/auto_actualizar.py`**
+- nueva funcion `_get_ultima_fecha_sentinel()`: consulta `MIN(MAX(date))` especificamente para SPY y QQQ
+- en `main()`, despues de `ultima = get_ultima_fecha_db()`: si `sentinel_date < MAX(date) global`, sobreescribe `ultima` con la fecha sentinel
+- efecto: `faltantes` vuelve a ser > 0 → se fuerza la descarga EOD completa → SPY queda en la fecha actual → validacion pasa
+
+**`.github/workflows/cloud-daily-operations.yml`**
+- agrega `if: '!cancelled()'` al step `Decide cloud refresh`
+- efecto: el rebuild del dashboard siempre se intenta, incluso cuando el pipeline (step 8) falla por cualquier causa
+
+### Historial de bugs corregidos en esta sesion extendida (2026-05-05 / 2026-05-06)
+| Commit | Bug | Fix |
+|--------|-----|-----|
+| `cf73535` | BUG 1: `github-pages-publish.yml` regeneraba dashboard con datos viejos en cada push | Condicional `should_refresh` basado en freshness |
+| `531ea07` | BUG 2: `audit_dashboard_integrity.py` falso positivo en V11 SEGURO | `pass` en check `zero_signal_picks` para carry-over |
+| `42a09af` | BUG 3: Cloudflare Pages no sincronizaba | Sacar `[skip ci]` del sync commit |
+| `ae7595b` / `5695c75` | BUG 4: freshness badge mostraba tiempo negativo | Agregar sufijo `Z` a timestamps UTC en HTML |
+| `1e36de0` | BUG 5: `Stage GitHub Pages site` corria sin guarda `if:` | Agregar condicion `should_refresh` |
+| `82a7de9` | BUG 6: arquitectura — `github-pages-publish.yml` con 300+ lineas y pipeline redundante | Simplificar a 51 lineas: solo `cp HTML + deploy-pages` |
+| `a77a2e1` | **BUG 7: pipeline 19:30 AR fallaba siempre** | Sentinel check SPY/QQQ + `if: !cancelled()` en decide |
+
+### Pendiente
+- Verificar el proximo run de 19:30 AR (cron `30 22 * * 1-5`) para confirmar que el sentinel check funciona
+- Migrar LEGACY_ML_V94_BUY_D5 a Supabase cuando venza el target (2026-05-11): 2 rows, ARM + INTC
+- Resolver Cloudflare Access (pagina publica, pendiente Fail open → Fail closed)
+
+---
+
 ## 2026-04-26 - Foco cloud-first PythiaxEngine + auditoria end-to-end
 
 ### Decision boundary
