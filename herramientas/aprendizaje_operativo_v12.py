@@ -72,6 +72,134 @@ class OperationalLearningV12(base.OperationalLearningV11):
         if updated_at_text and latest_prices_date == self.latest_db_date:
             self.db_last_write = datetime.strptime(updated_at_text, "%Y-%m-%d %H:%M:%S")
 
+    def evaluate_due_predictions(
+        self,
+        max_target_date: str | None = None,
+        recompute_existing: bool = False,
+    ) -> dict[str, Any]:
+        """Versión optimizada V12: precios desde self.prepared (in-memory) + bulk SELECT.
+
+        La implementación base (V11) hace 2 queries de precios por predicción
+        (entry_date open + target_date close), resultando en ~3500 round-trips a
+        Supabase para 1000+ predicciones históricas → timeout de 600s.
+
+        Esta versión usa:
+        1. Un único SELECT bulk para todas las predicciones (vs. uno por target_date).
+        2. Lookups O(1) en self.prepared[ticker] DataFrame para los precios (0 queries).
+        3. Un único executemany para los outcomes (vs. uno por predicción).
+        Reduce de ~3500 queries a ~3 queries totales.
+        """
+        if max_target_date is None:
+            max_target_date = self.latest_db_date
+
+        # 1. Bulk SELECT: todas las predicciones relevantes en UNA sola query.
+        if recompute_existing:
+            all_pending = self.db.conn.execute(
+                """
+                SELECT p.id, p.model_name, p.ticker, p.direction, p.prediction_date, p.target_date
+                FROM predictions p
+                WHERE p.model_name LIKE ? AND p.target_date <= ?
+                ORDER BY p.target_date
+                """,
+                (f"{MODEL_PREFIX}_%", max_target_date),
+            ).fetchall()
+        else:
+            all_pending = self.db.conn.execute(
+                """
+                SELECT p.id, p.model_name, p.ticker, p.direction, p.prediction_date, p.target_date
+                FROM predictions p
+                LEFT JOIN outcomes o ON p.id = o.prediction_id
+                WHERE p.model_name LIKE ? AND p.target_date <= ? AND o.id IS NULL
+                ORDER BY p.target_date
+                """,
+                (f"{MODEL_PREFIX}_%", max_target_date),
+            ).fetchall()
+
+        distinct_dates = len({str(row[5]) for row in all_pending})
+        summary: dict[str, Any] = {
+            "evaluated": 0,
+            "hits": 0,
+            "misses": 0,
+            "errors": 0,
+            "dates": distinct_dates,
+        }
+
+        outcomes_batch: list[tuple[int, str, float, int]] = []
+        for pred_id, model_name, ticker, predicted_dir, pred_date, stored_target_date in all_pending:
+            pred_date = str(pred_date)
+            stored_target_date = str(stored_target_date)
+            horizon = self.extract_horizon(str(model_name))
+            if horizon is None:
+                summary["errors"] += 1
+                continue
+
+            entry_date = self.trading_day_offset(str(pred_date), 1)
+            actual_target_date = self.trading_day_offset(str(pred_date), horizon)
+            if entry_date is None or actual_target_date is None:
+                continue
+            if actual_target_date > max_target_date:
+                continue
+
+            # Corrección de target_date: si cambió (raro), actualiza en DB.
+            if stored_target_date != actual_target_date:
+                existing_row = self.db.conn.execute(
+                    """
+                    SELECT id
+                    FROM predictions
+                    WHERE model_name = ? AND ticker = ? AND prediction_date = ? AND target_date = ?
+                    """,
+                    (model_name, ticker, pred_date, actual_target_date),
+                ).fetchone()
+                if existing_row and int(existing_row[0]) != int(pred_id):
+                    self.db.conn.execute("DELETE FROM predictions WHERE id = ?", (pred_id,))
+                    pred_id = int(existing_row[0])
+                else:
+                    self.db.conn.execute(
+                        "UPDATE predictions SET target_date = ? WHERE id = ?",
+                        (actual_target_date, pred_id),
+                    )
+
+            # 2. Price lookup en memoria (0 queries a DB).
+            if ticker not in self.prepared:
+                summary["errors"] += 1
+                continue
+            df = self.prepared[ticker]
+            try:
+                price_before = df.at[pd.Timestamp(entry_date), "Open"]
+                price_after = df.at[pd.Timestamp(actual_target_date), "Close"]
+            except (KeyError, TypeError):
+                summary["errors"] += 1
+                continue
+            if pd.isna(price_before) or pd.isna(price_after):
+                summary["errors"] += 1
+                continue
+            if price_before == 0:
+                summary["errors"] += 1
+                continue
+
+            actual_return = (price_after - price_before) / price_before
+            actual_direction = "UP" if actual_return >= 0 else "DOWN"
+            hit = 1 if str(predicted_dir).upper() == actual_direction else 0
+            outcomes_batch.append((int(pred_id), actual_direction, float(actual_return), hit))
+            summary["evaluated"] += 1
+            if hit:
+                summary["hits"] += 1
+            else:
+                summary["misses"] += 1
+
+        # 3. Batch upsert de outcomes (1 executemany en lugar de N INSERTs).
+        if outcomes_batch:
+            self.db.conn.executemany(
+                """
+                INSERT OR REPLACE INTO outcomes
+                    (prediction_id, actual_direction, actual_return, hit)
+                VALUES (?, ?, ?, ?)
+                """,
+                outcomes_batch,
+            )
+        self.db.conn.commit()
+        return summary
+
     def _historical_freshness(self, analyzed_date: str) -> str:
         if analyzed_date != self.latest_db_date:
             return "HISTORICA"
