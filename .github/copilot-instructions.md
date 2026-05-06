@@ -248,6 +248,15 @@ Usar esa fecha como `--from-date`. NUNCA usar la fecha técnica mínima. Todos l
 Fix: `_get_ultima_fecha_sentinel()` en `auto_actualizar.py` — usa `MIN(MAX(date))` para SPY y QQQ como `ultima`.
 Si sentinel < MAX global → fuerza descarga EOD completa.
 
+**Por qué el 08:00 AR siempre pasaba — detalle técnico preciso:**
+La explicación superficial es "corrió antes del intraday-refresh". Eso es verdad en la práctica pero incompleto.
+La razón técnica real es `fecha_objetivo_mercado(now)` en `auto_actualizar.py`:
+- Si `now.hour < MARKET_CLOSE_HOUR` (19) → retorna **ayer** como fecha objetivo
+- `faltantes = objetivo - MAX(date)` → siempre ≥ 1 → siempre descarga EOD
+- **Esto es independiente del orden de los crons.** Aunque MTM hubiera corrido antes del 08:00, el pipeline igual forzaría descarga porque el target es ayer, no hoy.
+
+Esto hace el fix mucho más robusto: el 08:00 AR no depende de timing de otros workflows — depende de una propiedad matemática de la hora. La vulnerabilidad era exclusiva del 19:30 AR (único horario donde `hour >= 19` → `fecha_objetivo = hoy` → expuesto al MAX(date) contaminado por MTM).
+
 ---
 
 ### 🔀 GIT — REGLAS CRÍTICAS
