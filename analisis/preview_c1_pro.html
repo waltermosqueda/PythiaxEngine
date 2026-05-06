@@ -1661,7 +1661,7 @@ body.sidebar-collapsed .plain-side-btn .psb-icon{font-size:14px;color:rgba(255,2
   </header>
 
   <!-- KPI STRIP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-  <section class="kpi-strip editable-block" data-bid="kpi-strip" data-blabel="Franja KPI"><div class="kpi-card accent-cyan editable-block" data-bid="kpi-champion" data-blabel="KPI Champion"><div class="kc-label">Motor Experimental</div><div class="kc-value">V13</div><div class="kc-sub">WR 60.81% Â· ret +6.244% Â· #8</div></div><div class="kpi-card accent-gold editable-block" data-bid="kpi-leader" data-blabel="KPI LÃ­der"><div class="kc-label">Champion #1</div><div class="kc-value">V11</div><div class="kc-sub">WR 82.61% Â· ret +5.265%</div></div><div class="kpi-card accent-green editable-block" data-bid="kpi-picks" data-blabel="KPI Picks"><div class="kc-label">Picks hoy</div><div class="kc-value">0</div><div class="kc-sub">SEGURO Â· breadth 53.8%</div></div><div class="kpi-card editable-block" data-bid="kpi-verify" data-blabel="KPI SemÃ¡foro Datos" data-verify='{"score":97.3,"status":"warn","freshness":{"date":"2026-05-06","stale":0},"open_mtm":{"ok":28,"verified":30,"warn":2,"crit":0},"outcomes":{"ok":12,"verified":12,"warn":0,"crit":0},"unclosed":0,"cross_inconsistencies":0}'><div class="kc-label">SemÃ¡foro Datos</div><div class="kc-value" style="color:var(--green, #44e890)">97%</div><div class="kc-sub">2026-05-06 (precios hoy)</div><div class="kc-sub" style="margin-top:2px;opacity:.82">MTM 28/30 ok Â· hist 12/12 ok</div></div><div class="kpi-card editable-block" id="kpi-actualizacion" data-bid="kpi-actualizacion" data-blabel="KPI ActualizaciÃ³n" data-ts="2026-05-06T14:59:44Z"><div class="kc-label">ActualizaciÃ³n</div><div class="kc-value" id="kpi-fresh-value">â€”</div><div class="kc-sub" id="kpi-fresh-sub" style="margin-top:2px">gen. 2026-05-06T14:59:44 Â· Postgres/Supabase 14:59 UTC  Â·  11:59 AR</div><div class="kc-sub" id="kpi-fresh-meta" style="margin-top:2px;opacity:.75">Mercado 2026-05-05 Â· Target 2026-05-06</div><div class="kc-sub" id="kpi-fresh-regime" style="margin-top:2px;font-weight:700;color:var(--green)">SEGURO</div></div></section>
+  <section class="kpi-strip editable-block" data-bid="kpi-strip" data-blabel="Franja KPI"><div class="kpi-card accent-cyan editable-block" data-bid="kpi-champion" data-blabel="KPI Champion"><div class="kc-label">Experimental</div><div class="kc-value">V13</div><div class="kc-sub">WR 60.81% &middot; ret +6.244% &middot; #8</div></div><div class="kpi-card accent-gold editable-block" data-bid="kpi-leader" data-blabel="KPI Lider"><div class="kc-label">Champion #1</div><div class="kc-value">V11</div><div class="kc-sub">WR 82.61% &middot; ret +5.265%</div></div><div class="kpi-card accent-green editable-block" data-bid="kpi-picks" data-blabel="KPI Picks"><div class="kc-label">Picks hoy</div><div class="kc-value">0</div><div class="kc-sub">SEGURO &middot; breadth 53.8%</div></div><div class="kpi-card editable-block" data-bid="kpi-verify" data-blabel="KPI Datos" data-verify='{"score":97.3,"status":"warn","freshness":{"date":"2026-05-06","stale":0},"open_mtm":{"ok":28,"verified":30,"warn":2,"crit":0},"outcomes":{"ok":12,"verified":12,"warn":0,"crit":0},"unclosed":0,"cross_inconsistencies":0}'><div class="kc-label">Datos</div><div class="kc-value" style="color:var(--green, #44e890)">97%</div><div class="kc-sub">MTM 28/30 &middot; hist 12/12</div></div><div class="kpi-card editable-block" id="kpi-actualizacion" data-bid="kpi-actualizacion" data-blabel="KPI Sync" data-ts="2026-05-06T14:59:44Z"><div class="kc-label">Sync</div><div class="kc-value" id="kpi-fresh-value">&mdash;</div><div class="kc-sub" id="kpi-fresh-sub" style="margin-top:2px">2026-05-06 14:59 UTC &middot; 11:59 AR</div><div class="kc-sub" id="kpi-fresh-meta" style="display:none"></div><div class="kc-sub" id="kpi-fresh-regime" style="margin-top:2px;font-weight:700;color:var(--green)">SEGURO</div></div></section>
 
 
   <!-- HERO ROW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
@@ -3733,14 +3733,14 @@ initLigaExpand();
     if (diffMin < 0) diffMin = 0;
     var label, dot, accent, color;
     if (diffMin < 240) {
-      dot = 'ðŸŸ¢'; accent = 'accent-green'; color = 'var(--green)';
+      dot = ''; accent = 'accent-green'; color = 'var(--green)';
       label = diffMin < 60 ? diffMin + 'm' : Math.floor(diffMin/60) + 'h' + (diffMin%60 > 0 ? (diffMin%60) + 'm' : '');
     } else if (diffMin < 1380) {
-      dot = 'ðŸŸ¡'; accent = ''; color = 'var(--gold)';
+      dot = ''; accent = ''; color = 'var(--gold)';
       var h = Math.floor(diffMin/60), m = diffMin%60;
       label = h + 'h' + (m > 0 ? m + 'm' : '');
     } else {
-      dot = 'ðŸ”´'; accent = 'accent-rose'; color = 'var(--rose)';
+      dot = ''; accent = 'accent-rose'; color = 'var(--rose)';
       label = Math.floor(diffMin/60) + 'h';
     }
     var utcDate = ts.substring(0,10);
@@ -3749,8 +3749,8 @@ initLigaExpand();
     var arDate  = arShift.getUTCFullYear() + '-' + String(arShift.getUTCMonth()+1).padStart(2,'0') + '-' + String(arShift.getUTCDate()).padStart(2,'0');
     var arTime  = String(arShift.getUTCHours()).padStart(2,'0') + ':' + String(arShift.getUTCMinutes()).padStart(2,'0');
     var sameDayAR = (arDate === utcDate);
-    var subText = 'gen. ' + utcDate + ' ' + utcTime + ' UTC  Â·  ' + arTime + ' AR' + (sameDayAR ? '' : ' (' + arDate + ')');
-    if (kpiVal) { kpiVal.textContent = dot + ' hace ' + label; kpiVal.style.color = color; }
+    var subText = utcDate + ' ' + utcTime + ' UTC \u00B7 ' + arTime + ' AR' + (sameDayAR ? '' : ' (' + arDate + ')');
+    if (kpiVal) { kpiVal.textContent = 'hace ' + label; kpiVal.style.color = color; }
     if (kpiSub) kpiSub.textContent = subText;
     if (kpiCard) {
       kpiCard.classList.remove('accent-green','accent-gold','accent-rose');
