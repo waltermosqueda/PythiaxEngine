@@ -219,10 +219,12 @@ jobs:
           PY
 
       - name: Stage GitHub Pages site
+        if: steps.refresh.outputs.should_refresh == 'true'
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
 
       - name: Run integrity audit
         id: integrity_audit
+        if: steps.refresh.outputs.should_refresh == 'true'
         continue-on-error: true
         run: |
           python -m infra.cloud.audit_dashboard_integrity \
@@ -234,7 +236,7 @@ jobs:
             --report-path docs/cloud/reports/dashboard_integrity_audit.json
 
       - name: Report integrity audit failure
-        if: steps.integrity_audit.outcome != 'success'
+        if: steps.refresh.outputs.should_refresh == 'true' && steps.integrity_audit.outcome == 'failure'
         run: |
           python - <<'PY'
           import json
@@ -350,6 +352,7 @@ jobs:
           PY
 
       - name: Validate generated bundle
+        if: steps.refresh.outputs.should_refresh == 'true'
         run: |
           test -f dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
           test -f dashboards/maquina_pensante/tablero_maquina_pensante.html
@@ -359,6 +362,7 @@ jobs:
           test -f dashboards/maquina_pensante/tablero_maquina_pensante_artifact_manifest.json
 
       - name: Validate staged site
+        if: steps.refresh.outputs.should_refresh == 'true'
         run: |
           test -f dist/github-pages/index.html
           test -f dist/github-pages/preview_c1_pro.html
@@ -372,6 +376,7 @@ jobs:
           cmp -s dist/github-pages/index.html dist/github-pages/preview_c1_pro.html
 
       - name: Upload dashboard artifact
+        if: steps.refresh.outputs.should_refresh == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: pythiax-pages-publish-${{ github.run_id }}
@@ -383,16 +388,19 @@ jobs:
             dist/github-pages/site_bundle_manifest.json
 
       - name: Upload Pages artifact
+        if: steps.refresh.outputs.should_refresh == 'true'
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist/github-pages
           include-hidden-files: true
 
       - name: Deploy to GitHub Pages
+        if: steps.refresh.outputs.should_refresh == 'true'
         id: deployment
         uses: actions/deploy-pages@v5
 
       - name: Record publish in pipeline ledger
+        if: steps.refresh.outputs.should_refresh == 'true'
         run: python -m infra.publish.record_pages_publish --site-dir dist/github-pages --page-url "${{ steps.deployment.outputs.page_url }}"
 
       - name: Sync dashboard HTML back to repo (for Cloudflare Pages)
