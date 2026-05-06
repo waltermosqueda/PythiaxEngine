@@ -63,6 +63,7 @@ jobs:
 
       - name: Decide cloud refresh
         id: refresh
+        if: '!cancelled()'
         run: |
           FORCE_ARGS=""
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then

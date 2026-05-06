@@ -259,6 +259,35 @@ def get_ultima_fecha_db() -> date | None:
     return None
 
 
+def _get_ultima_fecha_sentinel() -> date | None:
+    """Devuelve la fecha mas reciente que tienen los tickers centinela (SPY, QQQ).
+
+    Usado para detectar actualizaciones parciales del MTM intraday: si MAX(date) global
+    es 2026-05-05 por tickers de picks abiertos pero SPY/QQQ siguen en 2026-05-04,
+    esta funcion devuelve 2026-05-04 para que el pipeline fuerce la descarga EOD completa.
+    """
+    _SENTINEL_TICKERS = ("SPY", "QQQ")
+    if runtime_backend_name() == "sqlite" and not runtime_sqlite_path().exists():
+        return None
+    try:
+        with TitanDB() as db:
+            placeholders = ",".join(f"'{t}'" for t in _SENTINEL_TICKERS)
+            frame = db.execute_raw(
+                f"SELECT MIN(last_date) AS sentinel_date FROM "
+                f"(SELECT MAX(date) AS last_date FROM prices WHERE ticker IN ({placeholders}) GROUP BY ticker) t"
+            )
+        if not frame.empty and frame.iloc[0, 0]:
+            v = frame.iloc[0, 0]
+            if isinstance(v, datetime):
+                return v.date()
+            if isinstance(v, date):
+                return v
+            return datetime.strptime(str(v)[:10], "%Y-%m-%d").date() if v else None
+    except Exception as exc:
+        log.error(f"Error leyendo fechas centinela: {exc}")
+    return None
+
+
 def get_price_row_count() -> int | None:
     """Devuelve la cantidad de filas en prices para distinguir DB vacia de error de lectura."""
     if runtime_backend_name() == "sqlite" and not runtime_sqlite_path().exists():
@@ -1736,6 +1765,27 @@ def main() -> int:
 
     target_date = fecha_objetivo_mercado(now)
     ultima = get_ultima_fecha_db()
+
+    # Guardia contra actualizaciones parciales del MTM intraday: el workflow
+    # intraday-mtm-refresh hace upsert en prices solo para tickers con picks
+    # abiertos, lo que puede adelantar MAX(date) a la fecha actual aunque SPY
+    # y la mayoria de los tickers operativos aun no tengan el cierre definitivo.
+    # Si los tickers centinela (SPY, QQQ) tienen una fecha menor al MAX global,
+    # usamos su fecha para forzar la descarga EOD completa.
+    if ultima is not None:
+        ultima_sentinel = _get_ultima_fecha_sentinel()
+        if ultima_sentinel is not None and ultima_sentinel < ultima:
+            log.info(
+                "[SENTINEL] Tickers centinela en %s < max DB %s; "
+                "usando fecha centinela para calcular faltantes y forzar descarga EOD.",
+                ultima_sentinel, ultima,
+            )
+            print(
+                f"  [SENTINEL] SPY/QQQ en {ultima_sentinel} < max DB {ultima}. "
+                "Se forzara descarga EOD completa."
+            )
+            ultima = ultima_sentinel
+
     bootstrap_prices = False
     if ultima is None:
         price_rows = get_price_row_count()
