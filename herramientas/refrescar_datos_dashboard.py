@@ -644,7 +644,11 @@ def _render_topbar_meta(snap: dict) -> str:
     generated_fmt = generated_at
     if generated_at:
         try:
-            generated_fmt = datetime.datetime.fromisoformat(generated_at.replace("Z", "")).strftime("%d/%m/%y %H:%M")
+            dt_utc = datetime.datetime.fromisoformat(generated_at.replace("Z", ""))
+            dt_ar  = dt_utc - datetime.timedelta(hours=3)  # AR = UTC-3 fijo, sin DST
+            utc_str = dt_utc.strftime("%Y-%m-%d %H:%M UTC")
+            ar_label = dt_ar.strftime("%H:%M AR") if dt_ar.date() == dt_utc.date() else dt_ar.strftime("%H:%M AR") + " (" + dt_ar.strftime("%m-%d") + ")"
+            generated_fmt = utc_str + "  ·  " + ar_label
         except ValueError:
             pass
     target = active_run.get("prediction_for")
@@ -727,7 +731,11 @@ def _render_kpi_strip(snap: dict) -> str:
     generated_fmt = generated_at
     if generated_at:
         try:
-            generated_fmt = datetime.datetime.fromisoformat(generated_at.replace("Z", "")).strftime("%d/%m/%y %H:%M")
+            dt_utc = datetime.datetime.fromisoformat(generated_at.replace("Z", ""))
+            dt_ar  = dt_utc - datetime.timedelta(hours=3)  # AR = UTC-3 fijo, sin DST
+            utc_str = dt_utc.strftime("%Y-%m-%d %H:%M UTC")
+            ar_label = dt_ar.strftime("%H:%M AR") if dt_ar.date() == dt_utc.date() else dt_ar.strftime("%H:%M AR") + " (" + dt_ar.strftime("%m-%d") + ")"
+            generated_fmt = utc_str + "  ·  " + ar_label
         except ValueError:
             pass
     latest_market = latest_market_date(snap) or "\u2014"

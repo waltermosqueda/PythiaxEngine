@@ -3637,9 +3637,16 @@ initLigaExpand();
       dot = '🔴'; accent = 'accent-rose'; color = 'var(--rose)';
       label = Math.floor(diffMin/60) + 'h';
     }
-    var tsShort = ts.replace('T',' ').replace('Z','').substring(0,16);
+    // Timestamps: gen en UTC (backend/CI), AR = UTC-3 fijo (sin DST)
+    var utcDate = ts.substring(0,10);
+    var utcTime = String(gen.getUTCHours()).padStart(2,'0') + ':' + String(gen.getUTCMinutes()).padStart(2,'0');
+    var arShift = new Date(gen.getTime() - 3*3600000);
+    var arDate  = arShift.getUTCFullYear() + '-' + String(arShift.getUTCMonth()+1).padStart(2,'0') + '-' + String(arShift.getUTCDate()).padStart(2,'0');
+    var arTime  = String(arShift.getUTCHours()).padStart(2,'0') + ':' + String(arShift.getUTCMinutes()).padStart(2,'0');
+    var sameDayAR = (arDate === utcDate);
+    var subText = 'gen. ' + utcDate + ' ' + utcTime + ' UTC  ·  ' + arTime + ' AR' + (sameDayAR ? '' : ' (' + arDate + ')');
     if (kpiVal) { kpiVal.textContent = dot + ' hace ' + label; kpiVal.style.color = color; }
-    if (kpiSub) kpiSub.textContent = 'gen. ' + tsShort;
+    if (kpiSub) kpiSub.textContent = subText;
     if (kpiCard) {
       kpiCard.classList.remove('accent-green','accent-gold','accent-rose');
       if (accent) kpiCard.classList.add(accent);
