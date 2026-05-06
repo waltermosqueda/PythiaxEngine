@@ -74,7 +74,7 @@ def _biz_days_diff(date_a: str, date_b: str) -> int:
 
 
 def _today_str() -> str:
-    return datetime.datetime.utcnow().date().isoformat()
+    return datetime.datetime.now(datetime.UTC).date().isoformat()
 
 
 # ── 1. Staleness de la tabla prices ──────────────────────────────────────────
@@ -160,7 +160,7 @@ def _fetch_yf_history(tickers: list[str], period: str = YF_FETCH_PERIOD) -> dict
         raw = yf.download(
             tickers,
             period=period,
-            auto_adjust=True,
+            auto_adjust=False,  # DB almacena precios sin ajustar (data_loader.py usa auto_adjust=False)
             progress=False,
             threads=True,
         )
@@ -454,21 +454,26 @@ def check_closed_outcomes(con: RuntimeDB, max_outcomes: int = MAX_CLOSED_DEFAULT
             })
             continue
 
-        actual_return_db_pct = actual_return_db * 100.0
-        return_yf_pct = (yf_target - yf_entry) / yf_entry * 100.0
-        diff = abs(actual_return_db_pct - return_yf_pct)
-
-        # También verificar entry_close_db vs yf_entry
+        # Verificar que los precios almacenados en DB coincidan con YF (misma fecha, tipo close).
+        # El pipeline calcula actual_return con entry_open del día siguiente, pero aquí auditamos
+        # la integridad de los precios almacenados comparando close vs close en la misma fecha.
         entry_price_diff = abs(entry_close_db - yf_entry) / yf_entry * 100.0 if yf_entry else 0.0
+        target_close_db = pick.get("target_close_db") or 0.0
+        target_price_diff = abs(target_close_db - yf_target) / yf_target * 100.0 if yf_target and target_close_db else 0.0
+        price_diff = max(entry_price_diff, target_price_diff)
 
-        if diff >= OUTCOME_TOLERANCE_CRIT:
+        if price_diff >= OUTCOME_TOLERANCE_CRIT:
             status = "crit"
             crit_count += 1
-        elif diff >= OUTCOME_TOLERANCE_WARN:
+        elif price_diff >= OUTCOME_TOLERANCE_WARN:
             status = "warn"
             warn_count += 1
         else:
             status = "ok"
+
+        # Retorno YF vs DB (solo informativo — el pipeline usa entry_open del día+1, no entry_close)
+        actual_return_db_pct = actual_return_db * 100.0
+        return_yf_pct = (yf_target - yf_entry) / yf_entry * 100.0
 
         items.append({
             "ticker": tk,
@@ -478,12 +483,12 @@ def check_closed_outcomes(con: RuntimeDB, max_outcomes: int = MAX_CLOSED_DEFAULT
             "entry_date_db": entry_date,
             "entry_close_db": round(entry_close_db, 4),
             "entry_close_yf": round(yf_entry, 4),
-            "target_close_db": round(pick.get("target_close_db") or 0.0, 4),
+            "target_close_db": round(target_close_db, 4),
             "target_close_yf": round(yf_target, 4),
             "actual_return_db_pct": round(actual_return_db_pct, 2),
             "return_yf_pct": round(return_yf_pct, 2),
-            "diff_pct": round(diff, 2),
             "entry_price_diff_pct": round(entry_price_diff, 2),
+            "target_price_diff_pct": round(target_price_diff, 2),
             "status": status,
         })
 
@@ -509,9 +514,13 @@ def check_closed_outcomes(con: RuntimeDB, max_outcomes: int = MAX_CLOSED_DEFAULT
 
 def check_cross_model_consistency(con: RuntimeDB) -> dict[str, Any]:
     """
-    Detecta el mismo ticker con precios de entrada muy distintos en la misma semana
-    en distintos modelos (señal de datos inconsistentes en la tabla prices).
+    Detecta el mismo ticker con precios de entrada distintos en la misma fecha exacta
+    en distintos modelos (señal de datos incoherentes en la tabla prices).
+    Nota: dos modelos que entran el mismo ticker en días distintos de la misma semana
+    tienen precios distintos por diseño; agrupar por semana generaba falsos positivos.
     """
+    # Fecha límite hace 30 días
+    thirty_days_ago = (datetime.datetime.now(datetime.UTC).date() - datetime.timedelta(days=30)).isoformat()
     try:
         rows = con.execute(
             """
@@ -519,7 +528,8 @@ def check_cross_model_consistency(con: RuntimeDB) -> dict[str, Any]:
                 p.ticker,
                 p.prediction_date,
                 p.model_name,
-                p_entry.close AS entry_close
+                p_entry.close AS entry_close,
+                p_entry.date  AS entry_date
             FROM predictions p
             LEFT JOIN prices p_entry
                 ON p_entry.ticker = p.ticker
@@ -529,34 +539,28 @@ def check_cross_model_consistency(con: RuntimeDB) -> dict[str, Any]:
                 )
             WHERE p_entry.close IS NOT NULL
               AND p.prediction_date >= ?
-            ORDER BY p.ticker, p.prediction_date
+            ORDER BY p.ticker, p_entry.date
             """,
             (thirty_days_ago,),
         ).fetchall()
     except Exception as exc:
-        return {"status": "error", "inconsistencies": [], "error": str(exc)}
+        return {"status": "error", "inconsistency_count": 0, "inconsistencies": [], "error": str(exc)}
 
-    # Fecha límite hace 30 días
-    thirty_days_ago = (datetime.datetime.utcnow().date() - datetime.timedelta(days=30)).isoformat()
-
-    # Agrupar por ticker+semana y ver variación de entry_close
+    # Agrupar por ticker+entry_date exacto: mismo ticker+mismo día = mismo row en prices
+    # → spread esperado = 0%. Cualquier spread > 0.1% indica corrupción de datos.
     from collections import defaultdict
-    week_map: dict[tuple[str, str], list[tuple[str, float]]] = defaultdict(list)
+    date_map: dict[tuple[str, str], list[tuple[str, float]]] = defaultdict(list)
     for r in rows:
         tk = str(r[0])
-        pred_date = str(r[1])
         model = str(r[2])
         price = float(r[3])
-        try:
-            d = datetime.date.fromisoformat(pred_date)
-            week_key = d.isocalendar()[:2]
-            week_str = f"{week_key[0]}-W{week_key[1]:02d}"
-        except ValueError:
+        entry_date = str(r[4]) if r[4] is not None else ""
+        if not entry_date:
             continue
-        week_map[(tk, week_str)].append((model, price))
+        date_map[(tk, entry_date)].append((model, price))
 
     inconsistencies: list[dict[str, Any]] = []
-    for (tk, week), entries in week_map.items():
+    for (tk, entry_date), entries in date_map.items():
         if len(entries) < 2:
             continue
         prices = [p for _, p in entries]
@@ -564,10 +568,10 @@ def check_cross_model_consistency(con: RuntimeDB) -> dict[str, Any]:
         if min_p <= 0:
             continue
         spread_pct = (max_p - min_p) / min_p * 100.0
-        if spread_pct > 2.0:  # > 2% de spread en la misma semana = sospechoso
+        if spread_pct > 0.1:  # > 0.1% para mismo ticker+fecha exacta = incoherente
             inconsistencies.append({
                 "ticker": tk,
-                "week": week,
+                "entry_date": entry_date,
                 "min_price": round(min_p, 4),
                 "max_price": round(max_p, 4),
                 "spread_pct": round(spread_pct, 2),
@@ -680,7 +684,7 @@ def run_audit(
             "status": "error",
             "confidence_score": 0.0,
             "error": str(exc),
-            "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.datetime.now(datetime.UTC).isoformat() + "Z",
             "checks": {},
         }
         if not dry_run:
@@ -724,7 +728,7 @@ def run_audit(
     payload: dict[str, Any] = {
         "status": status,
         "confidence_score": score,
-        "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.datetime.now(datetime.UTC).isoformat() + "Z",
         "checks": {
             "freshness": freshness,
             "unclosed_picks": unclosed,
