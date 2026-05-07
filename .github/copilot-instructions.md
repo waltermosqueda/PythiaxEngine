@@ -124,6 +124,36 @@ Son cosas distintas en sistemas CI/CD con múltiples workflows interactuando.
 
 ---
 
+### 🗓️ REGLA CRÍTICA — VERIFICACIÓN TEMPORAL ANTES DE CUALQUIER REFERENCIA A FECHAS
+
+> **NUNCA asumir el día de semana ni decir "mañana es lunes/martes/etc." sin computarlo explícitamente.**
+
+El contexto siempre provee `The current date is YYYY-MM-DD` pero NO el día de semana.
+Asumir el día sin calcularlo es un error que ya ocurrió y causó confusión al usuario.
+
+**Protocolo obligatorio antes de CUALQUIER referencia temporal relativa**
+("mañana", "el lunes", "la semana que viene", "en 3 días", etc.):
+
+1. Leer la fecha actual del contexto: `The current date is YYYY-MM-DD`
+2. Computar explícitamente en cadena de razonamiento:
+   ```
+   Hoy = YYYY-MM-DD
+   Hoy + N días = YYYY-MM-DD → weekday(resultado) = ?
+   ```
+   Usando: Lun=0, Mar=1, Mie=2, Jue=3, Vie=4, Sab=5, Dom=6
+3. **Solo entonces** decir "mañana es [día calculado]"
+
+**Ejemplo correcto** (hoy=Jue 7 mayo 2026):
+> "Mañana [May 8] es **viernes** — el cron de 21:30 UTC disparará mañana viernes."
+
+**Ejemplo incorrecto** (lo que no debe pasar):
+> "Mañana (lunes) el cron va a correr." ← día inventado sin calcular
+
+**Regla adicional**: si la conversación ya tiene el resultado del comando de anclaje
+(`py -c "... dias[ar.weekday()]"`), usarlo directamente sin recalcular.
+
+---
+
 ### ⚡ REGLA DE VENTANA SEGURA — Cuándo pushear qué
 
 No toda modificación es igual. Algunas son seguras en cualquier momento. Otras requieren que no haya pipelines corriendo.
