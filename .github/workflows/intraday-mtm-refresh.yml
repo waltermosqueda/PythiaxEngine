@@ -1,21 +1,30 @@
 name: Intraday MTM Refresh
 
-# ── Corridas automáticas intraday (horario Argentina = UTC-3, sin DST) ──────
-# 11:15 AR = 14:15 UTC  →  apertura + 1h45m (mercado abierto, primer vistazo)
-# 14:00 AR = 17:00 UTC  →  mediodía bursátil
-# 16:30 AR = 19:30 UTC  →  30 min antes del cierre NYSE (16:00 ET = 19:00 UTC verano / 20:00 UTC invierno)
+# ── Corridas automáticas intraday — horario cada hora durante la rueda ───────
+# NYSE abre 09:30 ET:
+#   Verano (EDT, UTC-4):  13:30–20:00 UTC = 10:30–17:00 AR
+#   Invierno (EST, UTC-5): 14:30–21:00 UTC = 11:30–18:00 AR
 #
-# Nota: NYSE cierra 16:00 ET. En verano (EDT, UTC-4) eso es 20:00 UTC.
-# En invierno (EST, UTC-5) es 21:00 UTC. Las 19:30 UTC cubren la sesión
-# regular en ambos horarios (captura el valor ~30-60 min antes del cierre).
-# Las actualizaciones post-cierre definitivas siguen siendo responsabilidad
-# del workflow cloud-daily-operations (cron 22:30 UTC = 19:30 AR).
+# Cobertura horaria: 13:30–20:30 UTC cubre ambas estaciones completas.
+# GitHub Actions puede demorar 10-30 min en disparar los crons, lo cual
+# es aceptable para actualizaciones MTM de precio.
+#
+# Las actualizaciones post-cierre definitivas (ML pipeline, outcomes,
+# rebuild completo) siguen siendo responsabilidad de cloud-daily-operations.
+#
+# Costo Supabase por run: ~50-200 KB egress (queries selectivos, no full scan).
+# 8 runs/día × 22 días = ~30 MB/mes → <1% del free tier (5 GB).
 
 on:
   schedule:
-    - cron: "15 14 * * 1-5"   # 11:15 AR — apertura + 1h45m
-    - cron: "0 17 * * 1-5"    # 14:00 AR — mediodía bursátil
-    - cron: "30 19 * * 1-5"   # 16:30 AR — pre-cierre NYSE
+    - cron: "30 13 * * 1-5"   # 10:30 AR — apertura NYSE verano / pre-apertura invierno
+    - cron: "30 14 * * 1-5"   # 11:30 AR — apertura NYSE invierno / +1h verano
+    - cron: "30 15 * * 1-5"   # 12:30 AR
+    - cron: "30 16 * * 1-5"   # 13:30 AR
+    - cron: "30 17 * * 1-5"   # 14:30 AR
+    - cron: "30 18 * * 1-5"   # 15:30 AR
+    - cron: "30 19 * * 1-5"   # 16:30 AR — pre-cierre NYSE verano
+    - cron: "30 20 * * 1-5"   # 17:30 AR — cierre NYSE invierno / post-cierre verano
   workflow_dispatch:           # permite trigger manual para testing
 
 concurrency:
@@ -59,6 +68,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "requirements-prod.txt"
 
       - name: Install dependencies
         run: |
