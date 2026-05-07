@@ -225,6 +225,13 @@ Si el fix propuesto toca más de 3 archivos, preguntarse: ¿cada uno de estos ca
 
 #### Principio 7 — Análisis de impacto bidireccional ANTES de implementar
 
+> **REGLA OPERATIVA — NO NEGOCIABLE**:
+> La pregunta `"¿Aplico el fix?"` **NO puede formularse** hasta que el análisis de impacto
+> (tabla de consumidores + veredicto) haya sido presentado al usuario en el mismo mensaje.
+> Si el análisis no aparece antes de la pregunta → el agente saltó un paso obligatorio.
+>
+> Esto no depende de que el usuario lo pida. El análisis es previo, siempre.
+
 Antes de escribir una sola línea de código, construir mentalmente el grafo de dependencias en **ambas direcciones**:
 
 **Dirección →  "¿Qué depende de lo que voy a tocar?"**

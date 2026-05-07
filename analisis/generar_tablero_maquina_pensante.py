@@ -7,7 +7,7 @@ Modelos soportados: V11, V13, ML_V97, ML_V39, ML_V39FULL, ML_BRAIN_V11, ML_BRAIN
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 import html
 import json
@@ -1624,7 +1624,7 @@ def build_dashboard_payload(
     pipeline_run_id: str | None = None,
     database_url: str | None = None,
 ) -> dict[str, Any]:
-    now = datetime.now().isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     operational = resolve_operational_scanner_context()
     engine = create_db_engine(database_url=database_url) if database_url else None
     with (RuntimeDB(engine) if engine is not None else connect_runtime_db()) as db:
