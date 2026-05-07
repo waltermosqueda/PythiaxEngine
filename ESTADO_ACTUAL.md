@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-07T16:59:43Z -->
-<!-- git_head: d840ad0 -->
+<!-- generated_at: 2026-05-07T17:13:21Z -->
+<!-- git_head: 17e8d3f -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ d840ad0 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-07 13:59 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 17e8d3f → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-07 14:13 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-07T16:59:43Z | `2026-05-07 13:59 AR (Jue)` | HEAD: `d840ad0`*
+*Auto-generado: 2026-05-07T17:13:21Z | `2026-05-07 14:13 AR (Jue)` | HEAD: `17e8d3f`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `d840ad0`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-07 13:59 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `17e8d3f`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-07 14:13 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-07T16:59:43Z` |
-| Hora AR | `2026-05-07 13:59 AR (Jue)` |
+| Generado | `2026-05-07T17:13:21Z` |
+| Hora AR | `2026-05-07 14:13 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,12 +64,14 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `d840ad0` — chore(dashboard): regenerar HTML con precios May-07 post fix P4
-**Timestamp commit:** 2026-05-07 13:58:59 -0300
+**HEAD:** `17e8d3f` — docs(protocol): 4 mejoras post-mortem BUG 8
+**Timestamp commit:** 2026-05-07 14:13:11 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+17e8d3f docs(protocol): 4 mejoras post-mortem BUG 8
+6386d9c chore(auto): update ESTADO_ACTUAL â†’ d840ad0 [skip ci]
 d840ad0 chore(dashboard): regenerar HTML con precios May-07 post fix P4
 24edbf6 fix(ci): github-pages-publish solo dispara cuando preview_c1_pro.html cambia
 b3d08a3 chore(auto): update ESTADO_ACTUAL â†’ b2b9649 [skip ci]
@@ -78,8 +80,6 @@ b2b9649 fix(ci): 3 bugs dashboard/ci punta a punta
 3e63dd3 chore(auto): update ESTADO_ACTUAL â†’ 0ab3650 [skip ci]
 0ab3650 chore(cleanup): gitignore staging previews + util kill_idle_terminals
 3807c36 chore(auto): update ESTADO_ACTUAL â†’ 8afa058 [skip ci]
-8afa058 feat(ops): P7 analisis de impacto bidireccional pre-implementacion
-17237b0 chore(auto): update ESTADO_ACTUAL â†’ a41d43d [skip ci]
 ```
 
 ### Working tree
