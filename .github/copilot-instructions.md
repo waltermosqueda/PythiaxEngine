@@ -170,6 +170,55 @@ Si el fix propuesto toca más de 3 archivos, preguntarse: ¿cada uno de estos ca
 
 ---
 
+#### Principio 7 — Análisis de impacto bidireccional ANTES de implementar
+
+Antes de escribir una sola línea de código, construir mentalmente el grafo de dependencias en **ambas direcciones**:
+
+**Dirección →  "¿Qué depende de lo que voy a tocar?"**
+Para cada archivo/función/tabla que el cambio toca, preguntar:
+- ¿Quién más importa esto? (grep de imports / usos)
+- ¿Qué workflows de CI leen o ejecutan este archivo?
+- ¿Qué tests dependen de su contrato actual?
+- ¿Qué columnas del dashboard consumen este dato?
+
+**Dirección ← "¿De qué depende lo que voy a implementar?"**
+- ¿Qué asume mi cambio que es verdad en el sistema actual?
+- ¿Esa asunción puede fallar en CI (Python 3.12 vs 3.14 local, SQLite vs Postgres, TZ UTC vs local)?
+- ¿Hay una invariante existente (sentinel, paths-ignore, [skip ci], flag `Z`) que mi cambio podría romper?
+
+**Formato de reporte obligatorio antes de implementar cualquier cambio no trivial:**
+
+```
+ANÁLISIS DE IMPACTO — <descripción breve del cambio>
+Archivos que toco: [lista]
+Downstream (quién depende de estos):
+  - <archivo> → <razón de dependencia>
+Upstream (qué asumo que es verdad):
+  - <asunción> → <cómo verificar>
+Riesgos identificados:
+  - <riesgo> → <mitigación>
+Veredicto: SEGURO / REVISAR / PEDIR CONFIRMACIÓN
+```
+
+Solo con veredicto SEGURO proceder a implementar sin pausa.
+Con REVISAR → verificar primero, luego implementar.
+Con PEDIR CONFIRMACIÓN → explicar el riesgo al usuario antes de cualquier acción.
+
+**Mapa de zonas de alta fragilidad en este repo** (siempre evaluar si el cambio las roza):
+
+| Zona | Fragilidad | Qué puede romperse |
+|------|-----------|-------------------|
+| `infra/db/session.py` `build_engine_kwargs` | Alta | Parámetros de conexión Supabase — afecta TODO lo que usa TitanDB |
+| `herramientas/auto_actualizar.py` `_get_ultima_fecha_sentinel()` | Crítica | Rompe la guardia anti-MTM → pipeline EOD falla con "faltantes=0" |
+| `analisis/generar_tablero_maquina_pensante.py` + `refrescar_datos_dashboard.py` | Alta | Dashboard — cualquier cambio de schema de datos rompe la renderización |
+| `.github/workflows/cloud-daily-operations.yml` `decide_cloud_refresh` step | Alta | Si se elimina/modifica → CI puede sobreescribir el HTML con datos viejos (loop vicioso BUG 1) |
+| `analisis/preview_c1_pro.html` en `paths-ignore` de `github-pages-publish.yml` | Alta | Si se elimina → cada sync commit re-dispara el workflow → loop |
+| Mensajes de commit con `[skip ci]` en el sync step | Alta | Cloudflare no deploya si el commit del sync tiene `[skip ci]` (BUG 3) |
+| Sufijo `Z` en timestamps UTC expuestos a JS | Media | Freshness badge muestra tiempo negativo (BUG 4) |
+| `actual_return` en DB = ratio (0.05 = 5%) | Media | Si código nuevo asume % directo → todos los retornos ×100 inflados |
+
+---
+
 #### Aplicación a patrones frecuentes en este repo
 
 Estos no son reglas — son ejemplos de cómo los principios anteriores aplican a casos conocidos:
