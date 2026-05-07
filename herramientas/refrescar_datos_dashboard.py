@@ -198,6 +198,11 @@ body.theme-white .hm-legend-step .hm-ls-num{background:#ede9fe;color:#4338ca}
 .hm-corner-lbl{display:block;font-size:7.5px;color:rgba(99,102,241,0.70);text-transform:uppercase;letter-spacing:.07em;margin-top:3px;font-weight:600}
 /* ── KPI STRIP: 4 cards (champion · leader · picks · sistema/semáforo) */
 .kpi-strip{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+/* ── PICK PRICES: precio actual inline junto a cada ticker abierto ─────────── */
+.hc-tk-price{font-size:9px;font-weight:600;color:rgba(255,255,255,.45);margin-left:1px;letter-spacing:.2px}
+.svb-tk-price{font-size:10px;font-weight:600;color:rgba(255,255,255,.40);width:52px}
+body.theme-white .hc-tk-price{color:rgba(0,0,0,.38)}
+body.theme-white .svb-tk-price{color:rgba(0,0,0,.35)}
 """
 
 ROLE_ICON = {"activo": "OBS", "referencia": "REF", "base": "BASE", "observado": "OBS", "legacy_ml": "ML"}
@@ -2279,6 +2284,7 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
     prov_rets: list[tuple[float, int]] = []   # (avg_ret_pct, n_tickers_in_entry)
     ticker_mtm: dict[str, float | None] = {}  # ticker → individual provisional MTM %
     ticker_target_date: dict[str, str] = {}   # ticker → expected evaluation date (DD/MM)
+    ticker_price: dict[str, float | None] = {}  # ticker → latest_close price
 
     for e in reversed(cal_sorted):
         tickers_e   = list(e.get("tickers") or [])
@@ -2306,6 +2312,9 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
                 mtm = asset.get("mtm_return")
                 if tk and tk not in ticker_mtm:
                     ticker_mtm[tk] = float(mtm) * 100.0 if mtm is not None else None
+                if tk and tk not in ticker_price:
+                    lc = asset.get("latest_close")
+                    ticker_price[tk] = float(lc) if lc is not None else None
         elif is_pending:
             for t in tickers_e:
                 if t not in seen_open:
@@ -2366,6 +2375,8 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
         "closed_ticker_rets":   closed_info.get("ticker_rets") or {},
         # open picks dates
         "ticker_target_date":   ticker_target_date,
+        # open picks current prices
+        "ticker_price":         ticker_price,
         # history (keep for backwards compat)
         "prev":   ", ".join(prev_tickers[:4]) or "—",
         "picks":  " · ".join(open_tickers[:5]) or "Sin picks",
@@ -2377,13 +2388,17 @@ def _build_open_tickers_html(d: dict) -> str:
     tickers: list[str] = d.get("open_tickers") or []
     ticker_mtm: dict[str, float | None] = d.get("ticker_mtm") or {}
     ticker_target_date: dict[str, str] = d.get("ticker_target_date") or {}
+    ticker_price: dict[str, float | None] = d.get("ticker_price") or {}
     if not tickers:
         return "Sin picks activos"
     parts = []
     for t in tickers[:12]:
         mtm = ticker_mtm.get(t)
         tgt = ticker_target_date.get(t, "")
+        price = ticker_price.get(t)
         piece = _esc(t)
+        if price is not None:
+            piece += f"<small class='hc-tk-price'> ${price:.2f}</small>"
         if mtm is not None:
             _css  = "pos" if mtm >= 0 else "neg"
             _sign = "+" if mtm >= 0 else ""
@@ -2399,12 +2414,14 @@ def _build_open_tickers_table(d: dict) -> str:
     tickers: list[str] = d.get("open_tickers") or []
     ticker_mtm: dict[str, float | None] = d.get("ticker_mtm") or {}
     ticker_target_date: dict[str, str] = d.get("ticker_target_date") or {}
+    ticker_price: dict[str, float | None] = d.get("ticker_price") or {}
     if not tickers:
         return "<div class='svb-no-picks'>Sin picks activos</div>"
     rows = ""
     for t in tickers[:12]:
         mtm = ticker_mtm.get(t)
         tgt = ticker_target_date.get(t, "")
+        price = ticker_price.get(t)
         pct_cell = ""
         if mtm is not None:
             _css  = "pos" if mtm >= 0 else "neg"
@@ -2412,8 +2429,9 @@ def _build_open_tickers_table(d: dict) -> str:
             pct_cell = f"<td class='svb-tk-pct {_css}'>{_sign}{mtm:.1f}%</td>"
         else:
             pct_cell = "<td class='svb-tk-pct neu'>\u2014</td>"
+        price_cell = f"<td class='svb-tk-price'>${price:.2f}</td>" if price is not None else "<td class='svb-tk-price'></td>"
         date_cell = f"<td class='svb-tk-date'>\u2192{_esc(tgt)}</td>" if tgt else "<td class='svb-tk-date'></td>"
-        rows += f"<tr><td class='svb-tk-name'>{_esc(t)}</td>{pct_cell}{date_cell}</tr>"
+        rows += f"<tr><td class='svb-tk-name'>{_esc(t)}</td>{price_cell}{pct_cell}{date_cell}</tr>"
     return f"<table class='svb-tickers-table'>{rows}</table>"
 
 
