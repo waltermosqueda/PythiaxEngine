@@ -55,6 +55,42 @@
 
 ---
 
+### ✅ DEFINICIÓN DE "RESUELTO" PARA FIXES DE CI/CD Y DASHBOARD
+
+> **Regla fundamental**: Un fix de CI/CD **NO está resuelto cuando el commit fue pusheado**.
+> Está resuelto cuando el sistema observable refleja el estado correcto.
+
+Esta distinción es la más importante del proyecto. Confundirla causa ciclos de "ya lo arreglé / pero sigue roto".
+
+**Para cualquier fix que afecte el dashboard (frescura, precios, badge):**
+
+1. Pushear el commit
+2. Esperar que **todos** los workflows triggereados completen (verificar con Actions API)
+3. Verificar URL live con cache-busting para evitar CDN cache:
+   ```
+   https://waltermosqueda.github.io/PythiaxEngine/?v=<epoch>
+   https://pythiaxengine.pages.dev/preview_c1_pro?v=<epoch>
+   ```
+4. Confirmar que el badge de frescura muestra < 30 min (verde) o el timestamp esperado
+5. **Solo entonces** declarar el fix resuelto al usuario
+
+Si los workflows completaron con ✅ y el badge sigue estale → el fix NO funcionó aunque el código sea correcto.
+Hay algo más rollando el HTML. Diagnosticar antes de declarar victoria.
+
+**Verificación rápida (PowerShell):**
+```powershell
+$v = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+(Invoke-WebRequest "https://waltermosqueda.github.io/PythiaxEngine/?v=$v" -UseBasicParsing).Content |
+    Select-String -Pattern "data-ts|generado|snapshot" | Select-Object -First 3
+```
+
+**Por qué existe esta regla — la raíz del problema:**
+El sistema de deployment tiene múltiples caminos que pueden pisarse entre sí.
+Declarar "arreglado" sin verificar live es confundir **lógica de código** con **comportamiento del sistema en runtime**.
+Son cosas distintas en sistemas CI/CD con múltiples workflows interactuando.
+
+---
+
 ### 🗺️ IDENTIDAD Y URLS DEL PROYECTO
 
 | Elemento | Valor |
@@ -160,6 +196,23 @@ Antes de cualquier edición de archivo o `git commit`, responder:
   - Parcialmente reversible (commit, push) → proceder con buen mensaje de commit
   - Irreversible (`DROP TABLE`, `git push --force`, borrar branch) → pedir confirmación explícita al usuario
 
+**Pregunta adicional — la más fácil de omitir y la más costosa:**
+> *"¿Algún workflow que este push dispara puede DESHACER el efecto que mi fix intenta lograr?"*
+
+Esta pregunta no es lo mismo que "¿qué workflows disparo?". Es específica sobre la **interacción entre workflows**.
+
+Ejemplo del error que generó esta regla (2026-05-07):
+- Fix P1: `intraday-mtm-refresh.yml` ahora empuja HTML fresco al repo después de cada run
+- Push del fix → dispara `github-pages-publish.yml` (trigger `paths-ignore` en ese momento)
+- `github-pages-publish.yml` despliega `analisis/preview_c1_pro.html` del repo (versión de 22:46 ayer)
+- Resultado: el propio commit del fix anuló el efecto del fix → dashboard sigue stale
+
+La cadena correcta de preguntas para cualquier fix de CI/CD:
+1. ¿Qué workflows disparo con este push?
+2. ¿Qué despliega cada uno de esos workflows?
+3. ¿Qué versión del HTML/artifact tendrá disponible en ese momento?
+4. ¿El deploy de alguno de ellos puede ser más antiguo que el estado que el fix intenta establecer?
+
 ---
 
 #### Principio 6 — Mínima intervención: el fix correcto es el más pequeño que ataca la causa raíz
@@ -212,10 +265,11 @@ Con PEDIR CONFIRMACIÓN → explicar el riesgo al usuario antes de cualquier acc
 | `herramientas/auto_actualizar.py` `_get_ultima_fecha_sentinel()` | Crítica | Rompe la guardia anti-MTM → pipeline EOD falla con "faltantes=0" |
 | `analisis/generar_tablero_maquina_pensante.py` + `refrescar_datos_dashboard.py` | Alta | Dashboard — cualquier cambio de schema de datos rompe la renderización |
 | `.github/workflows/cloud-daily-operations.yml` `decide_cloud_refresh` step | Alta | Si se elimina/modifica → CI puede sobreescribir el HTML con datos viejos (loop vicioso BUG 1) |
-| `analisis/preview_c1_pro.html` en `paths-ignore` de `github-pages-publish.yml` | Alta | Si se elimina → cada sync commit re-dispara el workflow → loop |
+| `github-pages-publish.yml` trigger (`paths:`) | **Crítica** | Si se cambia a `paths-ignore` → cualquier commit de código despliega HTML stale → rollback del HTML fresco de intraday (fue BUG 8 P4). Mantener `paths: ['analisis/preview_c1_pro.html']` |
 | Mensajes de commit con `[skip ci]` en el sync step | Alta | Cloudflare no deploya si el commit del sync tiene `[skip ci]` (BUG 3) |
 | Sufijo `Z` en timestamps UTC expuestos a JS | Media | Freshness badge muestra tiempo negativo (BUG 4) |
 | `actual_return` en DB = ratio (0.05 = 5%) | Media | Si código nuevo asume % directo → todos los retornos ×100 inflados |
+| Generador local `generar_tablero_maquina_pensante.py` | Media | `localhost:5433` (Docker staging) offline en la mayoría de sesiones. Siempre setear `$env:DATABASE_URL` desde `.env` antes de correr localmente (ver sección GENERADOR LOCAL) |
 
 ---
 
@@ -283,10 +337,35 @@ yfinance (178 tickers, daily OHLCV)
 | `github-pages-publish.yml` | push a main | — (inmediato) | — |
 | `dashboard-build.yml` | manual (`workflow_dispatch`) | — | — |
 
-**Regla crítica Cloudflare vs GitHub Pages:**
-- Cloudflare Pages sirve `analisis/preview_c1_pro.html` directamente desde rama `main`
-- GitHub Pages sirve desde `dist/github-pages/` (generado por CI)
-- Sync commits con `[skip ci]` → Cloudflare NO deploya. Fix: usar mensaje sin `[skip ci]`
+**Grafo de deployment — 3 caminos, orden de precedencia importa:**
+
+```
+CAMINO A — intraday-mtm-refresh (cron, correctivo, fresco)
+  → genera HTML fresco con precios del momento
+  → deploy via ARTIFACT a GitHub Pages
+  → sync step pushea analisis/preview_c1_pro.html al repo (dispara B)
+  → B usa el HTML recién pusheado → OK
+
+CAMINO B — github-pages-publish (push trigger, neutro o stale según qué cambió)
+  → se dispara cuando analisis/preview_c1_pro.html cambia en el repo
+  → despliega ESA VERSIÓN del archivo
+  → si el archivo es fresco: OK | si es stale: ROLLBACK
+
+CAMINO C — cloud-daily-operations (cron EOD, completo)
+  → genera HTML completo EOD
+  → git push del HTML → dispara B con versión fresca → OK
+```
+
+**Regla de precedencia**: el último en llegar a GitHub Pages gana. El peligro es que B se dispare con un HTML stale después de que A ya había subido HTML fresco.
+
+**Invariante que mantiene el sistema estable** (fix P4, commit 24edbf6):
+- `github-pages-publish.yml` usa `paths: ['analisis/preview_c1_pro.html']` — solo dispara cuando ESE archivo cambia
+- Commits de código (`.py`, workflows, `.md`) NO disparan B
+- Resultado: B solo se dispara cuando A o C ya pushearon HTML fresco → B siempre despliega HTML reciente
+
+**Anti-patrón que rompe esto** (NO hacer):
+- Volver a usar `paths-ignore` en `github-pages-publish.yml` → cualquier commit de código dispara B con el HTML del repo (que puede ser de ayer)
+- Agregar `analisis/preview_c1_pro.html` a las exclusiones de `paths-ignore` en otros workflows sin evaluar si B se disparará en esa condición
 
 ---
 
@@ -323,7 +402,27 @@ Usar esa fecha como `--from-date`. NUNCA usar la fecha técnica mínima. Todos l
 
 ---
 
-### 🔧 BUGS CONOCIDOS Y FIXES APLICADOS
+### �️ GENERADOR LOCAL — USO CON SUPABASE
+
+`localhost:5433` (Docker staging `pythiax_staging_postgres`) está offline en la mayoría de sesiones de desarrollo.
+Correr el generador sin setear `DATABASE_URL` → timeout de 15s contra localhost → fallo.
+
+**Siempre usar este patrón para generar HTML localmente:**
+```powershell
+$cloud_url = (Get-Content "C:\repos\PythiaxEngine\.env" -Encoding utf8 |
+    Where-Object { $_ -match "^\s*#\s*DATABASE_URL=" } |
+    Select-Object -First 1) -replace '^\s*#\s*DATABASE_URL=', ''
+$env:DATABASE_URL = $cloud_url
+$env:PYTHONIOENCODING = "utf-8"
+py analisis/generar_tablero_maquina_pensante.py --variant all
+```
+
+La URL de Supabase está en `.env` en la línea **comentada** (`# DATABASE_URL=postgresql+psycopg://...`).
+`infra/db/config.py` ignora líneas comentadas → hay que extraerla manualmente como arriba.
+
+---
+
+### �🔧 BUGS CONOCIDOS Y FIXES APLICADOS
 
 | Bug | Commit | Descripción |
 |-----|--------|-------------|
@@ -334,6 +433,7 @@ Usar esa fecha como `--from-date`. NUNCA usar la fecha técnica mínima. Todos l
 | BUG 5 | `1e36de0` | Stage GitHub Pages site sin guarda `if:` |
 | BUG 6 | `82a7de9` | `github-pages-publish.yml` con pipeline redundante (simplificado a 51 líneas) |
 | BUG 7 | `a77a2e1` | **Pipeline 19:30 AR fallaba siempre** — MTM intraday adelantaba `MAX(date)`, `faltantes=0`, SPY stale → FAIL |
+| BUG 8 | `b2b9649` (P1-P3) / `24edbf6` (P4) | **Dashboard perpetuamente stale** — 4 bugs encadenados: (P1) intraday sin `contents:write`, no pushaba a Cloudflare; (P2) 5 tickers con NaN cortaban descarga early; (P3) step 21 cloud-daily rechazaba rebase con staged changes; (P4) `paths-ignore` en `github-pages-publish.yml` → cualquier commit de código desplegaba HTML stale y anulaba lo que intraday subía |
 
 **BUG 7 (el más importante — nunca revertir):**
 `intraday-mtm-refresh.yml` hace upsert en `prices` para tickers con picks abiertos (no SPY/QQQ).
