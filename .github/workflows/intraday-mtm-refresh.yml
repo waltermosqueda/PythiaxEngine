@@ -25,6 +25,7 @@ on:
     - cron: "30 18 * * 1-5"   # 15:30 AR
     - cron: "30 19 * * 1-5"   # 16:30 AR — pre-cierre NYSE verano
     - cron: "30 20 * * 1-5"   # 17:30 AR — cierre NYSE invierno / post-cierre verano
+    - cron: "24 21 7 5 *"    # ONE-TIME: test post-fix 2026-05-07 (eliminar luego)
   workflow_dispatch:           # permite trigger manual para testing
 
 concurrency:
