@@ -74,3 +74,11 @@ signals_q.json
 # Local runtime state
 .claude/settings.local.json
 herramientas/v*_open_positions.json
+
+# Staging / exploración local de UI (previews con prefijo _)
+analisis/_*.html
+analisis/_*.txt
+analisis/svb_preview_options.html
+
+# Test output local
+test-results-local.xml
