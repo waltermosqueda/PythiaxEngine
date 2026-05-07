@@ -1000,7 +1000,7 @@ def _render_kpi_strip(snap: dict) -> str:
         f'<div class="kc-sub">{_esc(regime)} · breadth {_fmt_ratio(breadth, 1)}%</div>'
         "</div>"
     )
-    return _cards_before + _render_kpi_sistema(ts_with_z=ts_with_z, regime=regime, regime_color=regime_color, generated_at=generated_at)
+    return _cards_before + _render_kpi_verify(ts_with_z=ts_with_z, regime=regime, regime_color=regime_color, generated_at=generated_at)
 
 
 def _hero_card_html(row: dict, *, label: str, card_class: str, subtitle: str, picks_override: int | None = None, live_override: list[str] | None = None) -> str:
@@ -1343,7 +1343,7 @@ def _apply_snapshot_sections(html: str, snap: dict) -> str:
     source_label = "Postgres/Supabase" if db_backend.startswith("postgres") else "runtime no cloud"
     html = _replace_once(
         html,
-        r"(gen\. )[\dT:\-]+(?: · [^<]+)?",
+        r"(gen\. )[^<]+",
         rf"\g<1>{gen_ts} · {source_label}",
     )
     return html
