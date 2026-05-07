@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-07T21:07:59Z -->
-<!-- git_head: 6ff852c -->
+<!-- generated_at: 2026-05-07T21:24:19Z -->
+<!-- git_head: 114e7fa -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 6ff852c → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-07 18:07 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 114e7fa → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-07 18:24 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-07T21:07:59Z | `2026-05-07 18:07 AR (Jue)` | HEAD: `6ff852c`*
+*Auto-generado: 2026-05-07T21:24:19Z | `2026-05-07 18:24 AR (Jue)` | HEAD: `114e7fa`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `6ff852c`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-07 18:07 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `114e7fa`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-07 18:24 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-07T21:07:59Z` |
-| Hora AR | `2026-05-07 18:07 AR (Jue)` |
+| Generado | `2026-05-07T21:24:19Z` |
+| Hora AR | `2026-05-07 18:24 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,12 +64,14 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `6ff852c` — fix(dashboard): revertir NameError _render_kpi_sistema + regex footer Z
-**Timestamp commit:** 2026-05-07 18:07:24 -0300
+**HEAD:** `114e7fa` — chore(ci): cron one-time 21:24 UTC 2026-05-07 para test post-fix [skip ci]
+**Timestamp commit:** 2026-05-07 18:21:33 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+114e7fa chore(ci): cron one-time 21:24 UTC 2026-05-07 para test post-fix [skip ci]
+7e57808 chore(auto): update ESTADO_ACTUAL â†’ 6ff852c [skip ci]
 6ff852c fix(dashboard): revertir NameError _render_kpi_sistema + regex footer Z
 4e2cfc5 chore(auto): update ESTADO_ACTUAL â†’ 781f0ec [skip ci]
 781f0ec fix(tooltip): restaurar kpi-sistema con tooltip en _render_kpi_strip
@@ -78,8 +80,6 @@ e14732c docs(protocol): regla ventana segura para pushes criticos + clasificacio
 7536516 chore(auto): sync dashboard HTML intraday
 32b0918 chore(auto): update ESTADO_ACTUAL â†’ aa1b050 [skip ci]
 aa1b050 fix(dashboard): generated_at usa UTC real en vez de TZ=AR local
-4488a54 chore(auto): update ESTADO_ACTUAL â†’ 8d9767b [skip ci]
-8d9767b chore(auto): sync dashboard HTML intraday
 ```
 
 ### Working tree
