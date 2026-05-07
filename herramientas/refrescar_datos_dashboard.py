@@ -907,15 +907,29 @@ def _render_kpi_sistema_card(ts_with_z: str = "", regime: str = "SEGURO", regime
     )
     tip_html = "".join(tip)
 
-    _tip_show = ("clearTimeout(window._kpiTh);"
-                 "var t=this.querySelector('.kpi-sistema-tooltip');"
-                 "if(t){t.style.opacity='1';t.style.pointerEvents='auto';}")
-    _tip_hide = ("var el=this;window._kpiTh=setTimeout(function(){"
-                 "var t=el.querySelector('.kpi-sistema-tooltip');"
-                 "if(t){t.style.opacity='0';t.style.pointerEvents='none';}},300);")
+    # position:fixed + JS-calculated coords → escapa cualquier overflow:hidden ancestral
+    _tip_show = (
+        "clearTimeout(window._kpiTh);"
+        "var t=this.querySelector('.kpi-sistema-tooltip');"
+        "if(t){"
+        "var r=this.getBoundingClientRect();"
+        "t.style.position='fixed';"
+        "t.style.top=(r.bottom+6)+'px';"
+        "t.style.left=Math.max(8,Math.min(r.left+r.width/2-155,window.innerWidth-318))+'px';"
+        "t.style.transform='none';"
+        "t.style.opacity='1';"
+        "t.style.pointerEvents='auto';}"
+    )
+    _tip_hide = (
+        "var el=this;window._kpiTh=setTimeout(function(){"
+        "var t=el.querySelector('.kpi-sistema-tooltip');"
+        "if(t){t.style.opacity='0';t.style.pointerEvents='none';}},300);"
+    )
     _tooltip_enter = "clearTimeout(window._kpiTh)"
-    _tooltip_leave = ("var t=this;window._kpiTh=setTimeout(function(){"
-                      "t.style.opacity='0';t.style.pointerEvents='none';},100)")
+    _tooltip_leave = (
+        "var t=this;window._kpiTh=setTimeout(function(){"
+        "t.style.opacity='0';t.style.pointerEvents='none';},100)"
+    )
     return (
         f'<div class="kpi-card editable-block kpi-sistema-card" id="kpi-actualizacion"'
         f' data-bid="kpi-sistema" data-blabel="KPI Sistema" data-ts="{ts_with_z}"'
@@ -939,9 +953,8 @@ def _render_kpi_sistema_card(ts_with_z: str = "", regime: str = "SEGURO", regime
         f'<div class="kpi-sistema-tooltip"'
         f' onmouseenter="{_tooltip_enter}"'
         f' onmouseleave="{_tooltip_leave}"'
-        ' style="position:absolute;top:calc(100% + 4px);'
-        'left:50%;transform:translateX(-50%);width:310px;background:#141e30;'
-        'border:1px solid #1e2d42;border-radius:10px;padding:14px 16px;z-index:999;'
+        ' style="position:fixed;top:0;left:0;width:310px;background:#141e30;'
+        'border:1px solid #1e2d42;border-radius:10px;padding:14px 16px;z-index:9999;'
         'opacity:0;pointer-events:none;transition:opacity 0.18s ease;'
         'box-shadow:0 8px 32px rgba(0,0,0,0.55)">'
         f'{tip_html}'
