@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-07T22:11:04Z -->
-<!-- git_head: b7b09a1 -->
+<!-- generated_at: 2026-05-07T23:30:23Z -->
+<!-- git_head: dea2d79 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ b7b09a1 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-07 19:11 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ dea2d79 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-07 20:30 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-07T22:11:04Z | `2026-05-07 19:11 AR (Jue)` | HEAD: `b7b09a1`*
+*Auto-generado: 2026-05-07T23:30:23Z | `2026-05-07 20:30 AR (Jue)` | HEAD: `dea2d79`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `b7b09a1`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-07 19:11 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `dea2d79`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-07 20:30 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-07T22:11:04Z` |
-| Hora AR | `2026-05-07 19:11 AR (Jue)` |
+| Generado | `2026-05-07T23:30:23Z` |
+| Hora AR | `2026-05-07 20:30 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -58,36 +58,26 @@
   20:30 UTC = 17:30 AR  [✅ PASADO]
 ```
 
-**Pipeline diario** (19:30 AR = 22:30 UTC): `⏳ PENDIENTE`
+**Pipeline diario** (19:30 AR = 22:30 UTC): `✅ PASADO`
 
 ---
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `b7b09a1` — fix(kpi-sistema): tooltip position:fixed escapa overflow:hidden de main-wrap
-**Timestamp commit:** 2026-05-07 19:09:37 -0300
+**HEAD:** `dea2d79` — chore(auto): sync dashboard HTML
+**Timestamp commit:** 2026-05-07 20:30:22 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-b7b09a1 fix(kpi-sistema): tooltip position:fixed escapa overflow:hidden de main-wrap
-2435e75 fix: regenerate dashboard HTML with kpi-sistema tooltip [skip ci]
-f72a135 chore(auto): update ESTADO_ACTUAL â†’ f4a9b4c [skip ci]
-f4a9b4c fix(dashboard): remove BOM + rename _render_kpi_verifyâ†’sistema_card + preflight v2 (BOM+tooltip+undefined)
-9fb2f7a chore(auto): sync dashboard HTML intraday
-0539ba2 chore(auto): update ESTADO_ACTUAL â†’ 114e7fa [skip ci]
-32deddb chore(auto): sync dashboard HTML intraday
-114e7fa chore(ci): cron one-time 21:24 UTC 2026-05-07 para test post-fix [skip ci]
-7e57808 chore(auto): update ESTADO_ACTUAL â†’ 6ff852c [skip ci]
-6ff852c fix(dashboard): revertir NameError _render_kpi_sistema + regex footer Z
+dea2d79 chore(auto): sync dashboard HTML
+a47784e docs(rules): agregar REGLA CRÍTICA día de semana — nunca asumir sin calcular [skip ci]
+02c9f69 chore(ci): mover cron principal 22:30→21:30 UTC (19:30→18:30 AR) para evitar pico scheduler GitHub
+f78e780 fix(ci): ESTADO_ACTUAL rebase falla con uncommitted changes — git checkout antes del pull
 ```
 
 ### Working tree
-```
-?? herramientas/generar_v2_previews.py
-?? herramientas/generar_v2_staging.py
-?? herramientas/staging_server.py
-```
+_Rama limpia — sin cambios sin commitear_
 
 ---
 
