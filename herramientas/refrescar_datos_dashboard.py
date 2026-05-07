@@ -729,10 +729,12 @@ def _render_kpi_verify(ts_with_z: str = "", regime: str = "SEGURO", regime_color
     vp = _load_verify_payload()
     if not vp:
         return (
-            '<div class="kpi-card editable-block" data-bid="kpi-verify" data-blabel="KPI Semáforo Datos">'
-            '<div class="kc-label">Semáforo Datos</div>'
-            '<div class="kc-value" style="color:var(--muted)">—</div>'
-            '<div class="kc-sub">Auditoría pendiente</div>'
+            f'<div class="kpi-card editable-block" id="kpi-actualizacion"'
+            f' data-bid="kpi-verify" data-blabel="KPI Sistema" data-ts="{ts_with_z}">'
+            '<div class="kc-label">Sistema</div>'
+            '<div class="kc-value" id="kpi-fresh-value" style="color:var(--muted)">\u2014</div>'
+            f'<div class="kc-sub" id="kpi-fresh-sub" style="margin-top:4px">gen. {ts_with_z[:16].replace("T", " ") if ts_with_z else "\u2014"} UTC</div>'
+            f'<div class="kc-sub" id="kpi-fresh-regime" style="margin-top:4px;font-weight:700;color:{regime_color}">{regime}</div>'
             "</div>"
         )
     score = vp.get("confidence_score", 0)
@@ -900,10 +902,21 @@ def _render_kpi_verify(ts_with_z: str = "", regime: str = "SEGURO", regime_color
     )
     tip_html = "".join(tip)
 
+    _tip_show = ("clearTimeout(window._kpiTh);"
+                 "var t=this.querySelector('.kpi-sistema-tooltip');"
+                 "if(t){t.style.opacity='1';t.style.pointerEvents='auto';}")
+    _tip_hide = ("var el=this;window._kpiTh=setTimeout(function(){"
+                 "var t=el.querySelector('.kpi-sistema-tooltip');"
+                 "if(t){t.style.opacity='0';t.style.pointerEvents='none';}},300);")
+    _tooltip_enter = "clearTimeout(window._kpiTh)"
+    _tooltip_leave = ("var t=this;window._kpiTh=setTimeout(function(){"
+                      "t.style.opacity='0';t.style.pointerEvents='none';},100)")
     return (
         f'<div class="kpi-card editable-block kpi-sistema-card" id="kpi-actualizacion"'
         f' data-bid="kpi-sistema" data-blabel="KPI Sistema" data-ts="{ts_with_z}"'
-        f' data-verify=\'{data_verify}\'>'
+        f' data-verify=\'{data_verify}\''
+        f' onmouseenter="{_tip_show}" onmouseleave="{_tip_hide}"'
+        f' style="position:relative;overflow:visible;z-index:200">'
         '<div class="kc-label">Sistema'
         ' <span style="font-size:0.58rem;color:var(--muted,#6585a8);'
         'border:1px solid var(--border,#1e2d42);border-radius:50%;width:13px;height:13px;'
@@ -918,7 +931,10 @@ def _render_kpi_verify(ts_with_z: str = "", regime: str = "SEGURO", regime_color
         ' &middot; Mercado &middot; r&eacute;gimen'
         f' <span id="kpi-fresh-regime" style="font-weight:700;color:{regime_color}">{regime}</span>'
         '</div>'
-        '<div class="kpi-sistema-tooltip" style="position:absolute;top:calc(100% + 8px);'
+        f'<div class="kpi-sistema-tooltip"'
+        f' onmouseenter="{_tooltip_enter}"'
+        f' onmouseleave="{_tooltip_leave}"'
+        ' style="position:absolute;top:calc(100% + 4px);'
         'left:50%;transform:translateX(-50%);width:310px;background:#141e30;'
         'border:1px solid #1e2d42;border-radius:10px;padding:14px 16px;z-index:999;'
         'opacity:0;pointer-events:none;transition:opacity 0.18s ease;'
@@ -977,15 +993,6 @@ def _render_kpi_strip(snap: dict) -> str:
         '<div class="kc-label">Picks hoy</div>'
         f'<div class="kc-value">{_fmt_int(len(live_tickers))}</div>'
         f'<div class="kc-sub">{_esc(regime)} · breadth {_fmt_ratio(breadth, 1)}%</div>'
-        "</div>"
-    )
-    _card_actualizacion = (
-        f'<div class="kpi-card editable-block" id="kpi-actualizacion" data-bid="kpi-actualizacion" data-blabel="KPI Actualizaci\u00f3n" data-ts="{ts_with_z}">'
-        '<div class="kc-label">Actualizaci\u00f3n</div>'
-        '<div class="kc-value" id="kpi-fresh-value">\u2014</div>'
-        f'<div class="kc-sub" id="kpi-fresh-sub" style="margin-top:2px">gen. {generated_fmt}</div>'
-        f'<div class="kc-sub" id="kpi-fresh-meta" style="margin-top:2px;opacity:.75">Mercado {latest_market} \u00b7 Target {target}</div>'
-        f'<div class="kc-sub" id="kpi-fresh-regime" style="margin-top:2px;font-weight:700;color:{regime_color}">{regime}</div>'
         "</div>"
     )
     return _cards_before + _render_kpi_verify(ts_with_z=ts_with_z, regime=regime, regime_color=regime_color, generated_at=generated_at)
