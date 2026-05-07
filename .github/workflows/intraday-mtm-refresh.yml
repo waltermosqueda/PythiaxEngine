@@ -77,6 +77,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-prod.txt
 
+      # ── PASO 0: Validación estática de refrescar_datos_dashboard.py ────────
+      # Detecta: (1) BOM UTF-8 introducido por PowerShell Set-Content,
+      # (2) llamadas a funciones inexistentes (_render_*, _build_*, _card_*),
+      # (3) _render_kpi_strip sin card de tooltip.
+      # Falla ANTES de tocar Supabase o generar HTML → feedback inmediato.
+      - name: Preflight — validate dashboard renderer
+        run: python scripts/preflight_dashboard.py
+
       # ── PASO 1: Upsert precios intraday para tickers con picks abiertos ──
       - name: Update intraday prices (MTM)
         id: mtm_prices

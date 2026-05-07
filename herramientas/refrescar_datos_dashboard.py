@@ -729,7 +729,7 @@ def _load_verify_payload() -> dict:
     return {}
 
 
-def _render_kpi_verify(ts_with_z: str = "", regime: str = "SEGURO", regime_color: str = "var(--green)", generated_at: str = "") -> str:
+def _render_kpi_sistema_card(ts_with_z: str = "", regime: str = "SEGURO", regime_color: str = "var(--green)", generated_at: str = "") -> str:
     """Card unificado Sistema (Datos + Sync) con tooltip hover."""
     vp = _load_verify_payload()
     if not vp:
@@ -1000,7 +1000,7 @@ def _render_kpi_strip(snap: dict) -> str:
         f'<div class="kc-sub">{_esc(regime)} · breadth {_fmt_ratio(breadth, 1)}%</div>'
         "</div>"
     )
-    return _cards_before + _render_kpi_verify(ts_with_z=ts_with_z, regime=regime, regime_color=regime_color, generated_at=generated_at)
+    return _cards_before + _render_kpi_sistema_card(ts_with_z=ts_with_z, regime=regime, regime_color=regime_color, generated_at=generated_at)
 
 
 def _hero_card_html(row: dict, *, label: str, card_class: str, subtitle: str, picks_override: int | None = None, live_override: list[str] | None = None) -> str:
