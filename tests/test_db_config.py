@@ -79,7 +79,10 @@ def test_escape_database_url_for_configparser_doubles_percent_signs() -> None:
 
 
 def test_validate_database_url_accepts_redactable_postgres_url() -> None:
-    payload = validate_database_url("postgresql://postgres:secret@db.project-ref.supabase.co:5432/postgres?sslmode=require")
+    payload = validate_database_url(
+        "postgresql://postgres:secret@db.project-ref.supabase.co:5432/postgres?sslmode=require",
+        github_actions=False,  # explicit: testing non-CI behavior (in CI, GITHUB_ACTIONS=true rejects direct connections)
+    )
 
     assert payload["backend"] == "postgresql+psycopg"
     assert payload["host"] == "db.project-ref.supabase.co"
