@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-07T18:24:17Z -->
-<!-- git_head: 781f0ec -->
+<!-- generated_at: 2026-05-07T21:07:59Z -->
+<!-- git_head: 6ff852c -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 781f0ec → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-07 15:24 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 6ff852c → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-07 18:07 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-07T18:24:17Z | `2026-05-07 15:24 AR (Jue)` | HEAD: `781f0ec`*
+*Auto-generado: 2026-05-07T21:07:59Z | `2026-05-07 18:07 AR (Jue)` | HEAD: `6ff852c`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `781f0ec`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-07 15:24 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `6ff852c`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-07 18:07 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-07T18:24:17Z` |
-| Hora AR | `2026-05-07 15:24 AR (Jue)` |
+| Generado | `2026-05-07T21:07:59Z` |
+| Hora AR | `2026-05-07 18:07 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -53,9 +53,9 @@
   15:30 UTC = 12:30 AR  [✅ PASADO]
   16:30 UTC = 13:30 AR  [✅ PASADO]
   17:30 UTC = 14:30 AR  [✅ PASADO]
-  18:30 UTC = 15:30 AR  [⏳ PENDIENTE]
-  19:30 UTC = 16:30 AR  [⏳ PENDIENTE]
-  20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
+  18:30 UTC = 15:30 AR  [✅ PASADO]
+  19:30 UTC = 16:30 AR  [✅ PASADO]
+  20:30 UTC = 17:30 AR  [✅ PASADO]
 ```
 
 **Pipeline diario** (19:30 AR = 22:30 UTC): `⏳ PENDIENTE`
@@ -64,12 +64,14 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `781f0ec` — fix(tooltip): restaurar kpi-sistema con tooltip en _render_kpi_strip
-**Timestamp commit:** 2026-05-07 15:24:05 -0300
+**HEAD:** `6ff852c` — fix(dashboard): revertir NameError _render_kpi_sistema + regex footer Z
+**Timestamp commit:** 2026-05-07 18:07:24 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+6ff852c fix(dashboard): revertir NameError _render_kpi_sistema + regex footer Z
+4e2cfc5 chore(auto): update ESTADO_ACTUAL â†’ 781f0ec [skip ci]
 781f0ec fix(tooltip): restaurar kpi-sistema con tooltip en _render_kpi_strip
 873875e chore(auto): update ESTADO_ACTUAL â†’ 0bfd774 [skip ci]
 e14732c docs(protocol): regla ventana segura para pushes criticos + clasificacion de riesgo de colision
@@ -78,12 +80,14 @@ e14732c docs(protocol): regla ventana segura para pushes criticos + clasificacio
 aa1b050 fix(dashboard): generated_at usa UTC real en vez de TZ=AR local
 4488a54 chore(auto): update ESTADO_ACTUAL â†’ 8d9767b [skip ci]
 8d9767b chore(auto): sync dashboard HTML intraday
-c4e1395 chore(auto): update ESTADO_ACTUAL â†’ 17e8d3f [skip ci]
-17e8d3f docs(protocol): 4 mejoras post-mortem BUG 8
 ```
 
 ### Working tree
-_Rama limpia — sin cambios sin commitear_
+```
+?? herramientas/generar_v2_previews.py
+?? herramientas/generar_v2_staging.py
+?? herramientas/staging_server.py
+```
 
 ---
 
