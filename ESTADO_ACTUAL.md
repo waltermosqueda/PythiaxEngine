@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-07T04:41:43Z -->
-<!-- git_head: 0ab3650 -->
+<!-- generated_at: 2026-05-07T05:36:48Z -->
+<!-- git_head: 3e63dd3 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 0ab3650 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-07 01:41 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 3e63dd3 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-07 02:36 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-07T04:41:43Z | `2026-05-07 01:41 AR (Jue)` | HEAD: `0ab3650`*
+*Auto-generado: 2026-05-07T05:36:48Z | `2026-05-07 02:36 AR (Jue)` | HEAD: `3e63dd3`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `0ab3650`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-07 01:41 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `3e63dd3`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-07 02:36 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-07T04:41:43Z` |
-| Hora AR | `2026-05-07 01:41 AR (Jue)` |
+| Generado | `2026-05-07T05:36:48Z` |
+| Hora AR | `2026-05-07 02:36 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,12 +64,13 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `0ab3650` — chore(cleanup): gitignore staging previews + util kill_idle_terminals
-**Timestamp commit:** 2026-05-07 01:41:26 -0300
+**HEAD:** `3e63dd3` — chore(auto): update ESTADO_ACTUAL â†’ 0ab3650 [skip ci]
+**Timestamp commit:** 2026-05-07 01:41:43 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+3e63dd3 chore(auto): update ESTADO_ACTUAL â†’ 0ab3650 [skip ci]
 0ab3650 chore(cleanup): gitignore staging previews + util kill_idle_terminals
 3807c36 chore(auto): update ESTADO_ACTUAL â†’ 8afa058 [skip ci]
 8afa058 feat(ops): P7 analisis de impacto bidireccional pre-implementacion
@@ -79,7 +80,6 @@ f4e1414 fix(ops): ancla temporal AR/UTC en ESTADO_ACTUAL + FIRST ACTION protocol
 f0a2b6b feat(ops): auto-generar ESTADO_ACTUAL.md desde CI + fix protocolo copilot
 a90c105 fix(ci): test_validate_db_url - pasar github_actions=False explicitamente para no depender de env GITHUB_ACTIONS
 f2af09c feat(ci): intraday MTM cada hora durante la rueda NYSE (3->8 runs/dia)
-9e540ef fix(ci): rebase before push in sync step to handle concurrent commits
 ```
 
 ### Working tree
