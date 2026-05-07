@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-07T17:59:22Z -->
-<!-- git_head: aa1b050 -->
+<!-- generated_at: 2026-05-07T18:08:37Z -->
+<!-- git_head: 0bfd774 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ aa1b050 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-07 14:59 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 0bfd774 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-07 15:08 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-07T17:59:22Z | `2026-05-07 14:59 AR (Jue)` | HEAD: `aa1b050`*
+*Auto-generado: 2026-05-07T18:08:37Z | `2026-05-07 15:08 AR (Jue)` | HEAD: `0bfd774`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `aa1b050`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-07 14:59 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `0bfd774`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-07 15:08 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-07T17:59:22Z` |
-| Hora AR | `2026-05-07 14:59 AR (Jue)` |
+| Generado | `2026-05-07T18:08:37Z` |
+| Hora AR | `2026-05-07 15:08 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,12 +64,14 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `aa1b050` — fix(dashboard): generated_at usa UTC real en vez de TZ=AR local
-**Timestamp commit:** 2026-05-07 14:59:12 -0300
+**HEAD:** `0bfd774` — docs(protocol): regla ventana segura para pushes criticos + clasificacion de riesgo de colision
+**Timestamp commit:** 2026-05-07 15:08:28 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+0bfd774 docs(protocol): regla ventana segura para pushes criticos + clasificacion de riesgo de colision
+32b0918 chore(auto): update ESTADO_ACTUAL â†’ aa1b050 [skip ci]
 aa1b050 fix(dashboard): generated_at usa UTC real en vez de TZ=AR local
 4488a54 chore(auto): update ESTADO_ACTUAL â†’ 8d9767b [skip ci]
 8d9767b chore(auto): sync dashboard HTML intraday
@@ -78,8 +80,6 @@ c4e1395 chore(auto): update ESTADO_ACTUAL â†’ 17e8d3f [skip ci]
 6386d9c chore(auto): update ESTADO_ACTUAL â†’ d840ad0 [skip ci]
 d840ad0 chore(dashboard): regenerar HTML con precios May-07 post fix P4
 24edbf6 fix(ci): github-pages-publish solo dispara cuando preview_c1_pro.html cambia
-b3d08a3 chore(auto): update ESTADO_ACTUAL â†’ b2b9649 [skip ci]
-b2b9649 fix(ci): 3 bugs dashboard/ci punta a punta
 ```
 
 ### Working tree
