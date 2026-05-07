@@ -1,46 +1,76 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-07T03:38:07Z -->
-<!-- git_head: a90c105 -->
+<!-- generated_at: 2026-05-07T03:56:49Z -->
+<!-- git_head: f0a2b6b -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
   Este header se auto-genera en cada CI run y al final de cada sesión.
   El git_head aquí puede ser VIEJO si el archivo no se regeneró.
 
-  SIEMPRE ejecutar esto PRIMERO antes de leer cualquier sección:
-      cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
+  SIEMPRE ejecutar primero:
+    1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
+    2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves allí ≠ a90c105 → las secciones de commits abajo
-  están DESACTUALIZADAS. Usar solo git como fuente de verdad para estado de código.
+  Si el HEAD que ves en git ≠ f0a2b6b → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-07 00:56 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-07T03:38:07Z | HEAD: `a90c105` (`fix(ci): test_validate_db_url - pasar github_actions=False explicitamente para no depender de env GITHUB_ACTIONS`)*
+*Auto-generado: 2026-05-07T03:56:49Z | `2026-05-07 00:56 AR (Jue)` | HEAD: `f0a2b6b`*
 
 ---
 
 ## ⚡ VERIFICACIÓN OBLIGATORIA AL INICIAR SESIÓN
 
-> Antes de leer CUALQUIER COSA de este archivo, ejecutar en terminal:
+> Ejecutar en terminal ANTES de leer cualquier cosa:
 >
 > ```powershell
+> # 1. Hora real
+> py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); dias=['Lun','Mar','Mie','Jue','Vie','Sab','Dom']; print('UTC: '+u.strftime('%Y-%m-%d %H:%M')+' | AR: '+a.strftime('%Y-%m-%d %H:%M')+' ('+dias[a.weekday()]+')')"
+> # 2. Git
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> **Si HEAD ≠ `a90c105`** → este archivo está desactualizado para git.
-> Ignorar las secciones de commits. Confiar solo en la salida de git.
+> - **Si HEAD ≠ `f0a2b6b`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-07 00:56 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+
+---
+
+## ⏰ Ancla temporal (al momento de generación)
+
+| | Valor |
+|---|---|
+| Generado | `2026-05-07T03:56:49Z` |
+| Hora AR | `2026-05-07 00:56 AR (Jue)` |
+| Argentina | UTC-3, **sin DST** (nunca cambia) |
+| NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
+
+### Estado crons intraday al momento de generación
+```
+  13:30 UTC = 10:30 AR  [⏳ PENDIENTE]
+  14:30 UTC = 11:30 AR  [⏳ PENDIENTE]
+  15:30 UTC = 12:30 AR  [⏳ PENDIENTE]
+  16:30 UTC = 13:30 AR  [⏳ PENDIENTE]
+  17:30 UTC = 14:30 AR  [⏳ PENDIENTE]
+  18:30 UTC = 15:30 AR  [⏳ PENDIENTE]
+  19:30 UTC = 16:30 AR  [⏳ PENDIENTE]
+  20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
+```
+
+**Pipeline diario** (19:30 AR = 22:30 UTC): `⏳ PENDIENTE`
 
 ---
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `a90c105` — fix(ci): test_validate_db_url - pasar github_actions=False explicitamente para no depender de env GITHUB_ACTIONS
-**Timestamp commit:** 2026-05-06 23:39:05 -0300
+**HEAD:** `f0a2b6b` — feat(ops): auto-generar ESTADO_ACTUAL.md desde CI + fix protocolo copilot
+**Timestamp commit:** 2026-05-07 00:38:26 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+f0a2b6b feat(ops): auto-generar ESTADO_ACTUAL.md desde CI + fix protocolo copilot
 a90c105 fix(ci): test_validate_db_url - pasar github_actions=False explicitamente para no depender de env GITHUB_ACTIONS
 f2af09c feat(ci): intraday MTM cada hora durante la rueda NYSE (3->8 runs/dia)
 9e540ef fix(ci): rebase before push in sync step to handle concurrent commits
@@ -50,15 +80,14 @@ e708636 fix(kpi): card Sistema â€” tooltip z-index + mouseleave debounce
 80ea284 fix(dashboard): kpi-strip repeat(4) -- 4 cards generados por _render_kpi_strip
 3a35854 revert(dashboard): rollback HTML a 0ef66eb â€” restablecer layout correcto (pre-SEMAFORO)
 3610881 chore(ci): trigger gh-pages deploy Sistema card
-f8924d2 feat(kpi): card Sistema unificado -- tooltip hover con datos integros y al dia
 ```
 
 ### Working tree
 ```
 M .github/copilot-instructions.md
- M .github/workflows/cloud-daily-operations.yml
  M herramientas/audit_precios_live.py
  M logs/errores_criticos.json
+ M scripts/generar_estado_actual.py
 ?? =
 ?? _patch_tooltip.py
 ?? _patch_tooltip_v2.py
@@ -71,7 +100,6 @@ M .github/copilot-instructions.md
 ?? analisis/_staging_kpi_sistema.html
 ?? analisis/_staging_prod_preview.html
 ?? analisis/svb_preview_options.html
-?? scripts/generar_estado_actual.py
 ?? scripts/kill_idle_terminals.ps1
 ?? test-results-local.xml
 ```

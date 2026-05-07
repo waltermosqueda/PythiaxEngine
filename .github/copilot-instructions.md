@@ -10,19 +10,36 @@
 
 **FIRST ACTION — Al iniciar CUALQUIER sesión (en este orden exacto):**
 
-1. **Ejecutar en terminal — ANTES de leer cualquier archivo:**
+1. **Anclar la hora real — SIEMPRE el primer comando, sin excepción:**
    ```powershell
-   cd C:\repos\PythiaxEngine ; git log --oneline -5 ; Write-Host "---" ; git status --short
+   cd C:\repos\PythiaxEngine
+   py -c "
+   from datetime import datetime, timezone, timedelta
+   utc = datetime.now(timezone.utc)
+   ar  = utc - timedelta(hours=3)
+   fmt = '%Y-%m-%d %H:%M'
+   dias = ['Lun','Mar','Mie','Jue','Vie','Sab','Dom']
+   print('UTC: ' + utc.strftime(fmt) + ' UTC')
+   print('AR:  ' + ar.strftime(fmt)  + ' AR (UTC-3, sin DST)')
+   print('Dia: ' + dias[ar.weekday()])
+   "
    ```
-   Esto da el HEAD real. Si difiere del `<!-- git_head: XXX -->` en `ESTADO_ACTUAL.md` →
+   ⚠️ **NUNCA asumir la hora** basándose en el contexto de la conversación o en la fecha del sistema
+   operativo del IDE. La hora AR puede diferir horas de lo que el modelo infiere.
+   **Regla de oro**: si la hora real AR es antes de las 13:30 → los crons intraday NO han disparado hoy.
+
+2. **Verificar HEAD git:**
+   ```powershell
+   git log --oneline -5 ; git status --short
+   ```
+   Si HEAD difiere del `<!-- git_head: XXX -->` en `ESTADO_ACTUAL.md` →
    ese archivo tiene commits **desactualizados** para estado de código. Ignorar esas secciones.
 
-2. **Leer `ESTADO_ACTUAL.md`** — usar SOLO la sección `MANUAL_NOTES` (pendientes, decisiones).
-   Ignorar la sección de commits si el git_head no coincide con el HEAD real del paso 1.
+3. **Leer `ESTADO_ACTUAL.md`** — usar SOLO la sección `MANUAL_NOTES` (pendientes, decisiones).
 
-3. **Leer `logs/errores_criticos.json`** — listar entradas con `"status": "pendiente"`.
+4. **Leer `logs/errores_criticos.json`** — listar entradas con `"status": "pendiente"`.
 
-4. Presentar resumen al usuario y **ESPERAR su dirección** antes de tomar cualquier acción adicional.
+5. Presentar resumen al usuario y **ESPERAR su dirección** antes de tomar cualquier acción adicional.
 
 **LAST ACTION — Al finalizar CUALQUIER sesión (obligatorio antes de cerrar):**
 
@@ -50,6 +67,10 @@
 | DB staging local | Docker puerto 5433 (`pythiax_staging_postgres`) |
 | Python comando | `py` (NUNCA `python`) |
 | Python CI | Python 3.12 en GitHub Actions |
+| **Timezone del usuario** | **Argentina (AR) = UTC-3, sin DST** (Argentina NO cambia horario estacional) |
+| **Relación UTC/AR** | `AR = UTC - 3h` siempre. NYSE abre 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
+| **Crons intraday** | 13:30–20:30 UTC = 10:30–17:30 AR. Si hora AR < 10:30 → ningún cron disparó hoy. |
+| **Pipeline diario** | 19:30 AR = 22:30 UTC. Si hora AR < 19:30 → pipeline del día no corrió. |
 
 ---
 

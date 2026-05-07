@@ -17,7 +17,7 @@ Regla de sesión: correr con --write --commit --push como LAST ACTION de cada ch
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -97,7 +97,23 @@ def extract_manual_notes(existing: str) -> str:
 
 
 def build_estado(git: dict, errores: list[dict], manual_notes: str) -> str:
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_utc = datetime.now(timezone.utc)
+    now_str = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_ar  = now_utc - timedelta(hours=3)
+    dias_es = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"]
+    ar_str  = now_ar.strftime("%Y-%m-%d %H:%M") + " AR (" + dias_es[now_ar.weekday()] + ")"
+
+    # Determinar estado de crons intraday
+    crons_utc = [13, 14, 15, 16, 17, 18, 19, 20]
+    cron_lines = []
+    for h in crons_utc:
+        pasado = now_utc.hour > h or (now_utc.hour == h and now_utc.minute >= 30)
+        estado = "✅ PASADO" if pasado else "⏳ PENDIENTE"
+        cron_lines.append(f"  {h:02d}:30 UTC = {h-3:02d}:30 AR  [{estado}]")
+    crons_md = "\n".join(cron_lines)
+
+    pipeline_pasado = now_utc.hour > 22 or (now_utc.hour == 22 and now_utc.minute >= 30)
+    pipeline_estado = "✅ PASADO" if pipeline_pasado else "⏳ PENDIENTE"
 
     # ── Sección de errores ────────────────────────────────────────────────────
     pendientes = [e for e in errores if e.get("status") == "pendiente"]
@@ -130,29 +146,51 @@ def build_estado(git: dict, errores: list[dict], manual_notes: str) -> str:
   Este header se auto-genera en cada CI run y al final de cada sesión.
   El git_head aquí puede ser VIEJO si el archivo no se regeneró.
 
-  SIEMPRE ejecutar esto PRIMERO antes de leer cualquier sección:
-      cd C:\\repos\\PythiaxEngine ; git log --oneline -3 ; git status --short
+  SIEMPRE ejecutar primero:
+    1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
+    2. cd C:\\repos\\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves allí ≠ {git['head']} → las secciones de commits abajo
-  están DESACTUALIZADAS. Usar solo git como fuente de verdad para estado de código.
+  Si el HEAD que ves en git ≠ {git['head']} → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de {ar_str} → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: {now_str} | HEAD: `{git['head']}` (`{git['head_msg']}`)*
+*Auto-generado: {now_str} | `{ar_str}` | HEAD: `{git['head']}`*
 
 ---
 
 ## ⚡ VERIFICACIÓN OBLIGATORIA AL INICIAR SESIÓN
 
-> Antes de leer CUALQUIER COSA de este archivo, ejecutar en terminal:
+> Ejecutar en terminal ANTES de leer cualquier cosa:
 >
 > ```powershell
+> # 1. Hora real
+> py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); dias=['Lun','Mar','Mie','Jue','Vie','Sab','Dom']; print('UTC: '+u.strftime('%Y-%m-%d %H:%M')+' | AR: '+a.strftime('%Y-%m-%d %H:%M')+' ('+dias[a.weekday()]+')')"
+> # 2. Git
 > cd C:\\repos\\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> **Si HEAD ≠ `{git['head']}`** → este archivo está desactualizado para git.
-> Ignorar las secciones de commits. Confiar solo en la salida de git.
+> - **Si HEAD ≠ `{git['head']}`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `{ar_str}`** → estado de crons abajo desactualizado, recalcular.
+
+---
+
+## ⏰ Ancla temporal (al momento de generación)
+
+| | Valor |
+|---|---|
+| Generado | `{now_str}` |
+| Hora AR | `{ar_str}` |
+| Argentina | UTC-3, **sin DST** (nunca cambia) |
+| NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
+
+### Estado crons intraday al momento de generación
+```
+{crons_md}
+```
+
+**Pipeline diario** (19:30 AR = 22:30 UTC): `{pipeline_estado}`
 
 ---
 
