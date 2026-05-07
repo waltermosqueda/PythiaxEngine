@@ -4,16 +4,37 @@
 
 ### ⚡ PROTOCOLO OBLIGATORIO DE SESIÓN
 
-**FIRST ACTION — Al iniciar CUALQUIER sesión:**
-1. Leer `ESTADO_ACTUAL.md` — estado, pendientes, git status de la última sesión
-2. Leer `logs/errores_criticos.json` — listar entradas con `"status": "pendiente"`
-3. Presentar resumen al usuario y **ESPERAR su dirección** antes de tomar cualquier acción adicional
+> **REGLA FUNDAMENTAL**: `ESTADO_ACTUAL.md` es un documento de apoyo. El repo git y
+> los archivos JSON son la **única fuente de verdad**. Cualquier dato de texto
+> puede estar desactualizado. Los comandos de terminal nunca mienten.
 
-**LAST ACTION — Al finalizar CUALQUIER sesión:**
-1. Actualizar `ESTADO_ACTUAL.md` (qué se hizo, pendientes, git/DB state)
-2. Marcar errores resueltos en `errores_criticos.json` con `resolved_at` + `resolution`
-3. Agregar entrada en `bitacora/BITACORA.md` si hubo cambios importantes
-4. `git add ESTADO_ACTUAL.md logs/errores_criticos.json bitacora/BITACORA.md ; git commit -m "chore(estado): ..." ; git push origin main`
+**FIRST ACTION — Al iniciar CUALQUIER sesión (en este orden exacto):**
+
+1. **Ejecutar en terminal — ANTES de leer cualquier archivo:**
+   ```powershell
+   cd C:\repos\PythiaxEngine ; git log --oneline -5 ; Write-Host "---" ; git status --short
+   ```
+   Esto da el HEAD real. Si difiere del `<!-- git_head: XXX -->` en `ESTADO_ACTUAL.md` →
+   ese archivo tiene commits **desactualizados** para estado de código. Ignorar esas secciones.
+
+2. **Leer `ESTADO_ACTUAL.md`** — usar SOLO la sección `MANUAL_NOTES` (pendientes, decisiones).
+   Ignorar la sección de commits si el git_head no coincide con el HEAD real del paso 1.
+
+3. **Leer `logs/errores_criticos.json`** — listar entradas con `"status": "pendiente"`.
+
+4. Presentar resumen al usuario y **ESPERAR su dirección** antes de tomar cualquier acción adicional.
+
+**LAST ACTION — Al finalizar CUALQUIER sesión (obligatorio antes de cerrar):**
+
+1. Marcar errores resueltos en `logs/errores_criticos.json` con `resolved_at` + `resolution`
+2. Actualizar sección MANUAL de `ESTADO_ACTUAL.md` con pendientes actuales (entre los marcadores `<!-- MANUAL_NOTES_START -->` y `<!-- MANUAL_NOTES_END -->`)
+3. **Regenerar y pushear el estado** con el script auto-generador:
+   ```powershell
+   cd C:\repos\PythiaxEngine
+   py scripts/generar_estado_actual.py --write --commit --push
+   ```
+   Este script captura git truth, errores y preserva las notas manuales automáticamente.
+4. Si hubo cambios importantes de arquitectura, agregar entrada en `bitacora/BITACORA.md`
 
 ---
 
@@ -34,6 +55,8 @@
 
 ### 📐 REGLAS INVARIANTES (nunca cambian)
 
+- **FUENTE DE VERDAD**: `git log` y `git status` > `ESTADO_ACTUAL.md` > cualquier otro archivo de texto.
+  `ESTADO_ACTUAL.md` puede estar desactualizado. El repo nunca miente.
 - **"dashboard"** = SIEMPRE `analisis/preview_c1_pro.html`. `tablero_maquina_pensante.html` = DEPRECADO, no mencionar.
 - `actual_return` en DB = ratio (0.05 = 5%). El dashboard multiplica ×100 para mostrar.
 - Timestamps UTC expuestos a JS DEBEN tener sufijo `Z` o `+00:00`. Sin timezone → browser parsea como local → tiempo negativo.

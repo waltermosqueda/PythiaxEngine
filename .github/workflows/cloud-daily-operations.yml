@@ -169,3 +169,18 @@ jobs:
             git pull --rebase -X theirs origin main
             git push
           fi
+
+      - name: Update ESTADO_ACTUAL.md (auto-generado al final del pipeline)
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          python scripts/generar_estado_actual.py --write
+          git add ESTADO_ACTUAL.md
+          if git diff --staged --quiet; then
+            echo "ESTADO_ACTUAL sin cambios — omitiendo commit"
+          else
+            git pull --rebase origin main
+            git commit -m "chore(auto): update ESTADO_ACTUAL → ${{ github.sha }} [skip ci]"
+            git push origin main
+          fi
