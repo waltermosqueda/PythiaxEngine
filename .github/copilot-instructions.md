@@ -120,6 +120,44 @@ Son cosas distintas en sistemas CI/CD con múltiples workflows interactuando.
 - Commits que tocan solo `.md`/`docs/`/`tests/`/`bitacora/` NO disparan `cloud-daily-operations.yml` (paths-ignore).
 - Log `logs/pipeline_run.log`: encoding **UTF-16 LE** (PowerShell Tee-Object) — leer con `read_bytes()` + BOM `\xff\xfe`.
 - `ml_trading_v22.py` es archivo FUENTE ORIGINAL — NUNCA modificar.
+- **`datetime.now()` en código que corre en CI está PROHIBIDO**. El runner tiene `TZ=America/Buenos_Aires`. Siempre usar `datetime.now(timezone.utc)` con `from datetime import timezone`.
+
+---
+
+### ⚡ REGLA DE VENTANA SEGURA — Cuándo pushear qué
+
+No toda modificación es igual. Algunas son seguras en cualquier momento. Otras requieren que no haya pipelines corriendo.
+
+#### Clasificación de commits por riesgo de colisión
+
+| Tipo de cambio | Seguro pushear | Verificación requerida |
+|----------------|---------------|------------------------|
+| `.md`, `docs/`, `bitacora/`, `tests/` | ✅ Siempre | Ninguna (no dispara CI de datos) |
+| `.py` que no toca DB ni HTML | ✅ Siempre | Ninguna (runners aislados) |
+| `analisis/preview_c1_pro.html` manual | ⚠️ Preferir fuera de rueda | Verificar que intraday no esté `in_progress` |
+| `.py` que cambia lógica de upserts/precios | ✅ Siempre | Ninguna (upserts son atómicos, datos no se corrompen) |
+| **Migración de schema (`infra/db/models.py`, SQL)** | ❌ **NUNCA durante rueda** | Pushear antes de 13:30 UTC o después de 20:30 UTC (lunes-viernes) |
+| Cambio a `generar_tablero_maquina_pensante.py` estructura | ⚠️ Preferir fuera de rueda | Verificar que daily no esté `in_progress` |
+
+#### Regla de las migraciones de schema (la única que puede romper un pipeline en vuelo)
+
+Una migración es cualquier cambio a `infra/db/models.py` que:
+- Elimina o renombra una columna (`DROP COLUMN` implícito) → **peligroso**: el runner con código viejo falla con `ProgrammingError`
+- Agrega una columna con `NOT NULL` sin default → **peligroso**: inserts del runner viejo fallan
+- Agrega una columna nullable o con default → **seguro**: código viejo la ignora
+
+**Regla**: toda migración destructiva se pushea fuera del horario de rueda NYSE:
+- Ventana segura: **después de 20:30 UTC** (intraday terminó) y **antes de 22:30 UTC** (daily no arrancó)
+- O sábado/domingo (sin crons activos)
+
+#### Verificación rápida antes de pushear HTML o migraciones (PowerShell)
+
+```powershell
+# ¿Hay algún workflow in_progress ahora mismo?
+(Invoke-WebRequest "https://api.github.com/repos/waltermosqueda/PythiaxEngine/actions/runs?per_page=5&status=in_progress" -UseBasicParsing).Content | ConvertFrom-Json | Select-Object -ExpandProperty workflow_runs | Select-Object name, status, created_at
+```
+
+Si el resultado está vacío → seguro pushear. Si hay runs `in_progress` y tu cambio es schema o HTML manual → esperar.
 
 ---
 
