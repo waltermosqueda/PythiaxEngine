@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-07T04:32:48Z -->
-<!-- git_head: 8afa058 -->
+<!-- generated_at: 2026-05-07T04:41:43Z -->
+<!-- git_head: 0ab3650 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 8afa058 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-07 01:32 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 0ab3650 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-07 01:41 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-07T04:32:48Z | `2026-05-07 01:32 AR (Jue)` | HEAD: `8afa058`*
+*Auto-generado: 2026-05-07T04:41:43Z | `2026-05-07 01:41 AR (Jue)` | HEAD: `0ab3650`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `8afa058`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-07 01:32 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `0ab3650`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-07 01:41 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-07T04:32:48Z` |
-| Hora AR | `2026-05-07 01:32 AR (Jue)` |
+| Generado | `2026-05-07T04:41:43Z` |
+| Hora AR | `2026-05-07 01:41 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,12 +64,14 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `8afa058` — feat(ops): P7 analisis de impacto bidireccional pre-implementacion
-**Timestamp commit:** 2026-05-07 01:32:38 -0300
+**HEAD:** `0ab3650` — chore(cleanup): gitignore staging previews + util kill_idle_terminals
+**Timestamp commit:** 2026-05-07 01:41:26 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+0ab3650 chore(cleanup): gitignore staging previews + util kill_idle_terminals
+3807c36 chore(auto): update ESTADO_ACTUAL â†’ 8afa058 [skip ci]
 8afa058 feat(ops): P7 analisis de impacto bidireccional pre-implementacion
 17237b0 chore(auto): update ESTADO_ACTUAL â†’ a41d43d [skip ci]
 a41d43d fix(perf): validate_market_data CTE full scan â†’ timeout 600s resuelto
@@ -78,28 +80,10 @@ f0a2b6b feat(ops): auto-generar ESTADO_ACTUAL.md desde CI + fix protocolo copilo
 a90c105 fix(ci): test_validate_db_url - pasar github_actions=False explicitamente para no depender de env GITHUB_ACTIONS
 f2af09c feat(ci): intraday MTM cada hora durante la rueda NYSE (3->8 runs/dia)
 9e540ef fix(ci): rebase before push in sync step to handle concurrent commits
-16cd442 feat(picks): precio actual en picks abiertos + sync Supabaseâ†’local
-e708636 fix(kpi): card Sistema â€” tooltip z-index + mouseleave debounce
 ```
 
 ### Working tree
-```
-M herramientas/audit_precios_live.py
-?? =
-?? _patch_tooltip.py
-?? _patch_tooltip_v2.py
-?? analisis/_gen_log.txt
-?? analisis/_hybrid_A.html
-?? analisis/_hybrid_B.html
-?? analisis/_hybrid_C.html
-?? analisis/_light_previews.html
-?? analisis/_preview_warm_pearl.html
-?? analisis/_staging_kpi_sistema.html
-?? analisis/_staging_prod_preview.html
-?? analisis/svb_preview_options.html
-?? scripts/kill_idle_terminals.ps1
-?? test-results-local.xml
-```
+_Rama limpia — sin cambios sin commitear_
 
 ---
 
