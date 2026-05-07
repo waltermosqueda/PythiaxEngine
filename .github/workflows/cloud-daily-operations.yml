@@ -180,7 +180,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "ESTADO_ACTUAL sin cambios — omitiendo commit"
           else
-            git pull --rebase origin main
             git commit -m "chore(auto): update ESTADO_ACTUAL → ${{ github.sha }} [skip ci]"
+            git pull --rebase -X theirs origin main
             git push origin main
           fi

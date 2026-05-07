@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20        # liviano: no debe tomar más de 5 min reales
     permissions:
-      contents: read
+      contents: write
       pages: write
       id-token: write
     environment:
@@ -114,3 +114,22 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      # ── PASO 6: Sync HTML → git para que Cloudflare Pages también se actualice ─
+      - name: Sync dashboard HTML back to repo (para Cloudflare Pages)
+        run: |
+          if [ ! -f dist/github-pages/preview_c1_pro.html ]; then
+            echo "No generated HTML found, skipping sync"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          cp dist/github-pages/preview_c1_pro.html analisis/preview_c1_pro.html
+          git add analisis/preview_c1_pro.html
+          if git diff --staged --quiet; then
+            echo "No changes to sync"
+          else
+            git commit -m "chore(auto): sync dashboard HTML intraday"
+            git pull --rebase -X theirs origin main
+            git push
+          fi

@@ -75,84 +75,92 @@ def fetch_open_tickers(session: Any, days_back: int) -> list[str]:
     return [row[0] for row in result.fetchall()]
 
 
+def _extract_from_download(data: object, tickers: list[str]) -> dict[str, float]:
+    """Extrae precios no-NaN del DataFrame descargado por yfinance."""
+    result: dict[str, float] = {}
+    if data is None:
+        return result
+    try:
+        import pandas as pd  # ya está en requirements; import local para evitar circular
+        if not hasattr(data, "empty") or data.empty:  # type: ignore[union-attr]
+            return result
+        close_col = data.get("Close", data.get("close"))  # type: ignore[union-attr]
+        if close_col is None or close_col.empty:
+            return result
+        last_row = close_col.iloc[-1]
+        if hasattr(last_row, "items"):
+            for ticker, price in last_row.items():
+                if price and price == price:  # not NaN
+                    result[str(ticker)] = float(price)
+        else:
+            # Single-ticker: close_col es una Series con timestamps
+            if last_row and last_row == last_row:
+                result[tickers[0]] = float(last_row)
+    except Exception:
+        pass
+    return result
+
+
 def download_live_prices(tickers: list[str]) -> dict[str, float]:
     """
     Descarga el último precio disponible de Yahoo Finance para cada ticker.
     Usa period='1d' + interval='1m' para obtener el precio intraday más reciente.
-    Fallback a period='5d' interval='1d' si el anterior falla (mercado cerrado,
-    feriado, etc.).
+    Fallback a period='5d' interval='1d' para los tickers que faltan, luego
+    fast_info ticker a ticker para los que aún queden sin precio.
     """
     if not tickers:
         return {}
 
     prices: dict[str, float] = {}
-    tickers_str = " ".join(tickers)
     _log(f"Descargando precios live para {len(tickers)} tickers: {', '.join(tickers)}")
 
-    # Intento 1: datos intraday 1 minuto (mercado abierto)
+    # ── Intento 1: batch intraday 1 minuto ────────────────────────────────────
     try:
         data = yf.download(
-            tickers=tickers_str,
+            tickers=" ".join(tickers),
             period="1d",
             interval="1m",
             progress=False,
             auto_adjust=True,
         )
-        if data is not None and not data.empty:
-            close_col = data.get("Close", data.get("close"))
-            if close_col is not None and not close_col.empty:
-                last_row = close_col.iloc[-1]
-                if hasattr(last_row, "items"):
-                    # Multi-ticker: serie con ticker como índice
-                    for ticker, price in last_row.items():
-                        if price and price == price:  # not NaN
-                            prices[str(ticker)] = float(price)
-                else:
-                    # Single ticker
-                    if last_row and last_row == last_row:
-                        prices[tickers[0]] = float(last_row)
-                if prices:
-                    _log(f"  Precios intraday (1m) obtenidos: {len(prices)}")
-                    return prices
+        prices.update(_extract_from_download(data, tickers))
+        _log(f"  Precios intraday (1m): {len(prices)}/{len(tickers)}")
     except Exception as exc:
         _log(f"  [WARN] Fallo descarga 1m: {exc}")
 
-    # Intento 2: cierre diario (mercado cerrado o datos aún no disponibles)
-    try:
-        data = yf.download(
-            tickers=tickers_str,
-            period="5d",
-            interval="1d",
-            progress=False,
-            auto_adjust=True,
-        )
-        if data is not None and not data.empty:
-            close_col = data.get("Close", data.get("close"))
-            if close_col is not None and not close_col.empty:
-                last_row = close_col.iloc[-1]
-                if hasattr(last_row, "items"):
-                    for ticker, price in last_row.items():
-                        if price and price == price:
-                            prices[str(ticker)] = float(price)
-                else:
-                    if last_row and last_row == last_row:
-                        prices[tickers[0]] = float(last_row)
-                if prices:
-                    _log(f"  Precios diarios (fallback) obtenidos: {len(prices)}")
-                    return prices
-    except Exception as exc:
-        _log(f"  [WARN] Fallo descarga 5d/1d: {exc}")
-
-    # Intento 3: ticker a ticker con .fast_info (último recurso)
-    _log("  Intentando descarga ticker a ticker con fast_info...")
-    for ticker in tickers:
+    # ── Intento 2: batch diario 5d para los tickers aún sin precio ────────────
+    missing = [t for t in tickers if t not in prices]
+    if missing:
         try:
-            info = yf.Ticker(ticker).fast_info
-            price = getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None)
-            if price:
-                prices[ticker] = float(price)
-        except Exception:
-            pass
+            data = yf.download(
+                tickers=" ".join(missing),
+                period="5d",
+                interval="1d",
+                progress=False,
+                auto_adjust=True,
+            )
+            prices.update(_extract_from_download(data, missing))
+            _log(f"  Precios diarios (5d fallback): {len(prices)}/{len(tickers)}")
+        except Exception as exc:
+            _log(f"  [WARN] Fallo descarga 5d/1d: {exc}")
+
+    # ── Intento 3: fast_info ticker a ticker para los que aún falten ──────────
+    missing = [t for t in tickers if t not in prices]
+    if missing:
+        _log(f"  fast_info individual para {len(missing)} tickers restantes: {missing}")
+        for ticker in missing:
+            try:
+                info = yf.Ticker(ticker).fast_info
+                price = getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None)
+                if price:
+                    prices[ticker] = float(price)
+            except Exception:
+                pass
+
+    missing_final = [t for t in tickers if t not in prices]
+    if missing_final:
+        _log(f"  [WARN] Sin precio para: {missing_final}")
+
     return prices
 
 
