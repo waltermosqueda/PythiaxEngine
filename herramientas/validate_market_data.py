@@ -359,6 +359,10 @@ def check_ohlcv_integrity(db: TitanDB, latest_date: date) -> list[CheckResult]:
 
 def compute_recent_event_rows(db: TitanDB, latest_date: date) -> pd.DataFrame:
     start_date = (latest_date - timedelta(days=GAP_LOOKBACK_DAYS)).isoformat()
+    # Buffer de 5 dias para que LAG tenga contexto previo al rango de interes.
+    # Sin este WHERE el CTE escanea toda la tabla (window function sobre ~300k filas)
+    # lo que causaba timeout de 600s en el pipeline diario (bug detectado 2026-05-06).
+    buffer_date = (latest_date - timedelta(days=GAP_LOOKBACK_DAYS + 5)).isoformat()
     return db.execute_raw(
         """
         WITH recent AS (
@@ -371,6 +375,7 @@ def compute_recent_event_rows(db: TitanDB, latest_date: date) -> pd.DataFrame:
                 close,
                 LAG(close) OVER (PARTITION BY ticker ORDER BY date) AS prev_close
             FROM prices
+            WHERE date >= ?
         )
         SELECT
             ticker,
@@ -389,7 +394,7 @@ def compute_recent_event_rows(db: TitanDB, latest_date: date) -> pd.DataFrame:
           AND date >= ?
         ORDER BY date DESC, ticker ASC
         """,
-        (start_date,),
+        (buffer_date, start_date),
     )
 
 

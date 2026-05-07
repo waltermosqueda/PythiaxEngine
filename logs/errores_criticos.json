@@ -1,56 +1,11 @@
-﻿[
+[
   {
-    "timestamp": "2026-05-04T22:31:08.046376-03:00",
-    "source": "pipeline_run.log",
-    "category": "pipeline_step_failed",
-    "line": "2026-05-04 21:57  [PIPELINE][OPTIONAL] Paso resumen_legacy_ml_brain_v9 fallo. Ver C:\\repos\\PythiaxEngine\\aprendizaje_operativo\\v11_reports\\2026-05-04_resumen_legacy_ml_brain_v9.txt",
-    "status": "resuelto",
-    "resolved_at": "2026-05-06T00:00:00-03:00",
-    "resolution": "Paso OPTIONAL. V9 esta disabled (0 rows en Supabase, reemplazado por V10). Fallo esperado e ignorable. Ver user memory."
-  },
-  {
-    "timestamp": "2026-05-04T22:31:08.047258-03:00",
-    "source": "pipeline_run.log",
-    "category": "pipeline_step_failed",
-    "line": "2026-05-04 22:00  [PIPELINE] Paso dashboard_integrity fallo. Ver C:\\repos\\PythiaxEngine\\aprendizaje_operativo\\v11_reports\\2026-05-04_dashboard_integrity.txt",
-    "status": "resuelto",
-    "resolved_at": "2026-05-05T00:00:00-03:00",
-    "resolution": "Corregido en commit 531ea07 (BUG 2): verify_competition_invariants() tenia false-positive para V11 SEGURO con 1 posicion carry-over activa. Se reemplazo el check con pass."
-  },
-  {
-    "timestamp": "2026-05-04T22:31:08.047280-03:00",
+    "timestamp": "2026-05-06T19:28:33.377174-03:00",
     "source": "pipeline_run.log",
     "category": "pipeline_critical_alert",
-    "line": "2026-05-04 22:00  [CRITICAL ALERT] pipeline_step_failed_dashboard_integrity | Fallo el paso dashboard_integrity del pipeline diario.",
+    "line": "2026-05-06 19:28  [CRITICAL ALERT] pipeline_step_timeout_validacion | El paso validacion del pipeline diario expiro por timeout.",
     "status": "resuelto",
-    "resolved_at": "2026-05-05T00:00:00-03:00",
-    "resolution": "Idem entrada anterior — commit 531ea07."
-  },
-  {
-    "timestamp": "2026-05-05T19:16:07.357121-03:00",
-    "source": "pipeline_run.log",
-    "category": "pipeline_critical_alert",
-    "line": "2026-05-05 00:00  [CRITICAL ALERT] pipeline_step_timeout_outcomes_v12 | El paso outcomes_v12 del pipeline diario expiro por timeout.",
-    "status": "resuelto",
-    "resolved_at": "2026-05-06T00:00:00-03:00",
-    "resolution": "Fix commit 76615e3: override evaluate_due_predictions en OperationalLearningV12 — 3500 queries Supabase reducidas a 3 (bulk SELECT + precios in-memory desde self.prepared + executemany). 62s vs 600s timeout. Verificado: 1080 evaluadas, 0 errores. Dos alertas totales: 2026-05-05T00:00:31 y 2026-05-05T22:22:17 (segunda no estaba en este log)."
-  },
-  {
-    "timestamp": "2026-05-05T19:16:07.357280-03:00",
-    "source": "pipeline_run.log",
-    "category": "pipeline_step_failed",
-    "line": "2026-05-05 19:16  [PIPELINE] Paso validacion fallo. Ver C:\\repos\\PythiaxEngine\\aprendizaje_operativo\\v11_reports\\2026-05-05_validacion.txt",
-    "status": "resuelto",
-    "resolved_at": "2026-05-06T00:00:00-03:00",
-    "resolution": "Corregido en commit a77a2e1 (BUG 7): intraday-mtm-refresh adelantaba MAX(date) con upserts parciales, faltantes=0, SPY stale. Fix: _get_ultima_fecha_sentinel() usa MIN(MAX(date)) de SPY/QQQ como fecha base."
-  },
-  {
-    "timestamp": "2026-05-05T19:16:07.357288-03:00",
-    "source": "pipeline_run.log",
-    "category": "pipeline_critical_alert",
-    "line": "2026-05-05 19:16  [CRITICAL ALERT] pipeline_step_failed_validacion | Fallo el paso validacion del pipeline diario.",
-    "status": "resuelto",
-    "resolved_at": "2026-05-06T00:00:00-03:00",
-    "resolution": "Idem entrada anterior — commit a77a2e1."
+    "resolved_at": "2026-05-07T01:08:00-03:00",
+    "resolution": "fix(perf): compute_recent_event_rows CTE sin WHERE causaba full scan sobre toda la tabla prices (144k filas). Agregado WHERE date >= buffer_date en el CTE interior + buffer de 5 dias para LAG. Tiempo: 600s -> 3.8s. Commit en herramientas/validate_market_data.py."
   }
 ]
