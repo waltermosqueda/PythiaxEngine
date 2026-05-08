@@ -159,6 +159,7 @@ def sync_prices(*, source_path: Path, session: Session, chunk_size: int) -> Tabl
                 "close": stmt.excluded.close,
                 "volume": stmt.excluded.volume,
                 "adj_close": stmt.excluded.adj_close,
+                "fetched_at": text("NOW()"),
             },
         )
         session.execute(stmt)
