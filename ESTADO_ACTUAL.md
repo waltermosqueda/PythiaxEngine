@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-08T19:53:28Z -->
-<!-- git_head: c6531ce -->
+<!-- generated_at: 2026-05-08T23:05:03Z -->
+<!-- git_head: 846c332 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ c6531ce → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-08 16:53 AR (Vie) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 846c332 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-08 20:05 AR (Vie) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-08T19:53:28Z | `2026-05-08 16:53 AR (Vie)` | HEAD: `c6531ce`*
+*Auto-generado: 2026-05-08T23:05:03Z | `2026-05-08 20:05 AR (Vie)` | HEAD: `846c332`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `c6531ce`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-08 16:53 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `846c332`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-08 20:05 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-08T19:53:28Z` |
-| Hora AR | `2026-05-08 16:53 AR (Vie)` |
+| Generado | `2026-05-08T23:05:03Z` |
+| Hora AR | `2026-05-08 20:05 AR (Vie)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -55,51 +55,27 @@
   17:30 UTC = 14:30 AR  [✅ PASADO]
   18:30 UTC = 15:30 AR  [✅ PASADO]
   19:30 UTC = 16:30 AR  [✅ PASADO]
-  20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
+  20:30 UTC = 17:30 AR  [✅ PASADO]
 ```
 
-**Pipeline diario** (19:30 AR = 22:30 UTC): `⏳ PENDIENTE`
+**Pipeline diario** (19:30 AR = 22:30 UTC): `✅ PASADO`
 
 ---
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `c6531ce` — feat: prices.fetched_at â€” sync escribe timestamp real de descarga YF en Supabase
-**Timestamp commit:** 2026-05-08 16:53:15 -0300
+**HEAD:** `846c332` — chore(auto): sync dashboard HTML
+**Timestamp commit:** 2026-05-08 20:05:02 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-c6531ce feat: prices.fetched_at â€” sync escribe timestamp real de descarga YF en Supabase
-c452943 feat: live prices JS via Supabase anon REST â€” updates on page load, hourly intraday data
-4fa5e2f chore(auto): update ESTADO_ACTUAL â†’ c400116 [skip ci]
-c400116 feat: live prices JS via Supabase anon REST â€” updates on page load, hourly intraday data
-c612eb0 chore(auto): update ESTADO_ACTUAL â†’ 550de73 [skip ci]
-550de73 feat: live prices JS via Supabase anon REST â€” updates on page load, hourly intraday data
-3d898ab chore(auto): update ESTADO_ACTUAL â†’ 72f7546 [skip ci]
-72f7546 feat: live prices JS via Supabase anon REST â€” updates on page load, hourly intraday data
-2992700 chore(auto): update ESTADO_ACTUAL â†’ beb9ab2 [skip ci]
-beb9ab2 Revert "feat(dashboard): panel Senales Vivas A (Full) en violet_dense - ticker+pct+precio+fecha con scroll y altura = ranking"
+846c332 chore(auto): sync dashboard HTML
+a1a0a3d chore(auto): update ESTADO_ACTUAL → c6531ce [skip ci]
 ```
 
 ### Working tree
-```
-?? analisis/_ranking_bloomberg_shot.png
-?? analisis/_ranking_preview_shot.png
-?? herramientas/generar_ranking_preview.py
-?? herramientas/generar_v2_previews.py
-?? herramientas/generar_v2_staging.py
-?? herramientas/generar_v2d_previews.py
-?? herramientas/staging_server.py
-?? scripts/_analyze_html.py
-?? scripts/_apply_rls.py
-?? scripts/_check_lmt.py
-?? scripts/_check_precios.py
-?? scripts/_check_timestamps.py
-?? scripts/_deploy_live_prices.py
-?? scripts/_fix_cols.py
-?? scripts/_tmp_extract_sparks.py
-```
+_Rama limpia — sin cambios sin commitear_
 
 ---
 
