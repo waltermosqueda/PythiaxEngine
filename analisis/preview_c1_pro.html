@@ -3746,7 +3746,7 @@ initLigaExpand();
   /* Fetch a Supabase: último close por ticker */
   function fetchPrices(tickers) {
     var list = tickers.join(',');
-    var url = SB_URL + '/rest/v1/prices?select=ticker,date,close'
+    var url = SB_URL + '/rest/v1/prices?select=ticker,date,close,fetched_at'
             + '&ticker=in.(' + list + ')'
             + '&order=date.desc&limit=300';
     return fetch(url, {
@@ -3805,8 +3805,8 @@ initLigaExpand();
     });
   }
 
-  /* Agrega badge "precios live · FECHA" */
-  function addLiveBadge(maxDate) {
+  /* Agrega badge "precios live · FECHA · HH:MM AR / HH:MM UTC" con hora real del sync */
+  function addLiveBadge(maxDate, fetchedAt) {
     if (!maxDate) return;
     var sub = document.getElementById('kpi-fresh-sub');
     if (!sub || document.getElementById('kpi-live-badge')) return;
@@ -3814,7 +3814,20 @@ initLigaExpand();
     d.id = 'kpi-live-badge';
     d.style.cssText = 'color:#44e890;font-size:10px;margin-top:4px;'
                     + 'font-weight:700;letter-spacing:.05em';
-    d.textContent = '\u26a1 precios live \u00b7 ' + maxDate;
+    var label = '\u26a1 precios live \u00b7 ' + maxDate;
+    if (fetchedAt) {
+      try {
+        var ts = new Date(fetchedAt);
+        var pad = function(n) { return ('0' + n).slice(-2); };
+        var utcH = pad(ts.getUTCHours());
+        var utcM = pad(ts.getUTCMinutes());
+        var arD  = new Date(ts.getTime() - 3 * 3600000);
+        var arH  = pad(arD.getUTCHours());
+        var arM  = pad(arD.getUTCMinutes());
+        label += ' \u00b7 ' + arH + ':' + arM + ' AR / ' + utcH + ':' + utcM + ' UTC';
+      } catch(e) { /* si falla el parse, queda solo la fecha */ }
+    }
+    d.textContent = label;
     sub.parentNode.insertBefore(d, sub.nextSibling);
   }
 
@@ -3825,10 +3838,13 @@ initLigaExpand();
     fetchPrices(tickers).then(function (map) {
       updateSvbTable(map);
       updateHeroCards(map);
-      var dates = Object.values(map)
-        .map(function (r) { return r.date; })
-        .filter(Boolean).sort();
-      addLiveBadge(dates.length ? dates[dates.length - 1] : null);
+      var entries = Object.values(map).filter(function(r) { return r.date; });
+      entries.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+      var latest = entries.length ? entries[entries.length - 1] : null;
+      addLiveBadge(
+        latest ? latest.date : null,
+        latest ? latest.fetched_at : null
+      );
     }).catch(function (e) {
       console.warn('[live-prices]', e);
     });
