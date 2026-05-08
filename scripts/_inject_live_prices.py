@@ -92,26 +92,16 @@ LIVE_PRICES_JS = r"""<script id="live-prices-v1">
     });
   }
 
-  /* Agrega badge "precios live · FECHA · HH:MM AR / HH:MM UTC" */
+  /* Agrega badge "precios live · FECHA" */
   function addLiveBadge(maxDate) {
     if (!maxDate) return;
     var sub = document.getElementById('kpi-fresh-sub');
     if (!sub || document.getElementById('kpi-live-badge')) return;
-    // Hora de fetch: AR = UTC-3 (fijo, sin DST), UTC
-    var now = new Date();
-    var pad = function(n) { return ('0' + n).slice(-2); };
-    var utcH = pad(now.getUTCHours());
-    var utcM = pad(now.getUTCMinutes());
-    var arD  = new Date(now.getTime() - 3 * 3600000);
-    var arH  = pad(arD.getUTCHours());
-    var arM  = pad(arD.getUTCMinutes());
     var d = document.createElement('div');
     d.id = 'kpi-live-badge';
     d.style.cssText = 'color:#44e890;font-size:10px;margin-top:4px;'
                     + 'font-weight:700;letter-spacing:.05em';
-    d.textContent = '\u26a1 precios live \u00b7 ' + maxDate
-                  + ' \u00b7 ' + arH + ':' + arM + ' AR / '
-                  + utcH + ':' + utcM + ' UTC';
+    d.textContent = '\u26a1 precios live \u00b7 ' + maxDate;
     sub.parentNode.insertBefore(d, sub.nextSibling);
   }
 
