@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-08T19:08:29Z -->
-<!-- git_head: 550de73 -->
+<!-- generated_at: 2026-05-08T19:38:42Z -->
+<!-- git_head: c400116 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 550de73 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-08 16:08 AR (Vie) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ c400116 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-08 16:38 AR (Vie) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-08T19:08:29Z | `2026-05-08 16:08 AR (Vie)` | HEAD: `550de73`*
+*Auto-generado: 2026-05-08T19:38:42Z | `2026-05-08 16:38 AR (Vie)` | HEAD: `c400116`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `550de73`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-08 16:08 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `c400116`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-08 16:38 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-08T19:08:29Z` |
-| Hora AR | `2026-05-08 16:08 AR (Vie)` |
+| Generado | `2026-05-08T19:38:42Z` |
+| Hora AR | `2026-05-08 16:38 AR (Vie)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -54,7 +54,7 @@
   16:30 UTC = 13:30 AR  [✅ PASADO]
   17:30 UTC = 14:30 AR  [✅ PASADO]
   18:30 UTC = 15:30 AR  [✅ PASADO]
-  19:30 UTC = 16:30 AR  [⏳ PENDIENTE]
+  19:30 UTC = 16:30 AR  [✅ PASADO]
   20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
 ```
 
@@ -64,12 +64,14 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `550de73` — feat: live prices JS via Supabase anon REST â€” updates on page load, hourly intraday data
-**Timestamp commit:** 2026-05-08 16:08:17 -0300
+**HEAD:** `c400116` — feat: live prices JS via Supabase anon REST â€” updates on page load, hourly intraday data
+**Timestamp commit:** 2026-05-08 16:38:31 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+c400116 feat: live prices JS via Supabase anon REST â€” updates on page load, hourly intraday data
+c612eb0 chore(auto): update ESTADO_ACTUAL â†’ 550de73 [skip ci]
 550de73 feat: live prices JS via Supabase anon REST â€” updates on page load, hourly intraday data
 3d898ab chore(auto): update ESTADO_ACTUAL â†’ 72f7546 [skip ci]
 72f7546 feat: live prices JS via Supabase anon REST â€” updates on page load, hourly intraday data
@@ -78,8 +80,6 @@ beb9ab2 Revert "feat(dashboard): panel Senales Vivas A (Full) en violet_dense - 
 6569f4b Revert "chore(auto): update ESTADO_ACTUAL â†’ 4a9b699 [skip ci]"
 2e6b27b chore(auto): update ESTADO_ACTUAL â†’ 4a9b699 [skip ci]
 4a9b699 feat(dashboard): panel Senales Vivas A (Full) en violet_dense - ticker+pct+precio+fecha con scroll y altura = ranking
-b4497ff chore(auto): update ESTADO_ACTUAL â†’ dcaa372a0600de52399d0b630aa4ba57c16dd2b2 [skip ci]
-dcaa372 chore(auto): update ESTADO_ACTUAL â†’ 754847fda9c99c6c624c08e164d18cfe64ca3bcb [skip ci]
 ```
 
 ### Working tree
