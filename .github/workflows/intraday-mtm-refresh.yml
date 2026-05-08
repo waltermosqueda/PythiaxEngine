@@ -10,10 +10,12 @@ name: Intraday MTM Refresh
 # es aceptable para actualizaciones MTM de precio.
 #
 # Las actualizaciones post-cierre definitivas (ML pipeline, outcomes,
-# rebuild completo) siguen siendo responsabilidad de cloud-daily-operations.
+# rebuild completo + deploy Pages) siguen siendo responsabilidad de
+# cloud-daily-operations.
 #
-# Costo Supabase por run: ~50-200 KB egress (queries selectivos, no full scan).
-# 8 runs/día × 22 días = ~30 MB/mes → <1% del free tier (5 GB).
+# NOTA EGRESS (2026-05-08): Dashboard generation removida de intraday.
+# Costo Supabase por run: ~2 MB (solo fetch_open_tickers + upsert precios).
+# 8 runs/día × 22 días = ~350 MB/mes → <7% del free tier (5 GB).
 
 on:
   schedule:
@@ -25,7 +27,6 @@ on:
     - cron: "30 18 * * 1-5"   # 15:30 AR
     - cron: "30 19 * * 1-5"   # 16:30 AR — pre-cierre NYSE verano
     - cron: "30 20 * * 1-5"   # 17:30 AR — cierre NYSE invierno / post-cierre verano
-    - cron: "24 21 7 5 *"    # ONE-TIME: test post-fix 2026-05-07 (eliminar luego)
   workflow_dispatch:           # permite trigger manual para testing
 
 concurrency:
@@ -35,14 +36,9 @@ concurrency:
 jobs:
   mtm-refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 20        # liviano: no debe tomar más de 5 min reales
+    timeout-minutes: 10        # solo precios: debe completar en <3 min reales
     permissions:
-      contents: write
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      contents: read            # solo checkout, no hay git push en este workflow
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       PYTHIAX_REQUIRE_CLOUD_DB: "1"
@@ -62,9 +58,6 @@ jobs:
             exit 1
           fi
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v6
-
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -81,64 +74,14 @@ jobs:
       # Detecta: (1) BOM UTF-8 introducido por PowerShell Set-Content,
       # (2) llamadas a funciones inexistentes (_render_*, _build_*, _card_*),
       # (3) _render_kpi_strip sin card de tooltip.
-      # Falla ANTES de tocar Supabase o generar HTML → feedback inmediato.
+      # Falla ANTES de tocar Supabase → feedback inmediato.
       - name: Preflight — validate dashboard renderer
         run: python scripts/preflight_dashboard.py
 
       # ── PASO 1: Upsert precios intraday para tickers con picks abiertos ──
+      # Solo actualiza la tabla prices en Supabase. El dashboard se regenera
+      # una vez por día vía cloud-daily-operations (post-cierre NYSE).
       - name: Update intraday prices (MTM)
         id: mtm_prices
         run: |
           python herramientas/mtm_intraday.py --days-back 10
-
-      # ── PASO 2: Regenerar snapshot + HTML del dashboard ──────────────────
-      # Usa el mismo comando que cloud-daily-operations. El snapshot recalcula
-      # el MTM provisional automáticamente desde la tabla prices actualizada.
-      - name: Build dashboard bundle
-        run: python analisis/generar_tablero_maquina_pensante.py --variant all
-
-      # ── PASO 3: Staging del sitio ─────────────────────────────────────────
-      - name: Stage GitHub Pages site
-        run: |
-          python -m infra.publish.dashboard_site \
-            --source-dir dashboards/maquina_pensante \
-            --output-dir dist/github-pages
-
-      # ── PASO 4: Validación mínima ─────────────────────────────────────────
-      - name: Validate staged site
-        run: |
-          test -f dist/github-pages/index.html
-          test -f dist/github-pages/preview_c1_pro.html
-          test -f dist/github-pages/tablero_maquina_pensante_snapshot.json
-          test -f dist/github-pages/.nojekyll
-          cmp -s dist/github-pages/index.html dist/github-pages/preview_c1_pro.html
-
-      # ── PASO 5: Deploy ────────────────────────────────────────────────────
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: dist/github-pages
-          include-hidden-files: true
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
-
-      # ── PASO 6: Sync HTML → git para que Cloudflare Pages también se actualice ─
-      - name: Sync dashboard HTML back to repo (para Cloudflare Pages)
-        run: |
-          if [ ! -f dist/github-pages/preview_c1_pro.html ]; then
-            echo "No generated HTML found, skipping sync"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          cp dist/github-pages/preview_c1_pro.html analisis/preview_c1_pro.html
-          git add analisis/preview_c1_pro.html
-          if git diff --staged --quiet; then
-            echo "No changes to sync"
-          else
-            git commit -m "chore(auto): sync dashboard HTML intraday"
-            git pull --rebase -X theirs origin main
-            git push
-          fi
