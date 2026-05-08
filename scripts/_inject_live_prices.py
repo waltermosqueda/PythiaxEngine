@@ -92,16 +92,26 @@ LIVE_PRICES_JS = r"""<script id="live-prices-v1">
     });
   }
 
-  /* Agrega badge "precios live · FECHA" debajo del timestamp de generación */
+  /* Agrega badge "precios live · FECHA · HH:MM AR / HH:MM UTC" */
   function addLiveBadge(maxDate) {
     if (!maxDate) return;
     var sub = document.getElementById('kpi-fresh-sub');
     if (!sub || document.getElementById('kpi-live-badge')) return;
+    // Hora de fetch: AR = UTC-3 (fijo, sin DST), UTC
+    var now = new Date();
+    var pad = function(n) { return ('0' + n).slice(-2); };
+    var utcH = pad(now.getUTCHours());
+    var utcM = pad(now.getUTCMinutes());
+    var arD  = new Date(now.getTime() - 3 * 3600000);
+    var arH  = pad(arD.getUTCHours());
+    var arM  = pad(arD.getUTCMinutes());
     var d = document.createElement('div');
     d.id = 'kpi-live-badge';
     d.style.cssText = 'color:#44e890;font-size:10px;margin-top:4px;'
                     + 'font-weight:700;letter-spacing:.05em';
-    d.textContent = '\u26a1 precios live \u00b7 ' + maxDate;
+    d.textContent = '\u26a1 precios live \u00b7 ' + maxDate
+                  + ' \u00b7 ' + arH + ':' + arM + ' AR / '
+                  + utcH + ':' + utcM + ' UTC';
     sub.parentNode.insertBefore(d, sub.nextSibling);
   }
 
@@ -131,21 +141,31 @@ LIVE_PRICES_JS = r"""<script id="live-prices-v1">
 """
 
 def main():
+    import re as _re
     html = SRC.read_text(encoding='utf-8')
 
-    # Verificar que no esté ya inyectado
     if 'live-prices-v1' in html:
-        print('WARN: live-prices-v1 ya presente en el fuente — solo se copiará a staging sin re-inyectar')
-        DST.write_text(html, encoding='utf-8')
-        print(f'Staging copiado: {DST}')
-        return
+        # Reemplazar script existente con la versión actualizada
+        _new_js = LIVE_PRICES_JS.strip()
+        html_new = _re.sub(
+            r'<script id="live-prices-v1">.*?</script>',
+            lambda _m: _new_js,
+            html,
+            flags=_re.DOTALL,
+            count=1
+        )
+        if html_new == html:
+            print('ERROR: no se pudo reemplazar el script existente')
+            return
+        print('Script existente reemplazado con version actualizada')
+    else:
+        # Primera inyección: insertar antes de </body>
+        if '</body>' not in html:
+            print('ERROR: no se encontro </body> en el HTML')
+            return
+        html_new = html.replace('</body>', LIVE_PRICES_JS + '\n</body>', 1)
+        print('Script inyectado por primera vez')
 
-    # Inyectar antes de </body>
-    if '</body>' not in html:
-        print('ERROR: no se encontro </body> en el HTML')
-        return
-
-    html_new = html.replace('</body>', LIVE_PRICES_JS + '\n</body>', 1)
     DST.write_text(html_new, encoding='utf-8')
 
     # Verificación
