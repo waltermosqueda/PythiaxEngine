@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-09T00:33:06Z -->
-<!-- git_head: 354a213 -->
+<!-- generated_at: 2026-05-09T00:37:15Z -->
+<!-- git_head: c2f0766 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 354a213 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-08 21:33 AR (Vie) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ c2f0766 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-08 21:37 AR (Vie) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-09T00:33:06Z | `2026-05-08 21:33 AR (Vie)` | HEAD: `354a213`*
+*Auto-generado: 2026-05-09T00:37:15Z | `2026-05-08 21:37 AR (Vie)` | HEAD: `c2f0766`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `354a213`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-08 21:33 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `c2f0766`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-08 21:37 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-09T00:33:06Z` |
-| Hora AR | `2026-05-08 21:33 AR (Vie)` |
+| Generado | `2026-05-09T00:37:15Z` |
+| Hora AR | `2026-05-08 21:37 AR (Vie)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,12 +64,14 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `354a213` — fix: proteger open price en capa de sync y guard en v12 evaluator
-**Timestamp commit:** 2026-05-08 21:32:57 -0300
+**HEAD:** `c2f0766` — chore: regenerar dashboard post-fix outcomes May 4-8
+**Timestamp commit:** 2026-05-08 21:36:54 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+c2f0766 chore: regenerar dashboard post-fix outcomes May 4-8
+43a84bc chore(auto): update ESTADO_ACTUAL â†’ 354a213 [skip ci]
 354a213 fix: proteger open price en capa de sync y guard en v12 evaluator
 2233f93 chore(auto): update ESTADO_ACTUAL â†’ 0d70dd4 [skip ci]
 1b30935 fix: prevenir outcomes=0.0 por precios intraday open=close
@@ -78,8 +80,6 @@ fe52e7c chore(auto): update ESTADO_ACTUAL â†’ a1a0a3d72f94802701aedc7fb80cb
 a1a0a3d chore(auto): update ESTADO_ACTUAL â†’ c6531ce [skip ci]
 c6531ce feat: prices.fetched_at â€” sync escribe timestamp real de descarga YF en Supabase
 c452943 feat: live prices JS via Supabase anon REST â€” updates on page load, hourly intraday data
-4fa5e2f chore(auto): update ESTADO_ACTUAL â†’ c400116 [skip ci]
-c400116 feat: live prices JS via Supabase anon REST â€” updates on page load, hourly intraday data
 ```
 
 ### Working tree
