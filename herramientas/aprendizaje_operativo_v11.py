@@ -479,7 +479,7 @@ class OperationalLearningV11:
 
                 entry_row = self.db.conn.execute(
                     """
-                    SELECT open
+                    SELECT open, close
                     FROM prices
                     WHERE ticker = ? AND date = ?
                     """,
@@ -499,8 +499,13 @@ class OperationalLearningV11:
                     continue
 
                 price_before = entry_row[0]
+                entry_close_chk = entry_row[1]
                 price_after = target_row[0]
                 if price_before in (None, 0) or price_after is None:
+                    summary["errors"] += 1
+                    continue
+                # Guard: open == close sugiere barra incompleta (datos pre-cierre o intraday).
+                if entry_close_chk is not None and abs(float(price_before) - float(entry_close_chk)) < 1e-6:
                     summary["errors"] += 1
                     continue
 

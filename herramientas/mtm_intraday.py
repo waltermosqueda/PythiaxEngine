@@ -191,7 +191,9 @@ def upsert_prices(session: Any, price_map: dict[str, float], trade_date: date) -
     stmt = stmt.on_conflict_do_update(
         index_elements=["ticker", "date"],
         set_={
-            "open":      stmt.excluded.open,
+            # "open" NO se actualiza en el conflicto: preservar el precio de apertura real
+            # del descargador OHLCV. El intraday solo tiene un único precio snapshot;
+            # sobreescribir 'open' con ese valor corrompe el cálculo (close-open)/open.
             "high":      stmt.excluded.high,
             "low":       stmt.excluded.low,
             "close":     stmt.excluded.close,

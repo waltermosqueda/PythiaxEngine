@@ -1097,7 +1097,7 @@ class OperationalLearningLegacyML:
 
         entry_row = self.db.conn.execute(
             """
-            SELECT open
+            SELECT open, close
             FROM prices
             WHERE ticker = ? AND date = ?
             """,
@@ -1107,6 +1107,11 @@ class OperationalLearningLegacyML:
             return None
 
         entry_open = float(entry_row[0])
+        entry_close_val = entry_row[1]
+        # Guard: open == close sugiere barra incompleta (datos pre-cierre o intraday).
+        if entry_close_val is not None and abs(entry_open - float(entry_close_val)) < 1e-6:
+            return None
+
         max_close = float(window_df["Close"].max())
         return (max_close - entry_open) / entry_open
 
@@ -1231,8 +1236,14 @@ class OperationalLearningLegacyML:
                 entry_row = price_map.get((ticker, entry_date))
                 target_row = price_map.get((ticker, actual_target_date))
                 entry_open = entry_row[0] if entry_row is not None else None
+                entry_close = entry_row[1] if entry_row is not None else None
                 target_close = target_row[1] if target_row is not None else None
                 if entry_open in (None, 0) or target_close is None:
+                    summary["errors"] += 1
+                    continue
+                # Guard: open == close sugiere barra incompleta (datos pre-cierre o intraday).
+                # Dejar la predicción pendiente en lugar de registrar un retorno de 0.0 falso.
+                if entry_close is not None and abs(float(entry_open) - float(entry_close)) < 1e-6:
                     summary["errors"] += 1
                     continue
 
