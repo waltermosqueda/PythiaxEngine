@@ -176,6 +176,15 @@ class OperationalLearningV12(base.OperationalLearningV11):
             if price_before == 0:
                 summary["errors"] += 1
                 continue
+            # Guard: open == close en la barra de entrada sugiere barra incompleta
+            # (descarga pre-cierre de mercado). Dejar pendiente en vez de registrar 0.0 falso.
+            try:
+                entry_close_chk = df.at[pd.Timestamp(entry_date), "Close"]
+            except (KeyError, TypeError):
+                entry_close_chk = float("nan")
+            if not pd.isna(entry_close_chk) and abs(float(price_before) - float(entry_close_chk)) < 1e-6:
+                summary["errors"] += 1
+                continue
 
             actual_return = (price_after - price_before) / price_before
             actual_direction = "UP" if actual_return >= 0 else "DOWN"

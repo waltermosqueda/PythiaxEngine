@@ -150,10 +150,22 @@ def sync_prices(*, source_path: Path, session: Session, chunk_size: int) -> Tabl
     ):
         source_rows += len(rows)
         stmt = pg_insert(Price).values(rows)
+        # GUARD: si la barra incoming tiene open=close (descarga pre-cierre de
+        # mercado donde yfinance devuelve datos incompletos), preservamos el open
+        # ya existente en Supabase. Solo sobreescribimos open cuando la barra
+        # incoming tiene OHLCV real (open != close).
+        # Esto protege la capa de datos contra sincs ejecutados antes de las
+        # 20:00 UTC (cierre NYSE) que contaminarían el precio de apertura.
         stmt = stmt.on_conflict_do_update(
             index_elements=[Price.ticker.key, Price.date.key],
             set_={
-                "open": stmt.excluded.open,
+                "open": text(
+                    "CASE WHEN prices.open IS NOT NULL"
+                    "     AND ABS(EXCLUDED.open - EXCLUDED.close) < 0.005 * EXCLUDED.close"
+                    "     THEN prices.open"
+                    "     ELSE EXCLUDED.open"
+                    " END"
+                ),
                 "high": stmt.excluded.high,
                 "low": stmt.excluded.low,
                 "close": stmt.excluded.close,
