@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-14T12:22:37Z -->
-<!-- git_head: e789994 -->
+<!-- generated_at: 2026-05-14T23:11:13Z -->
+<!-- git_head: f285a50 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ e789994 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-14 09:22 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ f285a50 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-14 20:11 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-14T12:22:37Z | `2026-05-14 09:22 AR (Jue)` | HEAD: `e789994`*
+*Auto-generado: 2026-05-14T23:11:13Z | `2026-05-14 20:11 AR (Jue)` | HEAD: `f285a50`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `e789994`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-14 09:22 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `f285a50`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-14 20:11 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,36 +41,37 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-14T12:22:37Z` |
-| Hora AR | `2026-05-14 09:22 AR (Jue)` |
+| Generado | `2026-05-14T23:11:13Z` |
+| Hora AR | `2026-05-14 20:11 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
 ### Estado crons intraday al momento de generación
 ```
-  13:30 UTC = 10:30 AR  [⏳ PENDIENTE]
-  14:30 UTC = 11:30 AR  [⏳ PENDIENTE]
-  15:30 UTC = 12:30 AR  [⏳ PENDIENTE]
-  16:30 UTC = 13:30 AR  [⏳ PENDIENTE]
-  17:30 UTC = 14:30 AR  [⏳ PENDIENTE]
-  18:30 UTC = 15:30 AR  [⏳ PENDIENTE]
-  19:30 UTC = 16:30 AR  [⏳ PENDIENTE]
-  20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
+  13:30 UTC = 10:30 AR  [✅ PASADO]
+  14:30 UTC = 11:30 AR  [✅ PASADO]
+  15:30 UTC = 12:30 AR  [✅ PASADO]
+  16:30 UTC = 13:30 AR  [✅ PASADO]
+  17:30 UTC = 14:30 AR  [✅ PASADO]
+  18:30 UTC = 15:30 AR  [✅ PASADO]
+  19:30 UTC = 16:30 AR  [✅ PASADO]
+  20:30 UTC = 17:30 AR  [✅ PASADO]
 ```
 
-**Pipeline diario** (19:30 AR = 22:30 UTC): `⏳ PENDIENTE`
+**Pipeline diario** (19:30 AR = 22:30 UTC): `✅ PASADO`
 
 ---
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `e789994` — chore(auto): update ESTADO_ACTUAL → e9282ad12a70fd6b49468b56ebd235bbfcabca9f [skip ci]
-**Timestamp commit:** 2026-05-14 01:38:23 -0300
+**HEAD:** `f285a50` — chore(auto): sync dashboard HTML
+**Timestamp commit:** 2026-05-14 20:11:11 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-e789994 chore(auto): update ESTADO_ACTUAL → e9282ad12a70fd6b49468b56ebd235bbfcabca9f [skip ci]
+f285a50 chore(auto): sync dashboard HTML
+e506ce9 chore(auto): update ESTADO_ACTUAL → e789994e0ae499a5817a9acf7a8f7d010318c2c6 [skip ci]
 ```
 
 ### Working tree
