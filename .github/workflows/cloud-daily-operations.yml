@@ -3,9 +3,12 @@ name: Cloud Daily Operations
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 21 * * 1-5"   # 18:30 AR — principal, post-cierre mercado US (verano NYSE cierra 17:00 AR)
-    - cron: "0 1 * * 2-6"     # 22:00 AR — fallback nocturno
-    - cron: "0 11 * * 1-5"    # 08:00 AR — sanidad matutina pre-apertura
+    - cron: "30 21 * * 1-5"   # 18:30 AR — post-cierre NYSE (verano: 17:00 AR / invierno: 18:00 AR)
+    # NOTA EGRESS (2026-05-20): Removidos fallback nocturno (0 1) y sanidad matutina (0 11).
+    # Cada run del pipeline diario consume ~300 MB de Supabase egress.
+    # 3 runs/día × 300 MB × 22 días = 19.8 GB/mes > 5 GB free tier.
+    # 1 run/día × 300 MB × 22 días = 6.6 GB — cerca del límite, más manejable.
+    # Si el run falla: usar workflow_dispatch para reintentar manualmente.
 
 concurrency:
   group: pages-production-pipeline
