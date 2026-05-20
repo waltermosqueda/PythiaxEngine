@@ -27,6 +27,10 @@ def build_engine_kwargs(database_url: str) -> dict[str, object]:
             # Fijar timezone en la conexion evita que SQLAlchemy/psycopg2
             # ejecute SELECT name FROM pg_timezone_names al conectar.
             "options": "-c TimeZone=UTC",
+            # Deshabilitar prepared statements: PgBouncer (Supabase pooler)
+            # no soporta prepared statements en modo transaction pooling.
+            # Sin esto: DuplicatePreparedStatement "_pg3_0" al reutilizar conexion.
+            "prepare_threshold": None,
         }
         host = (url.host or "").strip().lower()
         is_local_host = host in {"", "localhost", "127.0.0.1", "::1"}
