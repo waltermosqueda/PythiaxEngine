@@ -17,7 +17,9 @@ Pasos que hace este script:
 """
 from __future__ import annotations
 
+import ast
 import csv
+import json
 import os
 import subprocess
 import sys
@@ -45,6 +47,28 @@ TABLES_IMPORT_ORDER = [
 # Tablas que maneja alembic (no insertar alembic_version manualmente)
 SKIP_INSERT = {"alembic_version"}
 
+# Columnas JSON que fueron exportadas como Python dict repr (str() en vez de json.dumps())
+# Síntoma: error "invalid input syntax for type json, Token '\"'\"' is invalid"
+JSON_REPR_COLUMNS: dict[str, set[str]] = {
+    "pipeline_runs": {"artifact_manifest", "metadata_json"},
+    "model_run_snapshots": {"snapshot_json"},
+}
+
+
+def _fix_json_value(v: str | None) -> str | None:
+    """Convierte Python dict repr a JSON válido para columnas de tipo JSON."""
+    if v is None or v == "":
+        return None
+    try:
+        json.loads(v)
+        return v  # ya es JSON válido
+    except (json.JSONDecodeError, ValueError):
+        try:
+            obj = ast.literal_eval(v)
+            return json.dumps(obj, ensure_ascii=False, default=str)
+        except (ValueError, SyntaxError):
+            return v  # dejar como está
+
 
 def import_table(engine, table: str, csv_path: Path) -> int:
     from sqlalchemy import text
@@ -63,7 +87,20 @@ def import_table(engine, table: str, csv_path: Path) -> int:
 
     print(f"  Importando {table}: {len(rows):,} filas...", end=" ", flush=True)
 
-    cols = list(rows[0].keys())
+    # Detectar columnas que realmente existen en el schema destino
+    # (evita errores si el CSV tiene columnas extras que no están en alembic)
+    with engine.connect() as conn:
+        existing = {r[0] for r in conn.execute(
+            text("SELECT column_name FROM information_schema.columns WHERE table_name=:t"),
+            {"t": table}
+        ).fetchall()}
+
+    csv_cols = list(rows[0].keys())
+    cols = [c for c in csv_cols if c in existing]
+    skipped = set(csv_cols) - existing
+    if skipped:
+        print(f"\n    [WARN] {table}: ignorando columnas no en schema destino: {skipped}", end=" ", flush=True)
+
     placeholders = ", ".join(f":{c}" for c in cols)
     col_names = ", ".join(f'"{c}"' for c in cols)
 
@@ -74,12 +111,23 @@ def import_table(engine, table: str, csv_path: Path) -> int:
     # Insertar en chunks para no saturar la conexión
     chunk_size = 500
     inserted = 0
+    json_cols = JSON_REPR_COLUMNS.get(table, set())
     for i in range(0, len(rows), chunk_size):
         chunk = rows[i : i + chunk_size]
-        # Convertir strings vacíos a None para columnas nullable
+        # Convertir strings vacíos a None; fix JSON repr → JSON válido para cols JSON
         cleaned = []
         for row in chunk:
-            cleaned.append({k: (None if v == "" else v) for k, v in row.items()})
+            clean = {}
+            for k, v in row.items():
+                if k not in existing:
+                    continue  # skip columnas no en schema destino
+                if v == "":
+                    clean[k] = None
+                elif k in json_cols:
+                    clean[k] = _fix_json_value(v)
+                else:
+                    clean[k] = v
+            cleaned.append(clean)
         with engine.begin() as conn:
             conn.execute(
                 text(f'INSERT INTO "{table}" ({col_names}) VALUES ({placeholders})'),
@@ -136,7 +184,9 @@ def main() -> int:
     print(f"Destino: {new_url[:60]}...")
     print()
 
-    engine = create_engine(new_url, connect_args={"connect_timeout": 30})
+    # prepare_threshold=None: deshabilita prepared statements (incompatibles con
+    # Supabase transaction pooler — psycopg3 default causa DuplicatePreparedStatement)
+    engine = create_engine(new_url, connect_args={"connect_timeout": 30, "prepare_threshold": None})
 
     # Verificar conectividad
     try:
