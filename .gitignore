@@ -82,3 +82,6 @@ analisis/svb_preview_options.html
 
 # Test output local
 test-results-local.xml
+
+# Backup migración DB — datos sensibles, no commitear
+migration_backup/
