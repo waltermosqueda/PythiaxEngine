@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-20T22:55:18Z -->
-<!-- git_head: 06e5c42 -->
+<!-- generated_at: 2026-05-20T23:58:09Z -->
+<!-- git_head: 9f9a213 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 06e5c42 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-20 19:55 AR (Mie) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 9f9a213 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-20 20:58 AR (Mie) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-20T22:55:18Z | `2026-05-20 19:55 AR (Mie)` | HEAD: `06e5c42`*
+*Auto-generado: 2026-05-20T23:58:09Z | `2026-05-20 20:58 AR (Mie)` | HEAD: `9f9a213`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `06e5c42`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-20 19:55 AR (Mie)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `9f9a213`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-20 20:58 AR (Mie)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-20T22:55:18Z` |
-| Hora AR | `2026-05-20 19:55 AR (Mie)` |
+| Generado | `2026-05-20T23:58:09Z` |
+| Hora AR | `2026-05-20 20:58 AR (Mie)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,18 +64,57 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `06e5c42` — chore(auto): sync dashboard HTML
-**Timestamp commit:** 2026-05-20 19:55:17 -0300
+**HEAD:** `9f9a213` — fix(dashboard): update live-prices Supabase URL+key to new project (okbqqhitseeknruoycby)
+**Timestamp commit:** 2026-05-20 20:57:53 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+9f9a213 fix(dashboard): update live-prices Supabase URL+key to new project (okbqqhitseeknruoycby)
+cfce22c chore(auto): update ESTADO_ACTUAL â†’ 5a87f646a379179f0766cf288997de3ec96e1283 [skip ci]
 06e5c42 chore(auto): sync dashboard HTML
-5a87f64 chore(auto): update ESTADO_ACTUAL → df5d1e3b28ee1e6e61f6620472853f764c722617 [skip ci]
+5a87f64 chore(auto): update ESTADO_ACTUAL â†’ df5d1e3b28ee1e6e61f6620472853f764c722617 [skip ci]
+147e21d chore(auto): sync dashboard HTML
+df5d1e3 fix: disable prepared statements in session factory (PgBouncer/Supabase pooler)
+aa5c10e chore(auto): update ESTADO_ACTUAL â†’ 0e8e729d5f5b6dd56194b2fb1808e86b0d6fe873 [skip ci]
+0e8e729 chore(auto): update ESTADO_ACTUAL â†’ 22fd493 [skip ci]
+22fd493 fix(infra): importar_datos_migracion - 3 fixes para Supabase pooler
+c05fd2b fix(egress): reducir pipeline diario de 3 a 1 cron/dia
 ```
 
 ### Working tree
-_Rama limpia — sin cambios sin commitear_
+```
+?? analisis/_find_tkb1_end.py
+?? analisis/_inject_h7_complete.py
+?? analisis/_inject_ticker_b1.py
+?? analisis/_map_h7t3b.py
+?? analisis/_ranking_bloomberg_shot.png
+?? analisis/_ranking_preview_shot.png
+?? analisis/_read_body.py
+?? herramientas/generar_ranking_preview.py
+?? herramientas/generar_v2_previews.py
+?? herramientas/generar_v2_staging.py
+?? herramientas/generar_v2d_previews.py
+?? herramientas/staging_server.py
+?? logs/_fix_run.txt
+?? scripts/_analyze_html.py
+?? scripts/_apply_rls.py
+?? scripts/_check_lmt.py
+?? scripts/_check_precios.py
+?? scripts/_check_timestamps.py
+?? scripts/_deploy_live_prices.py
+?? scripts/_diag2.py
+?? scripts/_diag3.py
+?? scripts/_diag4.py
+?? scripts/_diag5.py
+?? scripts/_diag6.py
+?? scripts/_diag_slb_lac.py
+?? scripts/_diag_ticker_hist.py
+?? scripts/_diag_yf.py
+?? scripts/_diagnostico_integridad.py
+?? scripts/_fix_cols.py
+?? scripts/_tmp_extract_sparks.py
+```
 
 ---
 
