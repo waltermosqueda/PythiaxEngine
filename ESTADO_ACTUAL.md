@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-21T05:12:17Z -->
-<!-- git_head: 1243908 -->
+<!-- generated_at: 2026-05-21T05:20:43Z -->
+<!-- git_head: 898a26a -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 1243908 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-21 02:12 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 898a26a → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-21 02:20 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-21T05:12:17Z | `2026-05-21 02:12 AR (Jue)` | HEAD: `1243908`*
+*Auto-generado: 2026-05-21T05:20:43Z | `2026-05-21 02:20 AR (Jue)` | HEAD: `898a26a`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `1243908`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-21 02:12 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `898a26a`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-21 02:20 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-21T05:12:17Z` |
-| Hora AR | `2026-05-21 02:12 AR (Jue)` |
+| Generado | `2026-05-21T05:20:43Z` |
+| Hora AR | `2026-05-21 02:20 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,12 +64,13 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `1243908` — fix(tests): update test_db_session to expect prepare_threshold=None in connect_args
-**Timestamp commit:** 2026-05-20 21:26:47 -0300
+**HEAD:** `898a26a` — chore(auto): update ESTADO_ACTUAL â†’ 1243908 [skip ci]
+**Timestamp commit:** 2026-05-21 02:12:17 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+898a26a chore(auto): update ESTADO_ACTUAL â†’ 1243908 [skip ci]
 1243908 fix(tests): update test_db_session to expect prepare_threshold=None in connect_args
 43c460c chore(auto): update ESTADO_ACTUAL â†’ 9f9a213 [skip ci]
 9f9a213 fix(dashboard): update live-prices Supabase URL+key to new project (okbqqhitseeknruoycby)
@@ -79,7 +80,6 @@ cfce22c chore(auto): update ESTADO_ACTUAL â†’ 5a87f646a379179f0766cf288997d
 147e21d chore(auto): sync dashboard HTML
 df5d1e3 fix: disable prepared statements in session factory (PgBouncer/Supabase pooler)
 aa5c10e chore(auto): update ESTADO_ACTUAL â†’ 0e8e729d5f5b6dd56194b2fb1808e86b0d6fe873 [skip ci]
-0e8e729 chore(auto): update ESTADO_ACTUAL â†’ 22fd493 [skip ci]
 ```
 
 ### Working tree
