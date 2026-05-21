@@ -26,6 +26,7 @@ def test_build_engine_kwargs_requires_ssl_for_remote_postgres_without_sslmode() 
     assert kwargs["connect_args"] == {
         "connect_timeout": 15,
         "options": "-c TimeZone=UTC",
+        "prepare_threshold": None,
         "sslmode": "require",
     }
 
@@ -33,10 +34,10 @@ def test_build_engine_kwargs_requires_ssl_for_remote_postgres_without_sslmode() 
 def test_build_engine_kwargs_keeps_local_postgres_without_forced_ssl() -> None:
     kwargs = build_engine_kwargs("postgresql+psycopg://user:pass@localhost/testdb")
 
-    assert kwargs["connect_args"] == {"connect_timeout": 15, "options": "-c TimeZone=UTC"}
+    assert kwargs["connect_args"] == {"connect_timeout": 15, "options": "-c TimeZone=UTC", "prepare_threshold": None}
 
 
 def test_build_engine_kwargs_respects_explicit_sslmode_in_url() -> None:
     kwargs = build_engine_kwargs("postgresql+psycopg://user:pass@remote.example/testdb?sslmode=disable")
 
-    assert kwargs["connect_args"] == {"connect_timeout": 15, "options": "-c TimeZone=UTC"}
+    assert kwargs["connect_args"] == {"connect_timeout": 15, "options": "-c TimeZone=UTC", "prepare_threshold": None}
