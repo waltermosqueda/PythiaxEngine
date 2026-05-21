@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-20T23:58:09Z -->
-<!-- git_head: 9f9a213 -->
+<!-- generated_at: 2026-05-21T05:12:17Z -->
+<!-- git_head: 1243908 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 9f9a213 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-20 20:58 AR (Mie) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 1243908 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-21 02:12 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-20T23:58:09Z | `2026-05-20 20:58 AR (Mie)` | HEAD: `9f9a213`*
+*Auto-generado: 2026-05-21T05:12:17Z | `2026-05-21 02:12 AR (Jue)` | HEAD: `1243908`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `9f9a213`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-20 20:58 AR (Mie)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `1243908`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-21 02:12 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,35 +41,37 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-20T23:58:09Z` |
-| Hora AR | `2026-05-20 20:58 AR (Mie)` |
+| Generado | `2026-05-21T05:12:17Z` |
+| Hora AR | `2026-05-21 02:12 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
 ### Estado crons intraday al momento de generación
 ```
-  13:30 UTC = 10:30 AR  [✅ PASADO]
-  14:30 UTC = 11:30 AR  [✅ PASADO]
-  15:30 UTC = 12:30 AR  [✅ PASADO]
-  16:30 UTC = 13:30 AR  [✅ PASADO]
-  17:30 UTC = 14:30 AR  [✅ PASADO]
-  18:30 UTC = 15:30 AR  [✅ PASADO]
-  19:30 UTC = 16:30 AR  [✅ PASADO]
-  20:30 UTC = 17:30 AR  [✅ PASADO]
+  13:30 UTC = 10:30 AR  [⏳ PENDIENTE]
+  14:30 UTC = 11:30 AR  [⏳ PENDIENTE]
+  15:30 UTC = 12:30 AR  [⏳ PENDIENTE]
+  16:30 UTC = 13:30 AR  [⏳ PENDIENTE]
+  17:30 UTC = 14:30 AR  [⏳ PENDIENTE]
+  18:30 UTC = 15:30 AR  [⏳ PENDIENTE]
+  19:30 UTC = 16:30 AR  [⏳ PENDIENTE]
+  20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
 ```
 
-**Pipeline diario** (19:30 AR = 22:30 UTC): `✅ PASADO`
+**Pipeline diario** (19:30 AR = 22:30 UTC): `⏳ PENDIENTE`
 
 ---
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `9f9a213` — fix(dashboard): update live-prices Supabase URL+key to new project (okbqqhitseeknruoycby)
-**Timestamp commit:** 2026-05-20 20:57:53 -0300
+**HEAD:** `1243908` — fix(tests): update test_db_session to expect prepare_threshold=None in connect_args
+**Timestamp commit:** 2026-05-20 21:26:47 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+1243908 fix(tests): update test_db_session to expect prepare_threshold=None in connect_args
+43c460c chore(auto): update ESTADO_ACTUAL â†’ 9f9a213 [skip ci]
 9f9a213 fix(dashboard): update live-prices Supabase URL+key to new project (okbqqhitseeknruoycby)
 cfce22c chore(auto): update ESTADO_ACTUAL â†’ 5a87f646a379179f0766cf288997de3ec96e1283 [skip ci]
 06e5c42 chore(auto): sync dashboard HTML
@@ -78,8 +80,6 @@ cfce22c chore(auto): update ESTADO_ACTUAL â†’ 5a87f646a379179f0766cf288997d
 df5d1e3 fix: disable prepared statements in session factory (PgBouncer/Supabase pooler)
 aa5c10e chore(auto): update ESTADO_ACTUAL â†’ 0e8e729d5f5b6dd56194b2fb1808e86b0d6fe873 [skip ci]
 0e8e729 chore(auto): update ESTADO_ACTUAL â†’ 22fd493 [skip ci]
-22fd493 fix(infra): importar_datos_migracion - 3 fixes para Supabase pooler
-c05fd2b fix(egress): reducir pipeline diario de 3 a 1 cron/dia
 ```
 
 ### Working tree
