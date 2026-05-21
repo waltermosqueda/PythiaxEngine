@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'analisis/preview_c1_pro.html'
   workflow_dispatch:
 
 concurrency:
