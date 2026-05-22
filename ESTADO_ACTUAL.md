@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-22T04:20:52Z -->
-<!-- git_head: 968cd1f -->
+<!-- generated_at: 2026-05-22T18:13:25Z -->
+<!-- git_head: dc02638 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 968cd1f → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-22 01:20 AR (Vie) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ dc02638 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-22 15:13 AR (Vie) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-22T04:20:52Z | `2026-05-22 01:20 AR (Vie)` | HEAD: `968cd1f`*
+*Auto-generado: 2026-05-22T18:13:25Z | `2026-05-22 15:13 AR (Vie)` | HEAD: `dc02638`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `968cd1f`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-22 01:20 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `dc02638`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-22 15:13 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,18 +41,18 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-22T04:20:52Z` |
-| Hora AR | `2026-05-22 01:20 AR (Vie)` |
+| Generado | `2026-05-22T18:13:25Z` |
+| Hora AR | `2026-05-22 15:13 AR (Vie)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
 ### Estado crons intraday al momento de generación
 ```
-  13:30 UTC = 10:30 AR  [⏳ PENDIENTE]
-  14:30 UTC = 11:30 AR  [⏳ PENDIENTE]
-  15:30 UTC = 12:30 AR  [⏳ PENDIENTE]
-  16:30 UTC = 13:30 AR  [⏳ PENDIENTE]
-  17:30 UTC = 14:30 AR  [⏳ PENDIENTE]
+  13:30 UTC = 10:30 AR  [✅ PASADO]
+  14:30 UTC = 11:30 AR  [✅ PASADO]
+  15:30 UTC = 12:30 AR  [✅ PASADO]
+  16:30 UTC = 13:30 AR  [✅ PASADO]
+  17:30 UTC = 14:30 AR  [✅ PASADO]
   18:30 UTC = 15:30 AR  [⏳ PENDIENTE]
   19:30 UTC = 16:30 AR  [⏳ PENDIENTE]
   20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
@@ -64,26 +64,27 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `968cd1f` — feat: reporte diario trader via Telegram
-**Timestamp commit:** 2026-05-22 01:20:35 -0300
+**HEAD:** `dc02638` — feat(reporte): v8 â€” formato profesional pick-centrico + timing post-cierre
+**Timestamp commit:** 2026-05-22 04:35:26 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+dc02638 feat(reporte): v8 â€” formato profesional pick-centrico + timing post-cierre
+3857a4a feat(reporte): analisis tecnico+fundamental profundo por ticker
+77094b6 feat: reporte diario trader â€” anÃ¡lisis ejecutivo profundo
+49227a3 chore(auto): update ESTADO_ACTUAL â†’ 968cd1f [skip ci]
 968cd1f feat: reporte diario trader via Telegram
 710e2b9 chore(auto): update ESTADO_ACTUAL â†’ 3dbaeb3 [skip ci]
 3dbaeb3 fix(renderer): filter stale calendar entries by latest_target_date in all sections
 324e6a9 chore(auto): update ESTADO_ACTUAL â†’ cfe1fdc [skip ci]
 cfe1fdc fix(renderer): stale picks never shown as active after cycle closes
 439b9ca chore(auto): update ESTADO_ACTUAL â†’ 4f9560ded2b81082bed350d76793b5f907c0267b [skip ci]
-725add2 chore(auto): sync dashboard HTML
-4f9560d fix(ci): remove paths filter â€” force-reset siempre redeploya GitHub Pages
-649820a staging: save drawer + indicator descriptions (force-add gitignored file)
-125b17c chore(auto): update ESTADO_ACTUAL â†’ 898a26a [skip ci]
 ```
 
 ### Working tree
 ```
+?? _migration_export/
 ?? _tmp_analysis.py
 ?? _tmp_render_staging.py
 ?? analisis/_find_tkb1_end.py
@@ -115,6 +116,7 @@ cfe1fdc fix(renderer): stale picks never shown as active after cycle closes
 ?? scripts/_diag_yf.py
 ?? scripts/_diagnostico_integridad.py
 ?? scripts/_fix_cols.py
+?? scripts/_migrate_supabase.py
 ?? scripts/_tmp_extract_sparks.py
 ```
 
