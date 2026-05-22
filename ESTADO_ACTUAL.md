@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-21T23:41:22Z -->
-<!-- git_head: 725add2 -->
+<!-- generated_at: 2026-05-22T00:53:54Z -->
+<!-- git_head: cfe1fdc -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 725add2 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-21 20:41 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ cfe1fdc → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-21 21:53 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-21T23:41:22Z | `2026-05-21 20:41 AR (Jue)` | HEAD: `725add2`*
+*Auto-generado: 2026-05-22T00:53:54Z | `2026-05-21 21:53 AR (Jue)` | HEAD: `cfe1fdc`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `725add2`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-21 20:41 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `cfe1fdc`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-21 21:53 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,41 +41,82 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-21T23:41:22Z` |
-| Hora AR | `2026-05-21 20:41 AR (Jue)` |
+| Generado | `2026-05-22T00:53:54Z` |
+| Hora AR | `2026-05-21 21:53 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
 ### Estado crons intraday al momento de generación
 ```
-  13:30 UTC = 10:30 AR  [✅ PASADO]
-  14:30 UTC = 11:30 AR  [✅ PASADO]
-  15:30 UTC = 12:30 AR  [✅ PASADO]
-  16:30 UTC = 13:30 AR  [✅ PASADO]
-  17:30 UTC = 14:30 AR  [✅ PASADO]
-  18:30 UTC = 15:30 AR  [✅ PASADO]
-  19:30 UTC = 16:30 AR  [✅ PASADO]
-  20:30 UTC = 17:30 AR  [✅ PASADO]
+  13:30 UTC = 10:30 AR  [⏳ PENDIENTE]
+  14:30 UTC = 11:30 AR  [⏳ PENDIENTE]
+  15:30 UTC = 12:30 AR  [⏳ PENDIENTE]
+  16:30 UTC = 13:30 AR  [⏳ PENDIENTE]
+  17:30 UTC = 14:30 AR  [⏳ PENDIENTE]
+  18:30 UTC = 15:30 AR  [⏳ PENDIENTE]
+  19:30 UTC = 16:30 AR  [⏳ PENDIENTE]
+  20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
 ```
 
-**Pipeline diario** (19:30 AR = 22:30 UTC): `✅ PASADO`
+**Pipeline diario** (19:30 AR = 22:30 UTC): `⏳ PENDIENTE`
 
 ---
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `725add2` — chore(auto): sync dashboard HTML
-**Timestamp commit:** 2026-05-21 20:41:21 -0300
+**HEAD:** `cfe1fdc` — fix(renderer): stale picks never shown as active after cycle closes
+**Timestamp commit:** 2026-05-21 21:53:17 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+cfe1fdc fix(renderer): stale picks never shown as active after cycle closes
+439b9ca chore(auto): update ESTADO_ACTUAL â†’ 4f9560ded2b81082bed350d76793b5f907c0267b [skip ci]
 725add2 chore(auto): sync dashboard HTML
-4f9560d fix(ci): remove paths filter — force-reset siempre redeploya GitHub Pages
+4f9560d fix(ci): remove paths filter â€” force-reset siempre redeploya GitHub Pages
+649820a staging: save drawer + indicator descriptions (force-add gitignored file)
+125b17c chore(auto): update ESTADO_ACTUAL â†’ 898a26a [skip ci]
+898a26a chore(auto): update ESTADO_ACTUAL â†’ 1243908 [skip ci]
+1243908 fix(tests): update test_db_session to expect prepare_threshold=None in connect_args
+43c460c chore(auto): update ESTADO_ACTUAL â†’ 9f9a213 [skip ci]
+9f9a213 fix(dashboard): update live-prices Supabase URL+key to new project (okbqqhitseeknruoycby)
 ```
 
 ### Working tree
-_Rama limpia — sin cambios sin commitear_
+```
+?? _tmp_analysis.py
+?? _tmp_render_staging.py
+?? analisis/_find_tkb1_end.py
+?? analisis/_inject_h7_complete.py
+?? analisis/_inject_ticker_b1.py
+?? analisis/_map_h7t3b.py
+?? analisis/_ranking_bloomberg_shot.png
+?? analisis/_ranking_preview_shot.png
+?? analisis/_read_body.py
+?? herramientas/generar_ranking_preview.py
+?? herramientas/generar_v2_previews.py
+?? herramientas/generar_v2_staging.py
+?? herramientas/generar_v2d_previews.py
+?? herramientas/staging_server.py
+?? logs/_fix_run.txt
+?? scripts/_analyze_html.py
+?? scripts/_apply_rls.py
+?? scripts/_check_lmt.py
+?? scripts/_check_precios.py
+?? scripts/_check_timestamps.py
+?? scripts/_deploy_live_prices.py
+?? scripts/_diag2.py
+?? scripts/_diag3.py
+?? scripts/_diag4.py
+?? scripts/_diag5.py
+?? scripts/_diag6.py
+?? scripts/_diag_slb_lac.py
+?? scripts/_diag_ticker_hist.py
+?? scripts/_diag_yf.py
+?? scripts/_diagnostico_integridad.py
+?? scripts/_fix_cols.py
+?? scripts/_tmp_extract_sparks.py
+```
 
 ---
 
