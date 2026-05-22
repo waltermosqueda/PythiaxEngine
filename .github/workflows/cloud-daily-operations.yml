@@ -87,6 +87,14 @@ jobs:
         if: steps.refresh.outputs.should_refresh == 'true'
         run: python analisis/generar_tablero_maquina_pensante.py --variant all
 
+      - name: Send daily trader report
+        if: steps.refresh.outputs.should_refresh == 'true'
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python scripts/reporte_diario_trader.py
+
       - name: Stage GitHub Pages site
         if: steps.refresh.outputs.should_refresh == 'true'
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
