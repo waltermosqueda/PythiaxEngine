@@ -56,6 +56,17 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
+      - name: Check Supabase egress quota
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -m infra.cloud.check_egress_quota \
+            --org-slug vizwgyediarpaqizgwul \
+            --warn-pct 70 \
+            --critical-pct 90
+
       - name: Apply schema with Alembic
         run: alembic upgrade head
 
