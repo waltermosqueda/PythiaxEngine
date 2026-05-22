@@ -1510,13 +1510,25 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                     )
                 continue
             if ret is None and picks:
-                tip_cur = _esc(f"{ver} {d} | {picks} picks activos | {tks} | retorno pendiente")
-                cells += (
-                    f"<td class='hm-active-pending' data-tip='{tip_cur}'>"
-                    f"<div class='hm-ret'>⏳</div>"
-                    f"<div class='hm-meta'>{picks}p</div>"
-                    "</td>"
-                )
+                _it_lt_tgt = it.get("latest_target_date") or ""
+                if _it_lt_tgt and _it_lt_tgt < today_iso:
+                    # target date passed but no return recorded — stale unevaluated entry
+                    _it_tgt_fmt = f"{_it_lt_tgt[8:]}/{_it_lt_tgt[5:7]}" if len(_it_lt_tgt) == 10 else _it_lt_tgt
+                    tip_stale = _esc(f"{ver} · {d[8:]}/{d[5:7]} | {picks} picks sin retorno (evaluación vencida {_it_tgt_fmt})")
+                    cells += (
+                        f"<td class='hm-stale-gap' data-tip='{tip_stale}'>"
+                        "<div class='hm-ret'>!</div>"
+                        "<div class='hm-meta'>sin ret</div>"
+                        "</td>"
+                    )
+                else:
+                    tip_cur = _esc(f"{ver} {d} | {picks} picks activos | {tks} | retorno pendiente")
+                    cells += (
+                        f"<td class='hm-active-pending' data-tip='{tip_cur}'>"
+                        f"<div class='hm-ret'>⏳</div>"
+                        f"<div class='hm-meta'>{picks}p</div>"
+                        "</td>"
+                    )
                 continue
             bg    = _ret_bg(None if ret is None else float(ret))
             if ret is None:
@@ -1551,8 +1563,12 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                 lines.append(f"  Promedio: {ret_txt}%  |  WR: {wr_txt}")
                 tip = _esc("\n".join(lines))
             elif is_prov:
-                tip_suffix = " | en curso (MTM provisional)"
-                tip = _esc(f"{ver} · {d_fmt} | ret estimado {ret_txt}% | {picks} picks abiertos | {tks}{tip_suffix}")
+                if lt_tgt_date and lt_tgt_date < today_iso:
+                    _lt_tgt_fmt = f"{lt_tgt_date[8:]}/{lt_tgt_date[5:7]}" if len(lt_tgt_date) == 10 else lt_tgt_date
+                    tip = _esc(f"{ver} · {d_fmt} | ret MTM {ret_txt}% | {picks} picks (evaluación vencida {_lt_tgt_fmt}) | {tks}")
+                else:
+                    tip_suffix = " | en curso (MTM provisional)"
+                    tip = _esc(f"{ver} · {d_fmt} | ret estimado {ret_txt}% | {picks} picks abiertos | {tks}{tip_suffix}")
             else:
                 tip = _esc(f"{ver} · {d_fmt} | ret {ret_txt}% | WR {wr_txt} | {picks} picks | {tks}")
             cells += (
@@ -1660,11 +1676,20 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
             )
         else:
             # all picks for this date are still pending resolution
-            tfoot_cells += (
-                "<td class='hm-active-pending'>"
-                "<div class='hm-ret'>⏳</div>"
-                "</td>"
-            )
+            if d < today_iso:
+                # date is past but no returns recorded — stale
+                tfoot_cells += (
+                    "<td class='hm-stale-gap'>"
+                    "<div class='hm-ret'>!</div>"
+                    "<div class='hm-meta'>sin ret</div>"
+                    "</td>"
+                )
+            else:
+                tfoot_cells += (
+                    "<td class='hm-active-pending'>"
+                    "<div class='hm-ret'>⏳</div>"
+                    "</td>"
+                )
     for pd in pending:
         tfoot_cells += "<td class='hm-pending'><div class='hm-ret'>—</div></td>"
 
@@ -2315,12 +2340,20 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
     ticker_target_date: dict[str, str] = {}   # ticker → expected evaluation date (DD/MM)
     ticker_price: dict[str, float | None] = {}  # ticker → latest_close price
 
+    today_iso = datetime.date.today().isoformat()
     for e in reversed(cal_sorted):
         tickers_e   = list(e.get("tickers") or [])
         ret_v       = e.get("avg_return_pct")
         is_prov     = e.get("is_provisional") is True
         is_pending  = (not is_prov) and (ret_v is None) and bool(tickers_e)
         is_closed   = (not is_prov) and (ret_v is not None)
+
+        # Skip entries whose evaluation target date already passed.
+        # Stale provisional/pending batches are NOT active picks regardless
+        # of is_provisional status (pipeline may have failed to close them).
+        _e_lt_tgt = e.get("latest_target_date") or ""
+        if _e_lt_tgt and _e_lt_tgt < today_iso:
+            continue
 
         if is_prov:
             # Format this entry's target date (when picks will be evaluated)
@@ -2345,10 +2378,15 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
                     lc = asset.get("latest_close")
                     ticker_price[tk] = float(lc) if lc is not None else None
         elif is_pending:
+            _ltgt = e.get("latest_target_date") or ""
+            _ptgt = _ltgt.split("-")
+            _tgt_s = f"{_ptgt[2]}/{_ptgt[1]}" if len(_ptgt) == 3 else _ltgt
             for t in tickers_e:
                 if t not in seen_open:
                     seen_open.add(t)
                     all_open_tickers.append(t)
+                    if _tgt_s and t not in ticker_target_date:
+                        ticker_target_date[t] = _tgt_s
         elif is_closed:
             # Skip closed entries — keep scanning for older batches still open
             # (overlapping hold periods: e.g. D10 batch from 04/25 still open
