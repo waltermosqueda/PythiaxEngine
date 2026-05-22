@@ -2,8 +2,11 @@
 """
 Monitor de cuota de egress Supabase.
 
-Consulta la Management API de Supabase para obtener el egress acumulado del
-ciclo de billing actual y envía alertas por Telegram si se superan los umbrales.
+Consulta la Platform API de Supabase (/platform/organizations/{slug}/usage)
+para obtener el egress acumulado del ciclo de billing actual y envía alertas
+por Telegram si se superan los umbrales.
+
+Nota: usa Classic Token (sbp_) vía Authorization: Bearer.
 
 Umbrales (sobre el límite del plan free = 5 GB):
   < 70%  (< 3.50 GB) — solo log, sin alerta
@@ -69,36 +72,26 @@ def check_egress(org_slug: str, access_token: str) -> tuple[float, float]:
     Retorna (egress_gb_used, egress_pct) del ciclo actual.
     Lanza en caso de error de API.
     """
-    url = f"https://api.supabase.com/v1/organizations/{org_slug}/usage"
+    # Endpoint correcto: /platform/ (no /v1/). Requiere Classic Token (sbp_).
+    url = f"https://api.supabase.com/platform/organizations/{org_slug}/usage"
     data = _get(url, access_token)
 
-    # La respuesta tiene forma {"usages": [{"metric": "egress", "usage": X, ...}, ...]}
+    # La respuesta tiene forma:
+    # {"usages": [{"metric": "EGRESS", "usage": X.XX, "pricing_free_units": 5, ...}, ...]}
+    # donde usage ya está en GB (no bytes).
     usages = data.get("usages") or []
-    egress_bytes: float | None = None
+    egress_gb: float | None = None
     for item in usages:
-        metric = str(item.get("metric") or "").lower()
-        if metric in ("egress", "total_egress", "db_egress"):
-            # El campo puede llamarse "usage", "used", "capped_usage"
-            for field in ("usage", "used", "capped_usage", "value"):
-                val = item.get(field)
-                if val is not None:
-                    egress_bytes = float(val)
-                    break
-            if egress_bytes is not None:
-                break
+        metric = str(item.get("metric") or "").upper()
+        if metric == "EGRESS":
+            val = item.get("usage")
+            if val is not None:
+                egress_gb = float(val)
+            break
 
-    if egress_bytes is None:
-        # Intentar estructura alternativa plana
-        for key in ("egress", "total_egress"):
-            if key in data:
-                egress_bytes = float(data[key])
-                break
+    if egress_gb is None:
+        raise ValueError(f"No se encontró métrica EGRESS en la respuesta: {[u.get('metric') for u in usages]}")
 
-    if egress_bytes is None:
-        raise ValueError(f"No se encontró métrica de egress en la respuesta: {list(data.keys())}")
-
-    # La API devuelve bytes; convertir a GB
-    egress_gb = egress_bytes / (1024 ** 3)
     egress_pct = egress_gb / PLAN_LIMIT_GB * 100.0
     return egress_gb, egress_pct
 
@@ -127,7 +120,7 @@ def main() -> int:
     try:
         egress_gb, egress_pct = check_egress(args.org_slug, access_token)
     except Exception as exc:
-        print(f"::warning::No se pudo obtener egress de Supabase Management API: {exc}")
+        print(f"::warning::No se pudo obtener egress de Supabase Platform API: {exc}")
         print("Continuando pipeline — chequeo de egress omitido.")
         return 0  # No bloquear el pipeline por falla de monitoreo
 
