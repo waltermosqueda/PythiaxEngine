@@ -333,9 +333,13 @@ def _window_activity_summary(window: dict | None, *, period_days: object | None 
 
 
 def _row_latest_tickers(row: dict, limit: int = 10) -> list[str]:
+    lt_tgt = row.get("latest_target_date") or ""
+    cycle_active = bool(lt_tgt and lt_tgt >= datetime.date.today().isoformat())
     tickers = [str(ticker) for ticker in (row.get("latest_tickers") or []) if ticker]
-    if tickers:
+    if tickers and cycle_active:
         return tickers[:limit]
+    if not cycle_active:
+        return []
     collected: list[str] = []
     for entry in reversed(_window_calendar(row.get("recent_30") or {})):
         recent_tickers = _entry_tickers(entry)
@@ -1030,7 +1034,14 @@ def _hero_card_html(row: dict, *, label: str, card_class: str, subtitle: str, pi
     rank = row.get("rank") or row.get("rank_equalized") or "—"
     picks_count = picks_override if picks_override is not None else int(row.get("latest_picks") or 0)
     closed = _latest_closed_tickers(row)
-    live = live_override if live_override is not None else list(row.get("latest_tickers") or [])
+    _lt_tgt = row.get("latest_target_date") or ""
+    if live_override is not None:
+        live = live_override
+    elif _lt_tgt and _lt_tgt >= datetime.date.today().isoformat():
+        live = list(row.get("latest_tickers") or [])
+    else:
+        live = []
+        picks_count = 0
     best = recent.get("best_day_return_pct")
     worst = recent.get("worst_day_return_pct")
     return (
@@ -1115,9 +1126,12 @@ def _render_hero_panel(snap: dict) -> str:
 def _render_liga_tab2_tbody(snap: dict) -> str:
     league = _dashboard_league(snap)
     rows = []
+    _tab2_today = datetime.date.today().isoformat()
     for row in league:
         eq = _row_window(row, "equalized_recent")
         recent = _row_window(row, "recent_30")
+        _tab2_lt_tgt = row.get("latest_target_date") or ""
+        _tab2_tks = (row.get("latest_tickers") or [])[:6] if (_tab2_lt_tgt and _tab2_lt_tgt >= _tab2_today) else []
         rows.append(
             "<tr>"
             f"<td><strong>{_esc(row.get('version'))}</strong> {_role_badge_card(str(row.get('role') or ''))}</td>"
@@ -1126,7 +1140,7 @@ def _render_liga_tab2_tbody(snap: dict) -> str:
             f"<td>{_fmt_int(eq.get('active_days'))}/{_fmt_int((snap.get('competition_recent') or {}).get('equalized_days'))} · {_fmt_int(eq.get('evaluated'))}</td>"
             f"<td>{_window_accuracy_label(recent)} / {_fmt_pct(recent.get('avg_return_pct'), 3, True)}</td>"
             f"<td>{_fmt_int(recent.get('active_days'))}/30 · {_fmt_int(recent.get('evaluated'))}</td>"
-            f"<td class='muted-td ticker-list'>{_esc(', '.join((row.get('latest_tickers') or [])[:6]) or 'Sin picks')}</td>"
+            f"<td class='muted-td ticker-list'>{_esc(', '.join(_tab2_tks) or 'Sin picks')}</td>"
             "</tr>"
         )
     return "".join(rows)
@@ -1220,6 +1234,8 @@ def _render_models_grid(snap: dict) -> str:
         version = str(row.get("version") or "")
         eq = _row_window(row, "equalized_recent")
         recent = _row_window(row, "recent_30")
+        _mg_lt_tgt = row.get("latest_target_date") or ""
+        _mg_tks = (row.get("latest_tickers") or [])[:10] if (_mg_lt_tgt and _mg_lt_tgt >= datetime.date.today().isoformat()) else []
         cards.append(
             f"<article class='model-card editable-block' data-bid='{_model_bid(version)}' data-blabel='{_esc(version)}'>"
             "<div class='mc-head'>"
@@ -1234,7 +1250,7 @@ def _render_models_grid(snap: dict) -> str:
             f"<div class='mk'><span>Hits</span><strong>{_fmt_int(eq.get('hits'))}/{_fmt_int(eq.get('evaluated'))}</strong></div>"
             f"<div class='mk'><span>Picks</span><strong>{_fmt_int(row.get('latest_picks'))}</strong></div>"
             "</div>"
-            f"<div class='mc-tickers'>{_esc(', '.join((row.get('latest_tickers') or [])[:10]) or 'Sin picks recientes')}</div>"
+            f"<div class='mc-tickers'>{_esc(', '.join(_mg_tks) or 'Sin picks recientes')}</div>"
             "<details class='mc-detail'><summary>Mas datos</summary><div class='mc-detail-body'>"
             f"<div class='kl'><span>30 ruedas</span><strong>{_window_accuracy_label(recent)} / {_fmt_pct(recent.get('avg_return_pct'), 3, True)}</strong></div>"
             f"<div class='kl'><span>Mejor rueda</span><strong>{_fmt_pct(recent.get('best_day_return_pct'), 2, True)}</strong></div>"
@@ -1554,7 +1570,7 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                 lt_tks = r.get("latest_tickers") or []
                 lt_n   = r.get("latest_picks") or 0
                 lt_tgt = r.get("latest_target_date") or ""
-                if lt_n and lt_tks:
+                if lt_n and lt_tks and lt_tgt >= today_iso:
                     tks_str   = _esc(", ".join(lt_tks[:6]))
                     tip_next  = _esc(
                         f"{ver} {pd} | {lt_n} picks activos en cartera"
@@ -2339,7 +2355,13 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
             # even though a 04/20 batch already closed on 04/30)
             continue
 
-    open_tickers = all_open_tickers or list(row.get("latest_tickers") or [])
+    _cpc_lt_tgt = row.get("latest_target_date") or ""
+    if all_open_tickers:
+        open_tickers = all_open_tickers
+    elif _cpc_lt_tgt and _cpc_lt_tgt >= datetime.date.today().isoformat():
+        open_tickers = list(row.get("latest_tickers") or [])
+    else:
+        open_tickers = []
 
     # Weighted-average MTM across all provisional entries
     prov_ret_s, prov_ret_css = "", "neu"
