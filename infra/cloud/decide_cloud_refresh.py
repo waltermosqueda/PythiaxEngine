@@ -103,7 +103,7 @@ def decide_cloud_refresh(*, database_url: str | None = None, force: bool = False
         should_refresh = bool(force)
         if not should_refresh:
             should_refresh = bool(latest_prices_text) and latest_prices_text != last_publish_market_date
-        if not should_refresh:
+        if not should_refresh and latest_prices_text != last_publish_market_date:
             should_refresh = snapshot_newer_than_publish
         stale_deploy = False
         if not should_refresh and max_stale_hours > 0:
