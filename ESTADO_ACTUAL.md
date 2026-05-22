@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-22T18:54:02Z -->
-<!-- git_head: 09fa2f1 -->
+<!-- generated_at: 2026-05-22T19:04:45Z -->
+<!-- git_head: 6fe0a22 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 09fa2f1 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-22 15:54 AR (Vie) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 6fe0a22 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-22 16:04 AR (Vie) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-22T18:54:02Z | `2026-05-22 15:54 AR (Vie)` | HEAD: `09fa2f1`*
+*Auto-generado: 2026-05-22T19:04:45Z | `2026-05-22 16:04 AR (Vie)` | HEAD: `6fe0a22`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `09fa2f1`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-22 15:54 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `6fe0a22`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-22 16:04 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-22T18:54:02Z` |
-| Hora AR | `2026-05-22 15:54 AR (Vie)` |
+| Generado | `2026-05-22T19:04:45Z` |
+| Hora AR | `2026-05-22 16:04 AR (Vie)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,18 +64,61 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `09fa2f1` — chore(auto): sync dashboard HTML
-**Timestamp commit:** 2026-05-22 15:53:53 -0300
+**HEAD:** `6fe0a22` — fix(monitor): corregir URL endpoint Supabase /platform/ en vez de /v1/ y parsing EGRESS uppercase
+**Timestamp commit:** 2026-05-22 16:02:48 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+6fe0a22 fix(monitor): corregir URL endpoint Supabase /platform/ en vez de /v1/ y parsing EGRESS uppercase
+c02b8be chore(auto): update ESTADO_ACTUAL â†’ 6dc73a703f681edd2dd5999112347032c8fe4520 [skip ci]
 09fa2f1 chore(auto): sync dashboard HTML
 6dc73a7 feat(monitor): alerta de egress Supabase via Telegram + GitHub Actions
+485e9d5 perf(egress): filtrar snapshots y predictions por cutoff de 120 dias de mercado
+31c1e60 chore(auto): update ESTADO_ACTUAL â†’ dc026389536699b2a64055a828bd552e9cf92658 [skip ci]
+e44402f chore(auto): sync dashboard HTML
+c1e31e3 chore(auto): update ESTADO_ACTUAL â†’ dc02638 [skip ci]
+dc02638 feat(reporte): v8 â€” formato profesional pick-centrico + timing post-cierre
+3857a4a feat(reporte): analisis tecnico+fundamental profundo por ticker
 ```
 
 ### Working tree
-_Rama limpia — sin cambios sin commitear_
+```
+?? _migration_export/
+?? _tmp_analysis.py
+?? _tmp_render_staging.py
+?? analisis/_find_tkb1_end.py
+?? analisis/_inject_h7_complete.py
+?? analisis/_inject_ticker_b1.py
+?? analisis/_map_h7t3b.py
+?? analisis/_ranking_bloomberg_shot.png
+?? analisis/_ranking_preview_shot.png
+?? analisis/_read_body.py
+?? herramientas/generar_ranking_preview.py
+?? herramientas/generar_v2_previews.py
+?? herramientas/generar_v2_staging.py
+?? herramientas/generar_v2d_previews.py
+?? herramientas/staging_server.py
+?? logs/_fix_run.txt
+?? scripts/_analyze_html.py
+?? scripts/_apply_rls.py
+?? scripts/_check_lmt.py
+?? scripts/_check_precios.py
+?? scripts/_check_timestamps.py
+?? scripts/_deploy_live_prices.py
+?? scripts/_diag2.py
+?? scripts/_diag3.py
+?? scripts/_diag4.py
+?? scripts/_diag5.py
+?? scripts/_diag6.py
+?? scripts/_diag_slb_lac.py
+?? scripts/_diag_ticker_hist.py
+?? scripts/_diag_yf.py
+?? scripts/_diagnostico_integridad.py
+?? scripts/_fix_cols.py
+?? scripts/_migrate_supabase.py
+?? scripts/_tmp_extract_sparks.py
+```
 
 ---
 
