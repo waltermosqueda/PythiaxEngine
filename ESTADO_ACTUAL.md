@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-22T01:26:45Z -->
-<!-- git_head: 3dbaeb3 -->
+<!-- generated_at: 2026-05-22T04:20:52Z -->
+<!-- git_head: 968cd1f -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 3dbaeb3 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-21 22:26 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 968cd1f → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-22 01:20 AR (Vie) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-22T01:26:45Z | `2026-05-21 22:26 AR (Jue)` | HEAD: `3dbaeb3`*
+*Auto-generado: 2026-05-22T04:20:52Z | `2026-05-22 01:20 AR (Vie)` | HEAD: `968cd1f`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `3dbaeb3`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-21 22:26 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `968cd1f`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-22 01:20 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-22T01:26:45Z` |
-| Hora AR | `2026-05-21 22:26 AR (Jue)` |
+| Generado | `2026-05-22T04:20:52Z` |
+| Hora AR | `2026-05-22 01:20 AR (Vie)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,12 +64,14 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `3dbaeb3` — fix(renderer): filter stale calendar entries by latest_target_date in all sections
-**Timestamp commit:** 2026-05-21 22:26:19 -0300
+**HEAD:** `968cd1f` — feat: reporte diario trader via Telegram
+**Timestamp commit:** 2026-05-22 01:20:35 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+968cd1f feat: reporte diario trader via Telegram
+710e2b9 chore(auto): update ESTADO_ACTUAL â†’ 3dbaeb3 [skip ci]
 3dbaeb3 fix(renderer): filter stale calendar entries by latest_target_date in all sections
 324e6a9 chore(auto): update ESTADO_ACTUAL â†’ cfe1fdc [skip ci]
 cfe1fdc fix(renderer): stale picks never shown as active after cycle closes
@@ -78,8 +80,6 @@ cfe1fdc fix(renderer): stale picks never shown as active after cycle closes
 4f9560d fix(ci): remove paths filter â€” force-reset siempre redeploya GitHub Pages
 649820a staging: save drawer + indicator descriptions (force-add gitignored file)
 125b17c chore(auto): update ESTADO_ACTUAL â†’ 898a26a [skip ci]
-898a26a chore(auto): update ESTADO_ACTUAL â†’ 1243908 [skip ci]
-1243908 fix(tests): update test_db_session to expect prepare_threshold=None in connect_args
 ```
 
 ### Working tree
