@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-22T18:13:25Z -->
-<!-- git_head: dc02638 -->
+<!-- generated_at: 2026-05-22T18:14:20Z -->
+<!-- git_head: e44402f -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ dc02638 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-22 15:13 AR (Vie) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ e44402f → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-22 15:14 AR (Vie) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-22T18:13:25Z | `2026-05-22 15:13 AR (Vie)` | HEAD: `dc02638`*
+*Auto-generado: 2026-05-22T18:14:20Z | `2026-05-22 15:14 AR (Vie)` | HEAD: `e44402f`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `dc02638`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-22 15:13 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `e44402f`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-22 15:14 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-22T18:13:25Z` |
-| Hora AR | `2026-05-22 15:13 AR (Vie)` |
+| Generado | `2026-05-22T18:14:20Z` |
+| Hora AR | `2026-05-22 15:14 AR (Vie)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,61 +64,19 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `dc02638` — feat(reporte): v8 â€” formato profesional pick-centrico + timing post-cierre
-**Timestamp commit:** 2026-05-22 04:35:26 -0300
+**HEAD:** `e44402f` — chore(auto): sync dashboard HTML
+**Timestamp commit:** 2026-05-22 15:14:12 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-dc02638 feat(reporte): v8 â€” formato profesional pick-centrico + timing post-cierre
-3857a4a feat(reporte): analisis tecnico+fundamental profundo por ticker
-77094b6 feat: reporte diario trader â€” anÃ¡lisis ejecutivo profundo
-49227a3 chore(auto): update ESTADO_ACTUAL â†’ 968cd1f [skip ci]
-968cd1f feat: reporte diario trader via Telegram
-710e2b9 chore(auto): update ESTADO_ACTUAL â†’ 3dbaeb3 [skip ci]
-3dbaeb3 fix(renderer): filter stale calendar entries by latest_target_date in all sections
-324e6a9 chore(auto): update ESTADO_ACTUAL â†’ cfe1fdc [skip ci]
-cfe1fdc fix(renderer): stale picks never shown as active after cycle closes
-439b9ca chore(auto): update ESTADO_ACTUAL â†’ 4f9560ded2b81082bed350d76793b5f907c0267b [skip ci]
+e44402f chore(auto): sync dashboard HTML
+c1e31e3 chore(auto): update ESTADO_ACTUAL → dc02638 [skip ci]
+dc02638 feat(reporte): v8 — formato profesional pick-centrico + timing post-cierre
 ```
 
 ### Working tree
-```
-?? _migration_export/
-?? _tmp_analysis.py
-?? _tmp_render_staging.py
-?? analisis/_find_tkb1_end.py
-?? analisis/_inject_h7_complete.py
-?? analisis/_inject_ticker_b1.py
-?? analisis/_map_h7t3b.py
-?? analisis/_ranking_bloomberg_shot.png
-?? analisis/_ranking_preview_shot.png
-?? analisis/_read_body.py
-?? herramientas/generar_ranking_preview.py
-?? herramientas/generar_v2_previews.py
-?? herramientas/generar_v2_staging.py
-?? herramientas/generar_v2d_previews.py
-?? herramientas/staging_server.py
-?? logs/_fix_run.txt
-?? scripts/_analyze_html.py
-?? scripts/_apply_rls.py
-?? scripts/_check_lmt.py
-?? scripts/_check_precios.py
-?? scripts/_check_timestamps.py
-?? scripts/_deploy_live_prices.py
-?? scripts/_diag2.py
-?? scripts/_diag3.py
-?? scripts/_diag4.py
-?? scripts/_diag5.py
-?? scripts/_diag6.py
-?? scripts/_diag_slb_lac.py
-?? scripts/_diag_ticker_hist.py
-?? scripts/_diag_yf.py
-?? scripts/_diagnostico_integridad.py
-?? scripts/_fix_cols.py
-?? scripts/_migrate_supabase.py
-?? scripts/_tmp_extract_sparks.py
-```
+_Rama limpia — sin cambios sin commitear_
 
 ---
 
