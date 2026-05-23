@@ -376,7 +376,7 @@ def _load_operational_row_map(
     cutoff = market_dates[-120] if market_dates and len(market_dates) > 120 else None
     params: tuple[Any, ...]
     # MTM (mark-to-market) provisional return for open/pending picks:
-    # computed as (latest_close - entry_close) / entry_close
+    # computed as (latest_close - entry_open_t+1) / entry_open_t+1
     # only filled when o.actual_return IS NULL (no resolved outcome yet)
     if exact:
         sql = """
@@ -389,10 +389,10 @@ def _load_operational_row_map(
                 p.score,
                 o.actual_return,
                 o.hit,
-                CASE WHEN o.actual_return IS NULL AND lp.mx >= p.prediction_date
-                    THEN (p_latest.close - p_entry.close) / NULLIF(p_entry.close, 0)
+                CASE WHEN o.actual_return IS NULL AND p_entry.date IS NOT NULL AND lp.mx >= p_entry.date
+                    THEN (p_latest.close - p_entry.open) / NULLIF(p_entry.open, 0)
                     ELSE NULL END AS mtm_return,
-                p_entry.close AS entry_close,
+                p_entry.open  AS entry_close,
                 p_entry.date  AS entry_date,
                 p_latest.close AS latest_close,
                 lp.mx          AS latest_price_date
@@ -401,8 +401,8 @@ def _load_operational_row_map(
             LEFT JOIN prices p_entry
                 ON p_entry.ticker = p.ticker
                 AND p_entry.date = (
-                    SELECT MAX(pr2.date) FROM prices pr2
-                    WHERE pr2.ticker = p.ticker AND pr2.date < p.prediction_date
+                    SELECT MIN(pr2.date) FROM prices pr2
+                    WHERE pr2.ticker = p.ticker AND pr2.date > p.prediction_date
                 )
             LEFT JOIN (SELECT ticker, MAX(date) AS mx FROM prices GROUP BY ticker) lp
                 ON lp.ticker = p.ticker
@@ -422,10 +422,10 @@ def _load_operational_row_map(
                 p.score,
                 o.actual_return,
                 o.hit,
-                CASE WHEN o.actual_return IS NULL AND lp.mx >= p.prediction_date
-                    THEN (p_latest.close - p_entry.close) / NULLIF(p_entry.close, 0)
+                CASE WHEN o.actual_return IS NULL AND p_entry.date IS NOT NULL AND lp.mx >= p_entry.date
+                    THEN (p_latest.close - p_entry.open) / NULLIF(p_entry.open, 0)
                     ELSE NULL END AS mtm_return,
-                p_entry.close AS entry_close,
+                p_entry.open  AS entry_close,
                 p_entry.date  AS entry_date,
                 p_latest.close AS latest_close,
                 lp.mx          AS latest_price_date
@@ -434,8 +434,8 @@ def _load_operational_row_map(
             LEFT JOIN prices p_entry
                 ON p_entry.ticker = p.ticker
                 AND p_entry.date = (
-                    SELECT MAX(pr2.date) FROM prices pr2
-                    WHERE pr2.ticker = p.ticker AND pr2.date < p.prediction_date
+                    SELECT MIN(pr2.date) FROM prices pr2
+                    WHERE pr2.ticker = p.ticker AND pr2.date > p.prediction_date
                 )
             LEFT JOIN (SELECT ticker, MAX(date) AS mx FROM prices GROUP BY ticker) lp
                 ON lp.ticker = p.ticker
