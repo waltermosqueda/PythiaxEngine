@@ -5131,71 +5131,78 @@ window._v2e={getSpark:getSpark,getLeagueEnhanced:getLeagueEnhanced,getKPIs:getKP
       }catch(e){}
     }
   }
-  /* ── inject ranking position into cinta pk-mod spans ── */
+  /* ── Rebuild cinta from SVB panel · todos los picks · todos los modelos · por ranking ── */
   (function(){
-    var league=d.getLeagueEnhanced(20);
-    var rkMap={};
-    league.forEach(function(m,i){
-      rkMap[m.model]=i+1;
-      var s=m.model.replace(/^ML_(?:BRAIN_)?/,'');
-      if(!(s in rkMap)) rkMap[s]=i+1;
-    });
-    document.querySelectorAll('.pk-mod').forEach(function(el){
-      if(el.querySelector('.pk-rnk')) return;
-      var txt=el.textContent.trim();
-      var r=rkMap[txt];
-      if(!r) return;
-      while(el.firstChild) el.removeChild(el.firstChild);
-      el.appendChild(document.createTextNode(txt));
-      var rk=document.createElement('span');
-      rk.className='pk-rnk';
-      rk.textContent='\u00a0#'+r+'\u00b0';
-      el.appendChild(rk);
-    });
-  })();
-  /* ── sort cinta cards by model rank ── */
-  (function(){
-    var tt=document.querySelector('.tt');
-    if(!tt) return;
-    var cards=Array.from(tt.querySelectorAll(':scope > .pk'));
-    var half=Math.floor(cards.length/2);
-    if(half<1) return;
-    var first=cards.slice(0,half);
-    first.sort(function(a,b){
-      var getRank=function(card){
-        var rk=card.querySelector('.pk-rnk');
-        if(!rk) return 999;
-        var m=rk.textContent.match(/(\d+)/);
-        return m?parseInt(m[1]):999;
-      };
-      return getRank(a)-getRank(b);
-    });
-    while(tt.firstChild) tt.removeChild(tt.firstChild);
-    first.forEach(function(c){tt.appendChild(c);});
-    first.forEach(function(c){tt.appendChild(c.cloneNode(true));});
-  })();
-  /* ── Drag-to-scroll cinta de picks (JS-driven rAF, reemplaza CSS anim) ── */
-  (function(){
-    var tw=document.querySelector('.h7-ticker .tw');
     var tt=document.querySelector('.h7-ticker .tt');
-    if(!tw||!tt) return;
-    /* Capturar posición actual de la animación CSS antes de detenerla */
-    function parseX(el){
-      var s=getComputedStyle(el).transform;
-      if(!s||s==='none') return 0;
-      var m=s.match(/matrix\(1,\s*0,\s*0,\s*1,\s*([-\d.e+]+)/);
-      return m?parseFloat(m[1]):0;
+    var tw=document.querySelector('.h7-ticker .tw');
+    var lbl=document.querySelector('.ticker-lbl-n');
+    if(!tt||!tw) return;
+
+    /* Collect all open picks from the static SVB hero card, in rank order */
+    var picks=[];
+    document.querySelectorAll('.svb-list .svb-row').forEach(function(row){
+      var rankEl=row.querySelector('.svb-rank-lbl');
+      var nameEl=row.querySelector('.svb-rver');
+      var tbl=row.querySelector('.svb-tickers-table');
+      if(!rankEl||!nameEl||!tbl) return; /* skip models with no open picks */
+      var rankTxt=rankEl.textContent.trim(); /* e.g. "1°" */
+      var modelName=nameEl.textContent.trim();
+      var modelColor=nameEl.style.color||'#a882ff';
+      tbl.querySelectorAll('tr').forEach(function(tr){
+        var nm=tr.querySelector('.svb-tk-name');
+        var pct=tr.querySelector('.svb-tk-pct');
+        var dt=tr.querySelector('.svb-tk-date');
+        if(!nm) return;
+        var isNeg=pct&&pct.classList.contains('neg');
+        picks.push({
+          ticker: nm.textContent.trim(),
+          pct:    pct?pct.textContent.trim():'',
+          sign:   isNeg?'neg':'pos',
+          date:   dt?dt.textContent.trim():'',
+          model:  modelName,
+          color:  modelColor,
+          rank:   rankTxt
+        });
+      });
+    });
+
+    /* Update counter label */
+    if(lbl) lbl.textContent=picks.length||'—';
+    if(!picks.length) return;
+
+    /* Build one card HTML */
+    function card(p){
+      var pctColor=p.sign==='neg'?'rgba(252,92,125,0.85)':'rgba(68,232,200,0.85)';
+      var bg=p.color+'22'; /* 8-char hex: color + 22 ≈ 13% alpha */
+      return '<div class="pk '+p.sign+'">'
+        +'<div class="pk-row1">'
+          +'<span class="pk-sym svb-tk-name">'+p.ticker+'</span>'
+          +'<span class="pk-mod" style="background:'+bg+';color:'+p.color+'">'+p.model+'<span class="pk-rnk">\u00a0#'+p.rank+'</span></span>'
+        +'</div>'
+        +'<div class="pk-row2">'
+          +'<span class="pk-entry">\u2014</span>'
+          +'<span class="pk-arrow">\u2192</span>'
+          +'<span class="pk-curr '+p.sign+' svb-tk-price">\u2014</span>'
+          +'<span class="pk-delta '+p.sign+'">'+p.pct+'</span>'
+        +'</div>'
+        +'<div class="b1-row3">'
+          +'<span class="b1-icon">\u23f1</span>'
+          +'<span class="b1-dates">'+p.date+'</span>'
+          +'<span class="b1-rest" style="color:'+pctColor+'">'+p.pct+'</span>'
+        +'</div>'
+        +'<div class="pk-progbar" style="width:8%"></div>'
+        +'</div>';
     }
+
+    /* Fill .tt with picks × 2 for seamless infinite scroll */
+    var html=picks.map(card).join('')+picks.map(card).join('');
+    tt.innerHTML=html;
+
+    /* ── rAF drag-to-scroll (same approach as before) ── */
     tt.style.animationPlayState='paused';
-    var pos=parseX(tt);
-    tt.style.transform='translateX('+pos.toFixed(1)+'px)';
-    tt.style.animation='none'; /* JS toma el control, sin más CSS anim */
-    var totalW=0, dragging=false, dragX0=0, dragPos0=0;
-    function norm(){
-      /* mantiene pos en [-totalW, 0) para loop continuo */
-      pos=pos%(-totalW);
-      if(pos>0) pos-=totalW;
-    }
+    tt.style.animation='none';
+    var pos=0, totalW=0, dragging=false, dragX0=0, dragPos0=0;
+    function norm(){ pos=pos%(-totalW); if(pos>0) pos-=totalW; }
     function tick(){
       totalW=tt.scrollWidth/2;
       if(!dragging&&totalW>0){ pos-=totalW/90/60; norm(); }
