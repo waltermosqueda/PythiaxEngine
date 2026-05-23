@@ -2707,7 +2707,7 @@ def _build_h7_chip_signals(snap: dict) -> str:
         "<div class='vd-chip-inner'>"
         "<div class='vd-icon'>\u26a1</div>"
         "<div class='vd-body'>"
-        f"<div class='h7-cl'>Se\u00f1ales abiertas \u00b7 {count_s} picks</div>"
+        f"<div class='h7-cl'>Se\u00f1ales nuevas \u00b7 {count_s} abiertas</div>"
         "<div style='font-size:8px;color:rgba(120,165,215,.38);margin-top:1px;line-height:1.4'>posiciones activas \u00b7 % = MTM desde apertura</div>"
         f"<div class='vd-picks'>{picks_html}</div>"
         "</div>"
@@ -2773,7 +2773,7 @@ def _build_h7_ticker(snap: dict) -> str:
     return (
         f"<div class='ticker-lbl'><div class='ticker-lbl-t'>SE\u00d1ALES</div>"
         f"<div class='ticker-lbl-n'>{total_open}</div>"
-        f"<div class='ticker-lbl-s'>ABIERTAS</div>"
+        f"<div class='ticker-lbl-s'>NUEVAS</div>"
         f"<div style='font-size:6px;color:rgba(120,165,215,.38);text-align:center;margin-top:2px;letter-spacing:.03em'>% MTM</div></div>"
         f"<div class='tw'><div class='tt'>"
         + pk_html
