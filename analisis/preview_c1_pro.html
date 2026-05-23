@@ -5174,41 +5174,49 @@ window._v2e={getSpark:getSpark,getLeagueEnhanced:getLeagueEnhanced,getKPIs:getKP
     first.forEach(function(c){tt.appendChild(c);});
     first.forEach(function(c){tt.appendChild(c.cloneNode(true));});
   })();
-  /* ── Drag-to-scroll cinta de picks ── */
+  /* ── Drag-to-scroll cinta de picks (JS-driven rAF, reemplaza CSS anim) ── */
   (function(){
     var tw=document.querySelector('.h7-ticker .tw');
     var tt=document.querySelector('.h7-ticker .tt');
     if(!tw||!tt) return;
-    var dragging=false,startX=0,startTX=0,ANIM_DUR=90;
-    function getTX(){return new DOMMatrix(getComputedStyle(tt).transform).m41;}
-    function beginDrag(x){
-      dragging=true; startX=x; startTX=getTX();
-      tt.style.animationPlayState='paused';
-      tt.style.transform='translateX('+startTX+'px)';
-      tw.style.cursor='grabbing';
+    /* Capturar posición actual de la animación CSS antes de detenerla */
+    function parseX(el){
+      var s=getComputedStyle(el).transform;
+      if(!s||s==='none') return 0;
+      var m=s.match(/matrix\(1,\s*0,\s*0,\s*1,\s*([-\d.e+]+)/);
+      return m?parseFloat(m[1]):0;
     }
-    function moveDrag(x){
+    tt.style.animationPlayState='paused';
+    var pos=parseX(tt);
+    tt.style.transform='translateX('+pos.toFixed(1)+'px)';
+    tt.style.animation='none'; /* JS toma el control, sin más CSS anim */
+    var totalW=0, dragging=false, dragX0=0, dragPos0=0;
+    function norm(){
+      /* mantiene pos en [-totalW, 0) para loop continuo */
+      pos=pos%(-totalW);
+      if(pos>0) pos-=totalW;
+    }
+    function tick(){
+      totalW=tt.scrollWidth/2;
+      if(!dragging&&totalW>0){ pos-=totalW/90/60; norm(); }
+      tt.style.transform='translateX('+pos.toFixed(1)+'px)';
+      requestAnimationFrame(tick);
+    }
+    function start(x){ dragging=true; dragX0=x; dragPos0=pos; tw.style.cursor='grabbing'; }
+    function move(x){
       if(!dragging) return;
-      tt.style.transform='translateX('+(startTX+(x-startX))+'px)';
+      pos=dragPos0+(x-dragX0);
+      if(totalW>0) norm();
+      tt.style.transform='translateX('+pos.toFixed(1)+'px)';
     }
-    function endDrag(x){
-      if(!dragging) return;
-      dragging=false;
-      var finalTX=startTX+(x-startX);
-      var totalW=tt.scrollWidth/2;
-      if(totalW>0){ finalTX=finalTX%(-totalW); if(finalTX>0) finalTX-=totalW; }
-      var delay=totalW>0?(-finalTX/totalW*ANIM_DUR):0;
-      tt.style.transform=''; tt.style.animationPlayState='';
-      tt.style.animation='none'; void tt.offsetWidth;
-      tt.style.animation=''; tt.style.animationDelay='-'+delay.toFixed(2)+'s';
-      tw.style.cursor='grab';
-    }
-    tw.addEventListener('mousedown',function(e){beginDrag(e.clientX);e.preventDefault();});
-    document.addEventListener('mousemove',function(e){moveDrag(e.clientX);});
-    document.addEventListener('mouseup',function(e){endDrag(e.clientX);});
-    tw.addEventListener('touchstart',function(e){beginDrag(e.touches[0].clientX);},{passive:true});
-    document.addEventListener('touchmove',function(e){if(dragging){moveDrag(e.touches[0].clientX);e.preventDefault();}},{passive:false});
-    document.addEventListener('touchend',function(e){endDrag(e.changedTouches[0].clientX);});
+    function end(){ if(!dragging) return; dragging=false; if(totalW>0) norm(); tw.style.cursor='grab'; }
+    tw.addEventListener('mousedown',function(e){start(e.clientX);e.preventDefault();});
+    document.addEventListener('mousemove',function(e){move(e.clientX);});
+    document.addEventListener('mouseup',end);
+    tw.addEventListener('touchstart',function(e){start(e.touches[0].clientX);},{passive:true});
+    document.addEventListener('touchmove',function(e){if(dragging){move(e.touches[0].clientX);e.preventDefault();}},{passive:false});
+    document.addEventListener('touchend',end);
+    requestAnimationFrame(tick);
   })();
 })();
 </script>
