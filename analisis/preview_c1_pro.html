@@ -2235,7 +2235,10 @@ body{background:#050810;font-family:"Inter","Segoe UI",system-ui,sans-serif;colo
   <!-- Portfolio Performance -->
   <div class="v2e-panel">
     <div class="v2e-ph">
-      <span>Portfolio Performance · Curva normalizada</span>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span>Portfolio Performance · Retorno Acumulado</span>
+        <span style="font-size:9px;color:rgba(120,165,215,.38);letter-spacing:.02em;font-weight:400">📌 Σ retornos por rueda · entrada OPEN día siguiente → CIERRE vencimiento · sin componer · 0% = inicio del período</span>
+      </div>
       <div style="display:flex;align-items:center;gap:10px">
         <div class="v2e-periods"><span class="v2e-period-lbl">Período</span><button class="v2e-pbtn" data-cpid="ve2-chart" data-cp="5" onclick="_v2e_sp('ve2-chart',5)" title="5 ruedas">1 Sem</button><button class="v2e-pbtn" data-cpid="ve2-chart" data-cp="10" onclick="_v2e_sp('ve2-chart',10)" title="10 ruedas">2 Sem</button><button class="v2e-pbtn" data-cpid="ve2-chart" data-cp="20" onclick="_v2e_sp('ve2-chart',20)" title="20 ruedas">1 Mes</button><button class="v2e-pbtn" data-cpid="ve2-chart" data-cp="0" onclick="_v2e_sp('ve2-chart',0)" title="30 ruedas">Todo</button></div>
         <span id="ve2-regime" class="v2e-badge v2e-ba-g">—</span>
@@ -4467,7 +4470,7 @@ function buildChartPro(id, fullDs, period, opts) {
       if(lStyle==='nameVal'){
         var _rkpfx=lp.rank?'#'+lp.rank+'° ':'';
         s.push('<text x="'+lx+'" y="'+(ly-4).toFixed(1)+'" fill="'+c+'" font-size="8" font-weight="900" letter-spacing=".06em">'+_rkpfx+lp.lbl+'</text>');
-        s.push('<text x="'+lx+'" y="'+(ly+8).toFixed(1)+'" fill="'+c+'" font-size="9" font-weight="700" opacity=".8">'+(lv>=0?'+':'')+lv.toFixed(1)+'%</text>');
+        s.push('<text x="'+lx+'" y="'+(ly+8).toFixed(1)+'" fill="'+c+'" font-size="9" font-weight="700" opacity=".8">'+(lv>=0?'+':'')+lv.toFixed(1)+'% acum.</text>');
       } else if(lStyle==='pill'){
         var lbl=lp.lbl+'  '+(lv>=0?'+':'')+lv.toFixed(1)+'%';
         var bw=lbl.length*5.5+14;
@@ -4508,14 +4511,21 @@ function buildChartPro(id, fullDs, period, opts) {
     datasets.forEach(function(ds){
       var idx=Math.round(fr*(ds.vals.length-1));
       var v=ds.vals[idx];
+      var prevV=idx>0?ds.vals[idx-1]:null;
+      var delta=prevV!==null?v-prevV:null;
       if(!dateStr&&ds.labels&&ds.labels[idx])
         dateStr=ds.labels[idx].replace('2026-','').replace(/-/g,'/');
-      lines.push('<div style="display:flex;justify-content:space-between;gap:18px">'
-        +'<span style="color:'+ds.color+'">● '+(ds.label||'?')+'</span>'
-        +'<b style="color:#eef4fb">'+(v>=0?'+':'')+v.toFixed(2)+'%</b></div>');
+      var acumColor=v>=0?'var(--green,#44e890)':'var(--rose,#f07080)';
+      var deltaHtml=delta!==null?'<span style="font-size:8px;color:rgba(180,210,255,.45);margin-left:6px">Δ rueda '+(delta>=0?'+':'')+delta.toFixed(1)+'%</span>':'';
+      var wrHtml=ds.wr?'<span style="font-size:8px;color:rgba(68,232,144,.6);margin-left:6px">WR '+ds.wr+'</span>':'';
+      lines.push('<div style="display:flex;justify-content:space-between;gap:16px;align-items:center">'
+        +'<span style="color:'+ds.color+';font-weight:700">● '+(ds.label||'?')+'</span>'
+        +'<span style="text-align:right"><b style="color:'+acumColor+'">'+(v>=0?'+':'')+v.toFixed(2)+'% acum.</b>'+deltaHtml+wrHtml+'</span></div>');
     });
     if(dateStr)lines.unshift(
-      '<div style="color:rgba(255,255,255,.35);font-size:8.5px;margin-bottom:4px">📅 '+dateStr+'</div>');
+      '<div style="color:rgba(255,255,255,.35);font-size:8.5px;margin-bottom:5px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:4px">'
+      +'📅 '+dateStr
+      +' <span style="color:rgba(120,165,215,.4);font-size:8px">· Σ ret. desde inicio período</span></div>');
     tip.innerHTML=lines.join('');tip.style.display='block';
     var tipW=tip.offsetWidth||160;
     var pxL=parseFloat(cx)/W_*rect.width;
@@ -4533,11 +4543,15 @@ function buildChartPro(id, fullDs, period, opts) {
       if(v>bestV){bestV=v;best=ds;}
     });
     if(best){
-      var nLabel=period>0?period+'R':'Todo';
-      statEl.innerHTML='🏆 <span style="color:'+best.color+'">'+best.label+'</span>'
-        +' lidera en <b>'+nLabel+'</b>: '
-        +'<span style="color:'+(bestV>=0?'var(--green)':'var(--rose)')+'">'
-        +(bestV>=0?'+':'')+bestV.toFixed(1)+'%</span>';
+      var nLabel=period>0?period+' ruedas':'período completo';
+      var wrNote=best.wr?' · <span style="color:rgba(68,232,144,.8)">'+best.wr+' WR</span>':'';
+      var retNote=best.ret?' · ret/trade '+best.ret:'';
+      statEl.innerHTML='🏆 <span style="color:'+best.color+';font-weight:700">'+best.label+'</span>'
+        +' lidera en <b>'+nLabel+'</b> — '
+        +'<span style="color:'+(bestV>=0?'var(--green)':'var(--rose)')+';font-weight:700">'
+        +(bestV>=0?'+':'')+bestV.toFixed(1)+'%</span>'
+        +' <span style="font-size:9px;color:rgba(120,165,215,.4)">(Σ ret. acum.)</span>'
+        +wrNote+retNote;
     }
   }
 }
@@ -4948,11 +4962,13 @@ window._v2e={getSpark:getSpark,getLeagueEnhanced:getLeagueEnhanced,getKPIs:getKP
   var TOP4=['#00aacc','#44e890','#8899aa','#b070ff'];
   var top4=d.getLeagueEnhanced(4);
   var datasets=top4.filter(function(m){return m.sparkVals&&m.sparkVals.length;}).map(function(m,i){
-    return {vals:m.sparkVals,color:TOP4[i]||m.color,labels:m.sparkLabels,label:m.model,isChamp:i===0,rank:i+1};
+    return {vals:m.sparkVals,color:TOP4[i]||m.color,labels:m.sparkLabels,label:m.model,isChamp:i===0,rank:i+1,wr:m.wr,ret:m.ret,wrNum:m.wrNum};
   });
   var legEl=document.getElementById('ve2-leg');
   if(legEl)legEl.innerHTML=datasets.map(function(ds,i){
-    return '<div class="v2e-leg-item"><div class="v2e-leg-dot" style="background:'+ds.color+'"></div><span class="v2e-leg-rk">#'+(i+1)+'\u00b0\u00a0</span><span>'+ds.label+'</span></div>';
+    var wrBadge=ds.wr?'<span style="font-size:8.5px;font-weight:700;color:rgba(68,232,144,.75);margin-left:5px;background:rgba(68,232,144,.08);padding:1px 5px;border-radius:3px">'+ds.wr+' WR</span>':'';
+    var retBadge=ds.ret?'<span style="font-size:8.5px;color:rgba(120,165,215,.55);margin-left:3px">'+ds.ret+'/trade</span>':'';
+    return '<div class="v2e-leg-item"><div class="v2e-leg-dot" style="background:'+ds.color+'"></div><span class="v2e-leg-rk">#'+(i+1)+'\u00b0\u00a0</span><span style="font-weight:700">'+ds.label+'</span>'+wrBadge+retBadge+'</div>';
   }).join('');
   var _opts268A={height:350,endLabels:true,labelStyle:'nameVal'};
   window._v2e_reg('ve2-chart',datasets,_opts268A);
