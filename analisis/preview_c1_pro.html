@@ -1931,7 +1931,7 @@ body.v2e [data-bid="overlap-panel"] { overflow-x: auto !important; }
 .ticker-lbl-s{font-size:7.5px;color:var(--muted,#6585a8);letter-spacing:.04em}
 .tw{overflow:hidden;flex:1;display:flex;align-items:center}
 .tt{display:flex;align-items:center;white-space:nowrap;animation:tkr 90s linear infinite;height:54px}
-.tt:hover{animation-play-state:paused}
+.tt:hover,.tt.tk-paused{animation-play-state:paused}
 @keyframes tkr{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 /* pick cards */
 .pk{display:inline-flex;flex-direction:column;justify-content:center;gap:2px;height:54px;border-right:1px solid rgba(130,180,230,0.08);padding:8px 12px;cursor:default;transition:background .14s;flex-shrink:0;position:relative;min-width:140px;overflow:hidden}
@@ -2050,14 +2050,14 @@ body{background:#050810;font-family:"Inter","Segoe UI",system-ui,sans-serif;colo
 @keyframes p{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(68,232,144,.4)}50%{opacity:.6;box-shadow:0 0 0 5px rgba(68,232,144,0)}}
 
 /* T3-B: 64px card — 3 filas de datos + barra de progreso en base */
-.h7-ticker{height:64px;overflow:hidden;background:rgba(5,8,16,0.97);border:1px solid rgba(130,180,230,0.09);border-top:1px solid rgba(24,232,200,0.18);border-radius:0 0 var(--r) var(--r);display:flex;align-items:stretch}
+.h7-ticker{height:64px;overflow:hidden;background:rgba(5,8,16,0.97);border:1px solid rgba(130,180,230,0.09);border-top:1px solid rgba(24,232,200,0.18);border-radius:0 0 var(--r) var(--r);display:flex;align-items:stretch;cursor:pointer;touch-action:manipulation}
 .ticker-lbl{flex-shrink:0;display:flex;flex-direction:column;justify-content:center;padding:0 10px;border-right:1px solid rgba(24,232,200,0.12);background:rgba(24,232,200,0.04);gap:1px;min-width:60px}
 .ticker-lbl-t{font-size:7px;text-transform:uppercase;letter-spacing:.16em;color:var(--cyan);font-weight:700}
 .ticker-lbl-n{font-size:16px;font-weight:900;color:#eef4fb;line-height:1}
-.ticker-lbl-s{font-size:7.5px;color:var(--muted);letter-spacing:.04em}
+.ticker-lbl-s{font-size:7.5px;color:var(--muted);letter-spacing:.04em;transition:color .2s}
 .tw{overflow:hidden;flex:1;display:flex;align-items:center}
 .tt{display:flex;align-items:center;white-space:nowrap;animation:tkr 90s linear infinite;height:64px}
-.tt:hover{animation-play-state:paused}
+.tt:hover,.tt.tk-paused{animation-play-state:paused}
 @keyframes tkr{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 
 /* card T3-B: ancho fijo, 3 filas, barra en base */
@@ -2250,7 +2250,7 @@ body{background:#050810;font-family:"Inter","Segoe UI",system-ui,sans-serif;colo
       </div>
     </div>
 
-  <div class="h7-ticker">
+  <div class="h7-ticker" onclick="(function(el){var t=el.querySelector('.tt');var paused=t.classList.toggle('tk-paused');el.querySelector('.ticker-lbl-s').textContent=paused?'⏸ PAUSADO':'ABIERTOS';el.querySelector('.ticker-lbl-s').style.color=paused?'var(--cyan)':'';})( this)">
     <div class="ticker-lbl"><div class="ticker-lbl-t">PICKS</div><div class="ticker-lbl-n">10</div><div class="ticker-lbl-s">ABIERTOS</div></div>
     <div class="tw"><div class="tt">
       <div class="pk pos">
