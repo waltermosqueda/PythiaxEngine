@@ -4472,8 +4472,7 @@ function buildChartPro(id, fullDs, period, opts) {
   el.style.position='relative'; el.innerHTML='';
   var H = opts.height||240;
   var W = Math.max(200, el.getBoundingClientRect().width||el.offsetWidth||700);
-  var _lStyleEff=(W<440&&opts.labelStyle==='nameVal')?'val':opts.labelStyle;
-  var _rp=opts.endLabels!==false?(_lStyleEff==='pill'?118:_lStyleEff==='nameVal'?110:78):14;
+  var _rp=opts.endLabels!==false?(opts.labelStyle==='pill'?118:opts.labelStyle==='nameVal'?110:78):14;
   var PAD = {t:14, r:_rp, b:32, l:48};
   var CW=W-PAD.l-PAD.r, CH=H-PAD.t-PAD.b;
   var allV=[];
@@ -4557,7 +4556,7 @@ function buildChartPro(id, fullDs, period, opts) {
   });
   /* end labels — anti-overlap */
   if(opts.endLabels!==false && _lps.length){
-    var lStyle=_lStyleEff||'val';
+    var lStyle=opts.labelStyle||'val';
     var _mg=(lStyle==='nameVal')?24:(lStyle==='pill')?20:18;
     _lps.sort(function(a,b){return a.ly-b.ly;});
     for(var _pi=1;_pi<_lps.length;_pi++){
