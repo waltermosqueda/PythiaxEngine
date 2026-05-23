@@ -4533,7 +4533,7 @@ function buildChartPro(id, fullDs, period, opts) {
   datasets.forEach(function(ds,di){
     if(!ds.vals||ds.vals.length<2)return;
     var n=ds.vals.length, c=ds.color||'#00ffe0';
-    var sw=ds.isChamp?3.2:2;
+    var sw=ds.isChamp?4:2.6;
     var pts=ds.vals.map(function(v,i){return xp(i,n).toFixed(1)+','+yp(v).toFixed(1);}).join(' ');
     var zy2=yp(Math.max(mn,0)).toFixed(1);
     var x0=xp(0,n).toFixed(1), xN=xp(n-1,n).toFixed(1);
@@ -5060,7 +5060,7 @@ window._v2e={getSpark:getSpark,getLeagueEnhanced:getLeagueEnhanced,getKPIs:getKP
   if(legEl)legEl.innerHTML=datasets.map(function(ds,i){
     return '<div class="v2e-leg-item"><div class="v2e-leg-dot" style="background:'+ds.color+'"></div><span class="v2e-leg-rk">#'+(i+1)+'\u00b0\u00a0</span><span>'+ds.label+'</span></div>';
   }).join('');
-  var _opts268A={height:268,endLabels:true,labelStyle:'nameVal'};
+  var _opts268A={height:310,endLabels:true,labelStyle:'nameVal'};
   window._v2e_reg('ve2-chart',datasets,_opts268A);
   window.addEventListener('resize',function(){
     clearTimeout(window._ve2RzT);
