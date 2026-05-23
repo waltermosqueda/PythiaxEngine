@@ -5150,12 +5150,14 @@ window._v2e={getSpark:getSpark,getLeagueEnhanced:getLeagueEnhanced,getKPIs:getKP
       var modelColor=nameEl.style.color||'#a882ff';
       tbl.querySelectorAll('tr').forEach(function(tr){
         var nm=tr.querySelector('.svb-tk-name');
+        var pr=tr.querySelector('.svb-tk-price');
         var pct=tr.querySelector('.svb-tk-pct');
         var dt=tr.querySelector('.svb-tk-date');
         if(!nm) return;
         var isNeg=pct&&pct.classList.contains('neg');
         picks.push({
           ticker: nm.textContent.trim(),
+          price:  pr?pr.textContent.trim():'—',
           pct:    pct?pct.textContent.trim():'',
           sign:   isNeg?'neg':'pos',
           date:   dt?dt.textContent.trim():'',
@@ -5169,6 +5171,7 @@ window._v2e={getSpark:getSpark,getLeagueEnhanced:getLeagueEnhanced,getKPIs:getKP
     /* Update counter label */
     if(lbl) lbl.textContent=picks.length||'—';
     if(!picks.length) return;
+    var nPicks=picks.length;
 
     /* Build one card HTML */
     function card(p){
@@ -5178,11 +5181,12 @@ window._v2e={getSpark:getSpark,getLeagueEnhanced:getLeagueEnhanced,getKPIs:getKP
         +'<div class="pk-row1">'
           +'<span class="pk-sym svb-tk-name">'+p.ticker+'</span>'
           +'<span class="pk-mod" style="background:'+bg+';color:'+p.color+'">'+p.model+'<span class="pk-rnk">\u00a0#'+p.rank+'</span></span>'
+          +'<span class="pk-pnl '+p.sign+' svb-tk-price">'+p.price+'</span>'
         +'</div>'
         +'<div class="pk-row2">'
           +'<span class="pk-entry">\u2014</span>'
           +'<span class="pk-arrow">\u2192</span>'
-          +'<span class="pk-curr '+p.sign+' svb-tk-price">\u2014</span>'
+          +'<span class="pk-curr '+p.sign+' svb-tk-price">'+p.price+'</span>'
           +'<span class="pk-delta '+p.sign+'">'+p.pct+'</span>'
         +'</div>'
         +'<div class="b1-row3">'
@@ -5205,7 +5209,7 @@ window._v2e={getSpark:getSpark,getLeagueEnhanced:getLeagueEnhanced,getKPIs:getKP
     function norm(){ pos=pos%(-totalW); if(pos>0) pos-=totalW; }
     function tick(){
       totalW=tt.scrollWidth/2;
-      if(!dragging&&totalW>0){ pos-=totalW/90/60; norm(); }
+      if(!dragging&&totalW>0){ pos-=totalW/(90*nPicks/10)/60; norm(); }
       tt.style.transform='translateX('+pos.toFixed(1)+'px)';
       requestAnimationFrame(tick);
     }
