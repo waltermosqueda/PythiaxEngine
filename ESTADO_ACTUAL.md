@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-23T19:52:06Z -->
-<!-- git_head: ea8d919 -->
+<!-- generated_at: 2026-05-23T19:56:29Z -->
+<!-- git_head: 3ba9e47 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ ea8d919 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-23 16:52 AR (Sab) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 3ba9e47 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-23 16:56 AR (Sab) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-23T19:52:06Z | `2026-05-23 16:52 AR (Sab)` | HEAD: `ea8d919`*
+*Auto-generado: 2026-05-23T19:56:29Z | `2026-05-23 16:56 AR (Sab)` | HEAD: `3ba9e47`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `ea8d919`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-23 16:52 AR (Sab)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `3ba9e47`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-23 16:56 AR (Sab)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-23T19:52:06Z` |
-| Hora AR | `2026-05-23 16:52 AR (Sab)` |
+| Generado | `2026-05-23T19:56:29Z` |
+| Hora AR | `2026-05-23 16:56 AR (Sab)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,12 +64,14 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `ea8d919` — fix: clarify senales activas strip -- SENALES/ABIERTAS label + MTM context + sig. date prefix
-**Timestamp commit:** 2026-05-23 16:51:57 -0300
+**HEAD:** `3ba9e47` — fix: senales NUEVAS â€” add explicit 'nuevas' to chip and ticker labels
+**Timestamp commit:** 2026-05-23 16:56:28 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+3ba9e47 fix: senales NUEVAS â€” add explicit 'nuevas' to chip and ticker labels
+c729a22 chore(auto): update ESTADO_ACTUAL â†’ ea8d919 [skip ci]
 ea8d919 fix: clarify senales activas strip -- SENALES/ABIERTAS label + MTM context + sig. date prefix
 2390222 dashboard: improve Portfolio Performance chart readability
 79d4515 chore(auto): update ESTADO_ACTUAL â†’ 21f03be [skip ci]
@@ -78,8 +80,6 @@ fc4762b Dashboard: mejorar visibilidad fechas en chip seÃ±ales activas - font-
 29a2601 chore(auto): update ESTADO_ACTUAL â†’ 0a9c478 [skip ci]
 0a9c478 feat: h7 chip y ticker muestran fecha deteccion y fecha target por pick
 97cae7b chore(auto): update ESTADO_ACTUAL â†’ 53097dd [skip ci]
-53097dd fix: h7-signals chip y ticker muestran todos los modelos (sentinel END marker corregido)
-51946d8 Revert "fix: h7-signals chip y ticker ahora muestran picks de todos los modelos"
 ```
 
 ### Working tree
