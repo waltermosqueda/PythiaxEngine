@@ -27,10 +27,6 @@ from herramientas.dashboard_paths import C1_PRO_TEMPLATE_HTML as DASHBOARD, SNAP
 from herramientas.dashboard_c1_contract import (
     MARK_CSS_E,
     MARK_CSS_S,
-    MARK_H7_CHIP_E,
-    MARK_H7_CHIP_S,
-    MARK_H7_TICKER_E,
-    MARK_H7_TICKER_S,
     MARK_HERO_E,
     MARK_HERO_S,
     MARK_HM_E,
@@ -2621,148 +2617,6 @@ def _c1pro_hero_card(row: dict, d: dict, card_class: str, color: str, label: str
     )
 
 
-# ── Model version → CSS modifier class (h7 ticker cards) ───────────────────
-_VER_MOD_CLS: dict[str, str] = {
-    "V13": "mod-v13", "V11": "mod-v11",
-    "ML_V97": "mod-v97", "ML_V39": "mod-v39",
-    "ML_V39FULL": "mod-v39", "ML_V94": "mod-v94",
-    "ML_V37": "mod-v39", "ML_BRAIN_V11": "mod-v39",
-    "ML_BRAIN_V11_OPT": "mod-v39", "ML_BRAIN_V10": "mod-v39",
-}
-
-_H7_VER_ABBR: dict[str, str] = {
-    "V13": "V13", "V11": "V11", "ML_V97": "V97",
-    "ML_V39": "V39", "ML_V39FULL": "V39F", "ML_V94": "V94",
-    "ML_V37": "V37", "ML_BRAIN_V11": "BV11",
-    "ML_BRAIN_V11_OPT": "BV11+", "ML_BRAIN_V10": "BV10",
-}
-
-
-def _h7_ver_abbr(ver: str) -> str:
-    return _H7_VER_ABBR.get(ver, ver[:6] if len(ver) <= 6 else ver[:4] + "+")
-
-
-def _build_h7_chip_signals(snap: dict) -> str:
-    """Inner content of .h7-chip.h7-chip-signals from ALL models."""
-    league = _dashboard_league(snap)
-    all_picks: list[dict] = []
-    total_open = 0
-    for row in league:
-        ver = str(row.get("version") or "")
-        role = str(row.get("role") or "")
-        color = ROLE_SPARK.get(role, "#6ea8cc")
-        d = _c1pro_card_data(row, color)
-        open_tickers = d.get("open_tickers") or []
-        ticker_mtm = d.get("ticker_mtm") or {}
-        ticker_target_date = d.get("ticker_target_date") or {}
-        total_open += len(open_tickers)
-        for t in open_tickers[:3]:
-            mtm = ticker_mtm.get(t)
-            tgt = ticker_target_date.get(t, "")
-            all_picks.append({"sym": t, "ver": ver, "color": color, "mtm": mtm, "tgt": tgt})
-
-    shown = all_picks[:8]
-    picks_html = ""
-    for p in shown:
-        mtm = p["mtm"]
-        pct_css = "pos" if (mtm is not None and mtm >= 0) else "neg"
-        pct_s = (("+ " if mtm >= 0 else "") + f"{mtm:.1f}%") if mtm is not None else "\u2014"
-        tgt = p.get("tgt") or ""
-        color = p["color"]
-        ver_abbr = _h7_ver_abbr(p["ver"])
-        picks_html += (
-            f"<div class='vd-pick {pct_css}'>"
-            f"<span class='vd-sym'>{_esc(p['sym'])}</span>"
-            f"<span class='vd-tag' style='background:rgba(128,128,128,.14);color:{color}'>{_esc(ver_abbr)}</span>"
-            f"<span class='vd-pnl {pct_css}'>{_esc(pct_s)}</span>"
-            + (f"<span style='font-size:8px;color:var(--muted,#6585a8);margin-left:2px'>\u2192{_esc(tgt)}</span>" if tgt else "")
-            + "</div>"
-        )
-
-    count_s = f"<span style='color:var(--cyan,#18e8c8)'>{total_open}</span>"
-    return (
-        "<div class='vd-chip-inner'>"
-        "<div class='vd-icon'>\u26a1</div>"
-        "<div class='vd-body'>"
-        f"<div class='h7-cl'>Se\u00f1ales activas \u00b7 {count_s} abiertas</div>"
-        f"<div class='vd-picks'>{picks_html}</div>"
-        "</div>"
-        "</div>"
-    )
-
-
-def _build_h7_ticker(snap: dict) -> str:
-    """Inner content of .h7-ticker from ALL models' open picks."""
-    league = _dashboard_league(snap)
-    all_picks: list[dict] = []
-    for row in league:
-        ver = str(row.get("version") or "")
-        role = str(row.get("role") or "")
-        color = ROLE_SPARK.get(role, "#6ea8cc")
-        d = _c1pro_card_data(row, color)
-        open_tickers = d.get("open_tickers") or []
-        ticker_mtm = d.get("ticker_mtm") or {}
-        ticker_target_date = d.get("ticker_target_date") or {}
-        ticker_price = d.get("ticker_price") or {}
-        for t in open_tickers:
-            mtm = ticker_mtm.get(t)
-            price = ticker_price.get(t)
-            tgt = ticker_target_date.get(t, "")
-            all_picks.append({"sym": t, "ver": ver, "color": color, "mtm": mtm, "price": price, "tgt": tgt})
-
-    total_open = len(all_picks)
-
-    def _pk_card(p: dict) -> str:
-        mtm = p["mtm"]
-        pct_css = "pos" if (mtm is not None and mtm >= 0) else "neg"
-        pct_s = (("+ " if mtm >= 0 else "") + f"{mtm:.1f}%") if mtm is not None else "\u2014"
-        price = p["price"]
-        price_s = f"${price:.2f}" if price is not None else "\u2014"
-        tgt = p.get("tgt") or ""
-        ver = p["ver"]
-        mod_cls = _VER_MOD_CLS.get(ver, "mod-v39")
-        ver_abbr = _h7_ver_abbr(ver)
-        color = p["color"]
-        date_s = f"\u2192 {tgt}" if tgt else ""
-        pct_color = "rgba(68,232,144,0.85)" if (mtm is not None and mtm >= 0) else "rgba(252,92,125,0.85)"
-        return (
-            f"<div class='pk {pct_css}'>"
-            f"<div class='pk-row1'>"
-            f"<span class='pk-sym svb-tk-name'>{_esc(p['sym'])}</span>"
-            f"<span class='pk-mod {mod_cls}' style='color:{color}'>{_esc(ver_abbr)}</span>"
-            f"<span class='pk-pnl {pct_css} svb-tk-price'>{_esc(price_s)}</span>"
-            f"</div>"
-            f"<div class='pk-row2'>"
-            f"<span class='pk-entry'>\u2014</span>"
-            f"<span class='pk-arrow'>\u2192</span>"
-            f"<span class='pk-curr {pct_css} svb-tk-price'>{_esc(price_s)}</span>"
-            f"<span class='pk-delta {pct_css}'>{_esc(pct_s)}</span>"
-            f"</div>"
-            f"<div class='b1-row3'>"
-            f"<span class='b1-icon'>\u23f1</span>"
-            f"<span class='b1-dates'>{_esc(date_s)}</span>"
-            f"<span class='b1-rest' style='color:{pct_color}'>{_esc(pct_s)}</span>"
-            f"</div>"
-            f"<div class='pk-progbar' style='width:10%'></div>"
-            f"</div>"
-        )
-
-    pk_html = "".join(_pk_card(p) for p in all_picks)
-    dup_html = "".join(_pk_card(p) for p in all_picks)
-    return (
-        f"<div class='ticker-lbl'>"
-        f"<div class='ticker-lbl-t'>PICKS</div>"
-        f"<div class='ticker-lbl-n'>{total_open}</div>"
-        f"<div class='ticker-lbl-s'>ABIERTOS</div>"
-        f"</div>"
-        f"<div class='tw'><div class='tt'>"
-        + pk_html
-        + "<!-- DUP for infinite scroll -->"
-        + dup_html
-        + "</div></div>"
-    )
-
-
 def _build_c1pro_senales_vivas_card(snap: dict) -> str:
     """Build Señales Vivas: signal board with active picks per model (no charts)."""
     active = snap.get("active") or {}
@@ -3130,16 +2984,6 @@ def render_dashboard_html(html: str, snap: dict, *, verbose: bool = False) -> st
         html = inject(html, MARK_PRED_S, MARK_PRED_E, _build_pred_viva(snap))
         if verbose:
             print("  [c1pro] Predicción Viva injected")
-
-    # ── Inject h7 strip: señales activas (all models) ─────────────────────────
-    if MARK_H7_CHIP_S in html and MARK_H7_CHIP_E in html:
-        html = inject(html, MARK_H7_CHIP_S, MARK_H7_CHIP_E, _build_h7_chip_signals(snap))
-        if verbose:
-            print("  [c1pro] H7 chip signals injected")
-    if MARK_H7_TICKER_S in html and MARK_H7_TICKER_E in html:
-        html = inject(html, MARK_H7_TICKER_S, MARK_H7_TICKER_E, _build_h7_ticker(snap))
-        if verbose:
-            print("  [c1pro] H7 ticker injected")
 
     html = _apply_snapshot_sections(html, snap)
 
