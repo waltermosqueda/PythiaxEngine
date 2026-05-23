@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-23T04:21:31Z -->
-<!-- git_head: 9bd7714 -->
+<!-- generated_at: 2026-05-23T17:55:17Z -->
+<!-- git_head: 0b3a3a5 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 9bd7714 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-23 01:21 AR (Sab) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 0b3a3a5 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-23 14:55 AR (Sab) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-23T04:21:31Z | `2026-05-23 01:21 AR (Sab)` | HEAD: `9bd7714`*
+*Auto-generado: 2026-05-23T17:55:17Z | `2026-05-23 14:55 AR (Sab)` | HEAD: `0b3a3a5`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `9bd7714`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-23 01:21 AR (Sab)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `0b3a3a5`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-23 14:55 AR (Sab)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,18 +41,18 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-23T04:21:31Z` |
-| Hora AR | `2026-05-23 01:21 AR (Sab)` |
+| Generado | `2026-05-23T17:55:17Z` |
+| Hora AR | `2026-05-23 14:55 AR (Sab)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
 ### Estado crons intraday al momento de generación
 ```
-  13:30 UTC = 10:30 AR  [⏳ PENDIENTE]
-  14:30 UTC = 11:30 AR  [⏳ PENDIENTE]
-  15:30 UTC = 12:30 AR  [⏳ PENDIENTE]
-  16:30 UTC = 13:30 AR  [⏳ PENDIENTE]
-  17:30 UTC = 14:30 AR  [⏳ PENDIENTE]
+  13:30 UTC = 10:30 AR  [✅ PASADO]
+  14:30 UTC = 11:30 AR  [✅ PASADO]
+  15:30 UTC = 12:30 AR  [✅ PASADO]
+  16:30 UTC = 13:30 AR  [✅ PASADO]
+  17:30 UTC = 14:30 AR  [✅ PASADO]
   18:30 UTC = 15:30 AR  [⏳ PENDIENTE]
   19:30 UTC = 16:30 AR  [⏳ PENDIENTE]
   20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
@@ -64,22 +64,22 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `9bd7714` — Merge remote-tracking branch 'origin/main'
-**Timestamp commit:** 2026-05-23 01:20:52 -0300
+**HEAD:** `0b3a3a5` — fix: h7-signals chip y ticker ahora muestran picks de todos los modelos
+**Timestamp commit:** 2026-05-23 14:54:58 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-9bd7714 Merge remote-tracking branch 'origin/main'
-daba9ba fix(dashboard): patch post-close May 22 data + fix audit encoding
-ae2fe66 chore(auto): update ESTADO_ACTUAL â†’ 957ee4807df4eb08ad59eaeabf59fe87aa894778 [skip ci]
-99db4c4 chore(auto): sync dashboard HTML
-957ee48 chore(auto): update ESTADO_ACTUAL â†’ be75f0e [skip ci]
-be75f0e feat(dashboard): deploy new E2 Violet Dense design to production
-944af30 chore(auto): update ESTADO_ACTUAL â†’ 9e64a39 [skip ci]
-9e64a39 fix(metrics): align MTM entry with T+1 open and remove V97 oracle; tighten cloud refresh gate
-1843ab4 chore(auto): update ESTADO_ACTUAL â†’ d03c6ea1ef807845a2616aa2d4a1868ba00236d1 [skip ci]
-bfb09e7 chore(auto): sync dashboard HTML
+0b3a3a5 fix: h7-signals chip y ticker ahora muestran picks de todos los modelos
+a5557ce fix(chart): reduce v2e panel padding on mobile for wider chart
+3d56721 fix(chart): widen portfolio performance panel 1.4frâ†’1.8fr
+cdde273 fix(chart): increase portfolio performance chart height 310â†’350
+6c675a7 fix(ticker): restore pk-pnl price in row1, pk-curr price in row2, fix nPicks speed scaling
+42bea0c feat(ticker): show all models open picks ordered by ranking (SVB-driven)
+832368c fix(ticker): rewrite drag-to-scroll with rAF â€” eliminates jumps and freezes
+1907b02 feat(ticker): drag-to-scroll ribbon with mouse or finger â€” revert pause toggle
+96f14c3 feat(ticker): pause/resume ribbon on click or tap â€” toggle with visual feedback
+804a2a6 feat(chart): enlarge Portfolio Performance chart â€” height 268â†’310, lines 2/3.2â†’2.6/4
 ```
 
 ### Working tree
