@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-23T03:42:07Z -->
-<!-- git_head: be75f0e -->
+<!-- generated_at: 2026-05-23T04:03:35Z -->
+<!-- git_head: 99db4c4 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ be75f0e → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-23 00:42 AR (Sab) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 99db4c4 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-23 01:03 AR (Sab) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-23T03:42:07Z | `2026-05-23 00:42 AR (Sab)` | HEAD: `be75f0e`*
+*Auto-generado: 2026-05-23T04:03:35Z | `2026-05-23 01:03 AR (Sab)` | HEAD: `99db4c4`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `be75f0e`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-23 00:42 AR (Sab)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `99db4c4`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-23 01:03 AR (Sab)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-23T03:42:07Z` |
-| Hora AR | `2026-05-23 00:42 AR (Sab)` |
+| Generado | `2026-05-23T04:03:35Z` |
+| Hora AR | `2026-05-23 01:03 AR (Sab)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,65 +64,18 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `be75f0e` — feat(dashboard): deploy new E2 Violet Dense design to production
-**Timestamp commit:** 2026-05-23 00:40:25 -0300
+**HEAD:** `99db4c4` — chore(auto): sync dashboard HTML
+**Timestamp commit:** 2026-05-23 01:03:33 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-be75f0e feat(dashboard): deploy new E2 Violet Dense design to production
-944af30 chore(auto): update ESTADO_ACTUAL â†’ 9e64a39 [skip ci]
-9e64a39 fix(metrics): align MTM entry with T+1 open and remove V97 oracle; tighten cloud refresh gate
-1843ab4 chore(auto): update ESTADO_ACTUAL â†’ d03c6ea1ef807845a2616aa2d4a1868ba00236d1 [skip ci]
-bfb09e7 chore(auto): sync dashboard HTML
-d03c6ea chore: remove egress monitor (Supabase Platform API incompatible with Classic Token)
-fda10a1 chore(auto): update ESTADO_ACTUAL â†’ d006921f5a62c4a74470b92c6055d87df9148e1a [skip ci]
-254ec98 chore(auto): sync dashboard HTML
-d006921 chore(auto): update ESTADO_ACTUAL â†’ 6fe0a22 [skip ci]
-6fe0a22 fix(monitor): corregir URL endpoint Supabase /platform/ en vez de /v1/ y parsing EGRESS uppercase
+99db4c4 chore(auto): sync dashboard HTML
+957ee48 chore(auto): update ESTADO_ACTUAL → be75f0e [skip ci]
 ```
 
 ### Working tree
-```
-?? _check_snap_vals.py
-?? _migration_export/
-?? _patch_staging_fixes.py
-?? _sync_staging_from_prod.py
-?? _tmp_analysis.py
-?? _tmp_render_staging.py
-?? analisis/_find_tkb1_end.py
-?? analisis/_inject_h7_complete.py
-?? analisis/_inject_ticker_b1.py
-?? analisis/_map_h7t3b.py
-?? analisis/_ranking_bloomberg_shot.png
-?? analisis/_ranking_preview_shot.png
-?? analisis/_read_body.py
-?? backups/
-?? herramientas/generar_ranking_preview.py
-?? herramientas/generar_v2_previews.py
-?? herramientas/generar_v2_staging.py
-?? herramientas/generar_v2d_previews.py
-?? herramientas/staging_server.py
-?? logs/_fix_run.txt
-?? scripts/_analyze_html.py
-?? scripts/_apply_rls.py
-?? scripts/_check_lmt.py
-?? scripts/_check_precios.py
-?? scripts/_check_timestamps.py
-?? scripts/_deploy_live_prices.py
-?? scripts/_diag2.py
-?? scripts/_diag3.py
-?? scripts/_diag4.py
-?? scripts/_diag5.py
-?? scripts/_diag6.py
-?? scripts/_diag_slb_lac.py
-?? scripts/_diag_ticker_hist.py
-?? scripts/_diag_yf.py
-?? scripts/_diagnostico_integridad.py
-?? scripts/_fix_cols.py
-?? scripts/_migrate_supabase.py
-?? scripts/_tmp_extract_sparks.py
-```
+_Rama limpia — sin cambios sin commitear_
 
 ---
 
