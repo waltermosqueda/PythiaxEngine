@@ -4472,7 +4472,8 @@ function buildChartPro(id, fullDs, period, opts) {
   el.style.position='relative'; el.innerHTML='';
   var H = opts.height||240;
   var W = Math.max(200, el.getBoundingClientRect().width||el.offsetWidth||700);
-  var _rp=opts.endLabels!==false?(opts.labelStyle==='pill'?118:opts.labelStyle==='nameVal'?110:78):14;
+  var _lStyleEff=(W<440&&opts.labelStyle==='nameVal')?'val':opts.labelStyle;
+  var _rp=opts.endLabels!==false?(_lStyleEff==='pill'?118:_lStyleEff==='nameVal'?110:78):14;
   var PAD = {t:14, r:_rp, b:32, l:48};
   var CW=W-PAD.l-PAD.r, CH=H-PAD.t-PAD.b;
   var allV=[];
@@ -4516,7 +4517,7 @@ function buildChartPro(id, fullDs, period, opts) {
   var dLabels=[];
   datasets.forEach(function(d){if(d.labels&&d.labels.length&&!dLabels.length)dLabels=d.labels;});
   if(dLabels.length>1){
-    var nL=dLabels.length, NT=Math.min(7, nL);
+    var nL=dLabels.length, NT=Math.min(Math.max(2,Math.floor(CW/38)),Math.min(7,nL));
     for(var ti=0;ti<NT;ti++){
       var idx=Math.round(ti*(nL-1)/(NT-1));
       if(!dLabels[idx])continue;
@@ -4556,7 +4557,7 @@ function buildChartPro(id, fullDs, period, opts) {
   });
   /* end labels — anti-overlap */
   if(opts.endLabels!==false && _lps.length){
-    var lStyle=opts.labelStyle||'val';
+    var lStyle=_lStyleEff||'val';
     var _mg=(lStyle==='nameVal')?24:(lStyle==='pill')?20:18;
     _lps.sort(function(a,b){return a.ly-b.ly;});
     for(var _pi=1;_pi<_lps.length;_pi++){
@@ -5063,7 +5064,12 @@ window._v2e={getSpark:getSpark,getLeagueEnhanced:getLeagueEnhanced,getKPIs:getKP
   var _opts268A={height:268,endLabels:true,labelStyle:'nameVal'};
   window._v2e_reg('ve2-chart',datasets,_opts268A);
   window.addEventListener('resize',function(){
-    setTimeout(function(){window._v2e_build('ve2-chart',datasets,0,_opts268A);},150);
+    clearTimeout(window._ve2RzT);
+    window._ve2RzT=setTimeout(function(){
+      var ab=document.querySelector('[data-cpid="ve2-chart"].v2e-period-active');
+      var p=ab?parseInt(ab.dataset.cp):0;
+      window._v2e_sp('ve2-chart',p);
+    },150);
   });
   /* ranking columnar style */
   d.renderRankingCols('ve2-ranking',10);
