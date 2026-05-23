@@ -2707,7 +2707,8 @@ def _build_h7_chip_signals(snap: dict) -> str:
         "<div class='vd-chip-inner'>"
         "<div class='vd-icon'>\u26a1</div>"
         "<div class='vd-body'>"
-        f"<div class='h7-cl'>Se\u00f1ales activas \u00b7 {count_s} abiertas</div>"
+        f"<div class='h7-cl'>Se\u00f1ales abiertas \u00b7 {count_s} picks</div>"
+        "<div style='font-size:8px;color:rgba(120,165,215,.38);margin-top:1px;line-height:1.4'>posiciones activas \u00b7 % = MTM desde apertura</div>"
         f"<div class='vd-picks'>{picks_html}</div>"
         "</div>"
         "</div>"
@@ -2760,7 +2761,7 @@ def _build_h7_ticker(snap: dict) -> str:
             f"<span class='pk-arrow'>\u2192</span>"
             f"<span class='pk-curr {pct_css} svb-tk-price'>{_esc(price_s)}</span>"
             f"<span class='pk-delta {pct_css}'>{_esc(pct_s)}</span></div>"
-            f"<div class='b1-row3'><span class='b1-icon'>\u23f1</span>"
+            f"<div class='b1-row3'><span class='b1-icon' style='color:rgba(120,165,215,.5);font-size:8px'>sig.</span>"
             f"<span class='b1-dates'>{_esc(date_s)}</span>"
             f"<span class='b1-rest' style='color:{pct_color}'>{_esc(pct_s)}</span></div>"
             f"<div class='pk-progbar' style='width:10%'></div>"
@@ -2770,9 +2771,10 @@ def _build_h7_ticker(snap: dict) -> str:
     pk_html = "".join(_pk_card(p) for p in all_picks)
     dup_html = "".join(_pk_card(p) for p in all_picks)
     return (
-        f"<div class='ticker-lbl'><div class='ticker-lbl-t'>PICKS</div>"
+        f"<div class='ticker-lbl'><div class='ticker-lbl-t'>SE\u00d1ALES</div>"
         f"<div class='ticker-lbl-n'>{total_open}</div>"
-        f"<div class='ticker-lbl-s'>ABIERTOS</div></div>"
+        f"<div class='ticker-lbl-s'>ABIERTAS</div>"
+        f"<div style='font-size:6px;color:rgba(120,165,215,.38);text-align:center;margin-top:2px;letter-spacing:.03em'>% MTM</div></div>"
         f"<div class='tw'><div class='tt'>"
         + pk_html
         + "<!-- DUP for infinite scroll -->"
