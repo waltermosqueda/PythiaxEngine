@@ -2342,6 +2342,7 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
     prov_rets: list[tuple[float, int]] = []   # (avg_ret_pct, n_tickers_in_entry)
     ticker_mtm: dict[str, float | None] = {}  # ticker → individual provisional MTM %
     ticker_target_date: dict[str, str] = {}   # ticker → expected evaluation date (DD/MM)
+    ticker_signal_date: dict[str, str] = {}   # ticker → signal detection date (DD/MM)
     ticker_price: dict[str, float | None] = {}  # ticker → latest_close price
 
     today_iso = datetime.date.today().isoformat()
@@ -2364,12 +2365,17 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
             _ltgt = e.get("latest_target_date") or ""
             _ptgt = _ltgt.split("-")
             _tgt_s = f"{_ptgt[2]}/{_ptgt[1]}" if len(_ptgt) == 3 else _ltgt
+            _edate = e.get("date") or ""
+            _edt = _edate.split("-")
+            _sig_s = f"{_edt[2]}/{_edt[1]}" if len(_edt) == 3 else _edate
             for t in tickers_e:
                 if t not in seen_open:
                     seen_open.add(t)
                     all_open_tickers.append(t)
                     if _tgt_s and t not in ticker_target_date:
                         ticker_target_date[t] = _tgt_s
+                    if _sig_s and t not in ticker_signal_date:
+                        ticker_signal_date[t] = _sig_s
             if ret_v is not None and tickers_e:
                 prov_rets.append((float(ret_v), len(tickers_e)))
             # Collect individual ticker MTM (mtm_return is a ratio, ×100 for %)
@@ -2385,12 +2391,17 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
             _ltgt = e.get("latest_target_date") or ""
             _ptgt = _ltgt.split("-")
             _tgt_s = f"{_ptgt[2]}/{_ptgt[1]}" if len(_ptgt) == 3 else _ltgt
+            _edate = e.get("date") or ""
+            _edt = _edate.split("-")
+            _sig_s = f"{_edt[2]}/{_edt[1]}" if len(_edt) == 3 else _edate
             for t in tickers_e:
                 if t not in seen_open:
                     seen_open.add(t)
                     all_open_tickers.append(t)
                     if _tgt_s and t not in ticker_target_date:
                         ticker_target_date[t] = _tgt_s
+                    if _sig_s and t not in ticker_signal_date:
+                        ticker_signal_date[t] = _sig_s
         elif is_closed:
             # Skip closed entries — keep scanning for older batches still open
             # (overlapping hold periods: e.g. D10 batch from 04/25 still open
@@ -2452,6 +2463,7 @@ def _c1pro_card_data(row: dict, color: str) -> dict:
         "closed_ticker_rets":   closed_info.get("ticker_rets") or {},
         # open picks dates
         "ticker_target_date":   ticker_target_date,
+        "ticker_signal_date":   ticker_signal_date,
         # open picks current prices
         "ticker_price":         ticker_price,
         # history (keep for backwards compat)
@@ -2642,7 +2654,7 @@ def _h7_ver_abbr(ver: str) -> str:
 
 
 def _build_h7_chip_signals(snap: dict) -> str:
-    """Inner content of .h7-chip.h7-chip-signals — max 4 compact picks, no date span."""
+    """Inner content of .h7-chip.h7-chip-signals — max 4 picks with signal→target dates."""
     league = _dashboard_league(snap)
     all_picks: list[dict] = []
     total_open = 0
@@ -2653,10 +2665,16 @@ def _build_h7_chip_signals(snap: dict) -> str:
         d = _c1pro_card_data(row, color)
         open_tickers = d.get("open_tickers") or []
         ticker_mtm = d.get("ticker_mtm") or {}
+        ticker_signal_date = d.get("ticker_signal_date") or {}
+        ticker_target_date = d.get("ticker_target_date") or {}
         total_open += len(open_tickers)
         for t in open_tickers[:1]:  # at most 1 pick per model to keep strip compact
             mtm = ticker_mtm.get(t)
-            all_picks.append({"sym": t, "ver": ver, "color": color, "mtm": mtm})
+            all_picks.append({
+                "sym": t, "ver": ver, "color": color, "mtm": mtm,
+                "sig": ticker_signal_date.get(t, ""),
+                "tgt": ticker_target_date.get(t, ""),
+            })
 
     shown = all_picks[:4]  # hard cap: 4 picks max
     picks_html = ""
@@ -2666,12 +2684,19 @@ def _build_h7_chip_signals(snap: dict) -> str:
         pct_s = (("+ " if mtm >= 0 else "") + f"{mtm:.1f}%") if mtm is not None else "\u2014"
         color = p["color"]
         ver_abbr = _h7_ver_abbr(p["ver"])
-        # compact pick: sym + model tag + pnl only (no date span)
+        sig = p.get("sig", "")
+        tgt = p.get("tgt", "")
+        date_s = f"{sig}\u2192{tgt}" if sig and tgt else (tgt or sig)
+        date_html = (
+            f"<span style='font-size:8px;color:var(--muted,#6585a8);margin-left:3px'>{_esc(date_s)}</span>"
+            if date_s else ""
+        )
         picks_html += (
             f"<div class='vd-pick {pct_css}'>"
             f"<span class='vd-sym'>{_esc(p['sym'])}</span>"
             f"<span class='vd-tag' style='background:rgba(128,128,128,.14);color:{color}'>{_esc(ver_abbr)}</span>"
             f"<span class='vd-pnl {pct_css}'>{_esc(pct_s)}</span>"
+            f"{date_html}"
             f"</div>"
         )
 
@@ -2699,12 +2724,14 @@ def _build_h7_ticker(snap: dict) -> str:
         open_tickers = d.get("open_tickers") or []
         ticker_mtm = d.get("ticker_mtm") or {}
         ticker_target_date = d.get("ticker_target_date") or {}
+        ticker_signal_date = d.get("ticker_signal_date") or {}
         ticker_price = d.get("ticker_price") or {}
         for t in open_tickers:
             mtm = ticker_mtm.get(t)
             price = ticker_price.get(t)
             tgt = ticker_target_date.get(t, "")
-            all_picks.append({"sym": t, "ver": ver, "color": color, "mtm": mtm, "price": price, "tgt": tgt})
+            sig = ticker_signal_date.get(t, "")
+            all_picks.append({"sym": t, "ver": ver, "color": color, "mtm": mtm, "price": price, "tgt": tgt, "sig": sig})
 
     total_open = len(all_picks)
 
@@ -2715,11 +2742,12 @@ def _build_h7_ticker(snap: dict) -> str:
         price = p["price"]
         price_s = f"${price:.2f}" if price is not None else "\u2014"
         tgt = p.get("tgt") or ""
+        sig = p.get("sig") or ""
         ver = p["ver"]
         mod_cls = _VER_MOD_CLS.get(ver, "mod-v39")
         ver_abbr = _h7_ver_abbr(ver)
         color = p["color"]
-        date_s = f"\u2192 {tgt}" if tgt else ""
+        date_s = f"{sig}\u2192{tgt}" if sig and tgt else (f"\u2192 {tgt}" if tgt else sig)
         pct_color = "rgba(68,232,144,0.85)" if (mtm is not None and mtm >= 0) else "rgba(252,92,125,0.85)"
         return (
             f"<div class='pk {pct_css}'>"
