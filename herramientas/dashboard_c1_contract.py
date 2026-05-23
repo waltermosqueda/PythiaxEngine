@@ -16,6 +16,8 @@ MARK_H7_CHIP_S: Final = "<!-- DATA:h7-chip-start -->"
 MARK_H7_CHIP_E: Final = "<!-- DATA:h7-chip-end -->"
 MARK_H7_TICKER_S: Final = "<!-- DATA:h7-ticker-start -->"
 MARK_H7_TICKER_E: Final = "<!-- DATA:h7-ticker-end -->"
+MARK_H7_CHAMP_S: Final  = "<!-- DATA:h7-champ-start -->"
+MARK_H7_CHAMP_E: Final  = "<!-- DATA:h7-champ-end -->"
 
 REQUIRED_MARKER_PAIRS: Final = (
     ("heatmap-css", MARK_CSS_S, MARK_CSS_E),
@@ -28,6 +30,7 @@ OPTIONAL_MARKER_PAIRS: Final = (
     ("pred-viva-legacy", MARK_PRED_S, MARK_PRED_E),
     ("h7-chip", MARK_H7_CHIP_S, MARK_H7_CHIP_E),
     ("h7-ticker", MARK_H7_TICKER_S, MARK_H7_TICKER_E),
+    ("h7-champ",  MARK_H7_CHAMP_S,  MARK_H7_CHAMP_E),
 )
 
 LIGA_STATIC_META: Final[dict[str, dict[str, str]]] = {

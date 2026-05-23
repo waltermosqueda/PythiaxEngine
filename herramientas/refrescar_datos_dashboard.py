@@ -27,6 +27,8 @@ from herramientas.dashboard_paths import C1_PRO_TEMPLATE_HTML as DASHBOARD, SNAP
 from herramientas.dashboard_c1_contract import (
     MARK_CSS_E,
     MARK_CSS_S,
+    MARK_H7_CHAMP_E,
+    MARK_H7_CHAMP_S,
     MARK_H7_CHIP_E,
     MARK_H7_CHIP_S,
     MARK_H7_TICKER_E,
@@ -686,7 +688,7 @@ def _render_regime_pill(snap: dict) -> str:
     regime = str(active_run.get("regime_label") or "GLOBAL").upper()
     breadth = active_run.get("breadth_pct")
     regime_cls = {"PELIGRO": "regime-peligro", "SEGURO": "regime-seguro"}.get(regime, "regime-global")
-    breadth_txt = f"breadth {float(breadth):.1f}%" if breadth is not None else "breadth —"
+    breadth_txt = f"Sistema · {float(breadth):.1f}% activo" if breadth is not None else "Sistema · —"
     return (
         f'<div class="regime-pill {regime_cls}">'
         '<span class="rp-dot"></span>'
@@ -1018,7 +1020,7 @@ def _render_kpi_strip(snap: dict) -> str:
         '<div class="kpi-card accent-green editable-block" data-bid="kpi-picks" data-blabel="KPI Picks">'
         '<div class="kc-label">Picks hoy</div>'
         f'<div class="kc-value">{_fmt_int(len(live_tickers))}</div>'
-        f'<div class="kc-sub">{_esc(regime)} · breadth {_fmt_ratio(breadth, 1)}%</div>'
+        f'<div class="kc-sub">{_esc(regime)} · Sistema {_fmt_ratio(breadth, 1)}% activo</div>'
         "</div>"
     )
     return _cards_before + _render_kpi_sistema_card(ts_with_z=ts_with_z, regime=regime, regime_color=regime_color, generated_at=generated_at)
@@ -1460,11 +1462,11 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
         if _r30_ret is None:
             _lbl_s = ''
         elif _r30_ret >= 0:
-            _lbl_s = (f"<span class='hm-lbl-stat hm-lbl-pos'>+{_r30_ret:.1f}%"
+            _lbl_s = (f"<span class='hm-lbl-stat hm-lbl-pos'>30d +{_r30_ret:.1f}%"
                       + (f" · {_wr_lbl}" if _wr_lbl else "")
                       + "</span>")
         else:
-            _lbl_s = (f"<span class='hm-lbl-stat hm-lbl-neg'>{_r30_ret:.1f}%"
+            _lbl_s = (f"<span class='hm-lbl-stat hm-lbl-neg'>30d {_r30_ret:.1f}%"
                       + (f" · {_wr_lbl}" if _wr_lbl else "")
                       + "</span>")
         cells = f"<th class='hm-label'><span class='hm-rank' style='font-size:9px;color:#888;display:block'>{rank_i}°</span><span class='hm-v'>{_esc(ver_disp)}</span><span class='hm-rl'>{icon}</span>{champ_tag}{_lbl_s}</th>"
@@ -1760,11 +1762,11 @@ def _build_variant_b(focus: list[dict], dates: list[str], rank_1_ver: str | None
         if _rb_ret is None:
             _lbl_sb = ''
         elif _rb_ret >= 0:
-            _lbl_sb = (f"<span class='hm-lbl-stat hm-lbl-pos'>+{_rb_ret:.1f}%"
+            _lbl_sb = (f"<span class='hm-lbl-stat hm-lbl-pos'>30d +{_rb_ret:.1f}%"
                        + (f" · {_wr_lbl_b}" if _wr_lbl_b else "")
                        + "</span>")
         else:
-            _lbl_sb = (f"<span class='hm-lbl-stat hm-lbl-neg'>{_rb_ret:.1f}%"
+            _lbl_sb = (f"<span class='hm-lbl-stat hm-lbl-neg'>30d {_rb_ret:.1f}%"
                        + (f" · {_wr_lbl_b}" if _wr_lbl_b else "")
                        + "</span>")
         cells = f"<th class='hm-label'><span class='hm-rank' style='font-size:9px;color:#888;display:block'>{rank_i}°</span><span class='hm-v'>{_esc(ver_disp)}</span><span class='hm-rl'>{icon}</span>{champ_tag}{_lbl_sb}</th>"
@@ -2779,6 +2781,29 @@ def _build_h7_ticker(snap: dict) -> str:
     )
 
 
+def _build_h7_champion_chip(snap: dict) -> str:
+    """Inner content of .h7-chip (Champion · #1) — WR and ret from equalized_recent."""
+    league = _dashboard_league(snap)
+    if not league:
+        return (
+            "<div class='h7-cl'>Champion &middot; #1</div>"
+            "<div class='h7-cv gold'>&mdash;</div>"
+            "<div class='h7-cs'>&mdash;</div>"
+        )
+    leader = league[0]
+    ver = str(leader.get("version") or "\u2014")
+    eq  = leader.get("equalized_recent") or leader.get("window") or {}
+    wr  = eq.get("accuracy_pct")
+    ret = eq.get("avg_return_pct")
+    wr_s  = f"{float(wr):.2f}%" if wr is not None else "\u2014"
+    ret_s = (("+" if float(ret) >= 0 else "") + f"{float(ret):.3f}%") if ret is not None else "\u2014"
+    return (
+        f"<div class='h7-cl'>Champion &middot; #1</div>"
+        f"<div class='h7-cv gold'>{_esc(wr_s)}</div>"
+        f"<div class='h7-cs'>{_esc(ver)} &middot; WR &middot; ret {_esc(ret_s)}</div>"
+    )
+
+
 def _build_c1pro_senales_vivas_card(snap: dict) -> str:
     """Build Señales Vivas: signal board with active picks per model (no charts)."""
     active = snap.get("active") or {}
@@ -2806,10 +2831,10 @@ def _build_c1pro_senales_vivas_card(snap: dict) -> str:
         ev_sv = _to_int(eq.get("evaluated"))
 
         if wr is not None and 0 < ev_sv < 15:
-            wr_s2 = f"{float(wr):.0f}% ({ev_sv}p)"
+            wr_s2 = f"WR {float(wr):.0f}% ({ev_sv}p)"
         else:
-            wr_s2 = f"{float(wr):.0f}%" if wr is not None else "\u2014"
-        ret_s2  = (("+" if float(ret) >= 0 else "") + f"{float(ret):.1f}%") if ret is not None else "\u2014"
+            wr_s2 = f"WR {float(wr):.0f}%" if wr is not None else "WR \u2014"
+        ret_s2  = "ret " + ((("+" if float(ret) >= 0 else "") + f"{float(ret):.1f}%") if ret is not None else "\u2014")
         ret_css = "pos" if (ret is not None and float(ret) >= 0) else ("neg" if ret is not None else "neu")
 
         badges = ""
@@ -3156,6 +3181,10 @@ def render_dashboard_html(html: str, snap: dict, *, verbose: bool = False) -> st
         html = inject(html, MARK_H7_TICKER_S, MARK_H7_TICKER_E, _build_h7_ticker(snap))
         if verbose:
             print("  [c1pro] H7 ticker injected")
+    if MARK_H7_CHAMP_S in html and MARK_H7_CHAMP_E in html:
+        html = inject(html, MARK_H7_CHAMP_S, MARK_H7_CHAMP_E, _build_h7_champion_chip(snap))
+        if verbose:
+            print("  [c1pro] H7 champion chip injected")
 
     html = _apply_snapshot_sections(html, snap)
 
