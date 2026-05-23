@@ -5060,7 +5060,7 @@ window._v2e={getSpark:getSpark,getLeagueEnhanced:getLeagueEnhanced,getKPIs:getKP
   if(legEl)legEl.innerHTML=datasets.map(function(ds,i){
     return '<div class="v2e-leg-item"><div class="v2e-leg-dot" style="background:'+ds.color+'"></div><span class="v2e-leg-rk">#'+(i+1)+'\u00b0\u00a0</span><span>'+ds.label+'</span></div>';
   }).join('');
-  var _opts268A={height:310,endLabels:true,labelStyle:'nameVal'};
+  var _opts268A={height:350,endLabels:true,labelStyle:'nameVal'};
   window._v2e_reg('ve2-chart',datasets,_opts268A);
   window.addEventListener('resize',function(){
     clearTimeout(window._ve2RzT);
