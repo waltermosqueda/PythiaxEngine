@@ -716,36 +716,42 @@ def send_telegram_experto(
     # ── Mensaje 1: header HTML estructurado ──────────────────────────────
     regime = meta.get("regime", "?")
     breadth = meta.get("breadth_pct", "?")
-    macro_txt = macro_label(macro).replace("·", "|")
+    macro_txt = macro_label(macro).replace("·", " ·")
+
+    regime_emoji = {"SEGURO": "🟢", "MIXTO": "🟡"}.get(str(regime).upper(), "🔴")
+    decision_emoji = {
+        "COMPRAR": "🟢", "WATCH-COMPRAR": "🔵", "WATCH": "🟡", "MAYOR_RIESGO": "🟠",
+    }
+
+    # extraer solo el nombre de modelo (sin publisher prefix)
+    model_short = model_used.split("/")[-1] if model_used and "/" in model_used else model_used or "IA"
 
     H: list[str] = []
-    H.append(f"🧠 <b>ANÁLISIS EXPERTO IA — {today}</b>")
-    H.append(f"<i>Régimen: {regime}  ·  Breadth: {breadth}%</i>")
+    H.append(f"🧠 <b>ANÁLISIS EXPERTO — {today}</b>")
+    H.append(f"{regime_emoji} <b>{regime}</b>  ·  Breadth {breadth}%")
     if macro_txt and macro_txt != "macro no disponible":
-        H.append(f"<i>{macro_txt}</i>")
-    if model_used:
-        H.append(f"<i>Modelo: {model_used}</i>")
+        H.append(macro_txt)
+    H.append(f"⚡ <i>{model_short}</i>")
     H.append("")
 
     actionable_buys = [c for c in candidates if c.decision in ("COMPRAR", "WATCH-COMPRAR")][:5]
     if actionable_buys:
-        H.append("📊 <b>Top candidatos (bot):</b>")
+        H.append("📋 <b>Top picks</b>")
         for c in actionable_buys:
-            price_str = f"${c.current:.2f}" if c.current else "—"
-            rr_str = f"  R:R {c.rr_ratio:.2f}" if c.rr_ratio else ""
+            emoji = decision_emoji.get(c.decision, "·")
+            rr_str = f"  R:R {c.rr_ratio:.1f}" if c.rr_ratio else ""
+            d2t_str = f"  {c.days_to_target}d" if c.days_to_target is not None else ""
             H.append(
-                f"  <b>{c.ticker}</b> {c.prob_ajustada * 100:.0f}% "
-                f"({c.decision})  {price_str}{rr_str}"
+                f"{emoji} <b>{c.ticker}</b>  {c.prob_ajustada * 100:.0f}%{rr_str}{d2t_str}"
             )
         H.append("")
 
     if not ai_text:
         H.append("⚠️ <i>Consulta IA no disponible hoy.</i>")
     else:
-        H.append(f"🤖 <i>Análisis completo abajo ({len(ai_text):,} chars)</i>")
+        H.append("🤖 <i>Análisis ↓</i>")
 
     H.append("")
-    H.append(f"<i>logs/analisis_experto/analisis_{today}.md</i>")
     H.append("⚠️ <i>No es asesoramiento financiero.</i>")
 
     header_msg = "\n".join(H)
