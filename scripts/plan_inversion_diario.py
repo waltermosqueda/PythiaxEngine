@@ -477,51 +477,84 @@ def composite_probability(c: Candidate) -> float:
 # Filtros de calidad y razonamiento
 # ────────────────────────────────────────────────────────────────────────────
 def apply_quality_filters(c: Candidate) -> None:
-    """Marca c.decision y c.reject_reason segun filtros estrictos.
+    """Marca c.decision y c.reject_reason segun filtros multi-capa.
 
-    Objetivo: MAXIMA probabilidad de suba en la PROXIMA RUEDA con buen %.
-    Por eso los filtros son agresivos — preferimos 0 picks a un mal pick.
+    Distingue:
+      - HARD reasons: descarte definitivo (RSI extremo, earnings inminente,
+        drawdown grave, MTM ya consumido, prob muy baja, sin momentum).
+      - SOFT reasons: degradación a 'MAYOR_RIESGO' (R:R marginal, stop lejos,
+        EMA mixed, horizonte 15-20d, prob limítrofe 50-55%). Estos candidatos
+        van a una sección aparte con sizing reducido (50% risk, cap 8%).
+
+    Si hay alguna HARD → DESCARTAR.
+    Si solo hay SOFT → MAYOR_RIESGO.
+    Si nada → COMPRAR / WATCH-COMPRAR / WATCH según prob.
     """
-    reasons: list[str] = []
+    hard: list[str] = []
+    soft: list[str] = []
 
-    # Sobrecompra: nada de comprar arriba de RSI 72
+    # ── HARD ────────────────────────────────────────────────────────────
+    # Sobrecompra peligrosa
     if c.rsi is not None and c.rsi > 72:
-        reasons.append(f"RSI {c.rsi:.0f} sobrecomprado (>72)")
-    # Earnings inminente = riesgo binario (solo si es FUTURO, no pasado)
+        hard.append(f"RSI {c.rsi:.0f} sobrecomprado (>72)")
+    # Earnings inminente = riesgo binario
     if c.earnings_in_days is not None and 0 <= c.earnings_in_days <= 5:
-        reasons.append(f"earnings en {c.earnings_in_days}d (riesgo binario)")
-    # Sin estructura técnica alcista
-    if c.ema20 and c.ema50 and c.ema20 < c.ema50 * 0.98:
-        reasons.append("EMA20 debajo de EMA50 (sin tendencia)")
-    # Tesis abierta SERIAMENTE rota (un drawdown -3% no es problema: el ticker
-    # está ahora más barato que el entry del modelo, posiblemente mejor entry)
+        hard.append(f"earnings en {c.earnings_in_days}d (riesgo binario)")
+    # Tesis abierta gravemente rota
     if c.mtm_pct < -8.0:
-        reasons.append(f"drawdown abierto {c.mtm_pct:.1f}% (tesis rota)")
-    # Anti-chasing: la señal ya corrió
-    if c.mtm_pct > 12.0 and c.days_to_target <= 5:
-        reasons.append(f"chasing: MTM +{c.mtm_pct:.1f}% con {c.days_to_target}d al target")
+        hard.append(f"drawdown abierto {c.mtm_pct:.1f}% (tesis rota)")
+    # Anti-chasing extremo
     if c.mtm_pct > 22.0:
-        reasons.append(f"MTM +{c.mtm_pct:.1f}% (señal ya consumida)")
-    # Horizonte demasiado lejano: queremos PROXIMA RUEDA
-    if c.days_to_target > 15:
-        reasons.append(f"target a {c.days_to_target}d (no es próxima rueda)")
-    # R:R insuficiente — si el upside no compensa el downside, salteamos
-    if c.rr_ratio is not None and c.rr_ratio < 1.4:
-        reasons.append(f"R:R {c.rr_ratio:.2f} insuficiente (<1.4)")
-    # Stop ridículamente lejos (operación demasiado arriesgada)
-    if c.stop_price and c.current and (c.current - c.stop_price) / c.current > 0.06:
-        stop_pct = (c.stop_price - c.current) / c.current * 100
-        reasons.append(f"stop muy lejos ({stop_pct:.1f}%)")
-    # Sin viento de cola técnico: ni MACD, ni OBV, ni EMA alineadas
+        hard.append(f"MTM +{c.mtm_pct:.1f}% (señal ya consumida)")
+    if c.mtm_pct > 12.0 and c.days_to_target <= 3:
+        hard.append(f"chasing extremo: MTM +{c.mtm_pct:.1f}% con {c.days_to_target}d al target")
+    # Sin NADA técnico a favor
     if c.rsi is not None and not c.macd_pos and not c.obv_rising and not c.ema_aligned:
-        reasons.append("sin momentum técnico (MACD-, OBV-, EMA mixed)")
-    # Probabilidad muy baja
-    if c.composite_prob < 0.55:
-        reasons.append(f"probabilidad compuesta baja ({c.composite_prob*100:.0f}%)")
+        hard.append("sin momentum técnico (MACD-, OBV-, EMA mixed)")
+    # Probabilidad realmente baja
+    if c.composite_prob < 0.50:
+        hard.append(f"probabilidad muy baja ({c.composite_prob*100:.0f}%)")
+    # Stop absurdamente lejos
+    if c.stop_price and c.current and (c.current - c.stop_price) / c.current > 0.08:
+        stop_pct = (c.stop_price - c.current) / c.current * 100
+        hard.append(f"stop muy lejos ({stop_pct:.1f}%)")
+    # Horizonte muy lejano
+    if c.days_to_target > 20:
+        hard.append(f"target a {c.days_to_target}d (fuera de horizonte)")
 
-    if reasons:
+    # ── SOFT ────────────────────────────────────────────────────────────
+    # Sin tendencia clara (pero no rota): EMA20 abajo de EMA50 moderadamente
+    if c.ema20 and c.ema50 and c.ema20 < c.ema50 * 0.98:
+        soft.append("EMA20 debajo de EMA50 (sin tendencia confirmada)")
+    # R:R marginal (positivo pero insuficiente para tier A)
+    if c.rr_ratio is not None and 1.0 <= c.rr_ratio < 1.4:
+        soft.append(f"R:R {c.rr_ratio:.2f} marginal (<1.4)")
+    elif c.rr_ratio is not None and c.rr_ratio < 1.0:
+        # R:R menor a 1 es duro (downside > upside): HARD
+        hard.append(f"R:R {c.rr_ratio:.2f} insuficiente (<1.0)")
+    # Stop 6-8% (lejos pero gestionable con sizing reducido)
+    if c.stop_price and c.current and 0.06 < (c.current - c.stop_price) / c.current <= 0.08:
+        stop_pct = (c.stop_price - c.current) / c.current * 100
+        soft.append(f"stop a {stop_pct:.1f}% del entry")
+    # Chasing moderado (MTM alto pero no extremo)
+    if c.mtm_pct > 12.0 and 4 <= c.days_to_target <= 5:
+        soft.append(f"chasing moderado: MTM +{c.mtm_pct:.1f}% con {c.days_to_target}d")
+    elif 15.0 < c.mtm_pct <= 22.0:
+        soft.append(f"MTM +{c.mtm_pct:.1f}% (señal madura)")
+    # Horizonte 15-20d (no inmediato pero razonable)
+    if 15 < c.days_to_target <= 20:
+        soft.append(f"target a {c.days_to_target}d (no es próxima rueda)")
+    # Probabilidad limítrofe
+    if 0.50 <= c.composite_prob < 0.55:
+        soft.append(f"probabilidad limítrofe ({c.composite_prob*100:.0f}%)")
+
+    # ── Decisión ────────────────────────────────────────────────────────
+    if hard:
         c.decision = "DESCARTAR"
-        c.reject_reason = "; ".join(reasons)
+        c.reject_reason = "HARD: " + "; ".join(hard) + (" | SOFT: " + "; ".join(soft) if soft else "")
+    elif soft:
+        c.decision = "MAYOR_RIESGO"
+        c.reject_reason = "SOFT: " + "; ".join(soft)
     elif c.composite_prob >= 0.65:
         c.decision = "COMPRAR"
     elif c.composite_prob >= 0.56:
@@ -673,6 +706,7 @@ def render_markdown(
     macro: dict[str, Any],
     buys: list[Candidate],
     watches: list[Candidate],
+    mayor_riesgo: list[Candidate],
     discarded: list[Candidate],
     capital: float,
     risk_pct: float,
@@ -731,6 +765,16 @@ def render_markdown(
             )
         L.append("")
 
+    # MAYOR RIESGO — candidatos descartados solo por filtros blandos
+    if mayor_riesgo:
+        L.append("## ⚠️ MAYOR RIESGO — picks especulativos (sizing reducido)")
+        L.append("")
+        L.append("> Estos tickers tienen tesis válida, soporte de modelos y técnico/fundamental razonable, **pero fueron degradados por filtros blandos** (R:R marginal, EMA mixed, prob limítrofe 50-55%, stop 6-8%, horizonte 15-20d, MTM maduro 15-22%). **No fueron rechazados por motivos duros** (RSI extremo, earnings inminente, drawdown grave, sin momentum). Se sugiere sizing **mitad de risk_pct y cap 8%** del capital por posición.")
+        L.append("")
+        for i, c in enumerate(mayor_riesgo, 1):
+            L.append(_render_pick_md(i, c))
+            L.append("")
+
     # Descartados (transparencia)
     if discarded:
         L.append("## 🚫 Descartados (transparencia de filtrado)")
@@ -755,17 +799,28 @@ def render_markdown(
     L.append("- **Técnico (yfinance, daily 1y)**: RSI(14), EMA20/50/200, MACD, OBV, ATR(14), volumen relativo 5d/20d, distancia a EMA200. Sweet spot RSI 45-62, EMA aligned alcista, MACD+, OBV↑, relVol>1.15, distancia a EMA200 3-12%, MTM en −1% a +4%.")
     L.append("- **Fundamental (yfinance.info)**: P/E forward/trailing, target analistas, sector, beta, market cap, flujo de noticias 14d.")
     L.append("")
-    L.append("**Filtros de descarte estricto:**")
-    L.append("- RSI > 72 (sobrecompra)")
+    L.append("**Filtros multi-capa (HARD = descarte definitivo · SOFT = degrada a MAYOR RIESGO):**")
+    L.append("")
+    L.append("*HARD (descarte total, no recuperable hoy):*")
+    L.append("- RSI > 72 (sobrecompra peligrosa)")
     L.append("- Earnings en ≤ 5 días (riesgo binario)")
-    L.append("- EMA20 < EMA50 × 0.98 (sin tendencia alcista)")
-    L.append("- Drawdown abierto > 8% (tesis rota — hasta -7% se considera mejor entry)")
-    L.append("- **Anti-chasing**: MTM > +12% con ≤5d al target, o MTM > +22% absoluto")
-    L.append("- **Horizonte**: target del modelo > 15 días (no es próxima rueda)")
-    L.append("- **R:R < 1.4** (upside no compensa downside)")
-    L.append("- **Stop > 6%** del entry (operación demasiado arriesgada)")
-    L.append("- Sin viento de cola técnico (MACD-, OBV-, EMA mixed)")
-    L.append("- Probabilidad compuesta < 55%")
+    L.append("- Drawdown abierto > 8% (tesis claramente rota)")
+    L.append("- MTM > +22% (señal ya consumida)")
+    L.append("- MTM > +12% con ≤3d al target (chasing extremo)")
+    L.append("- Sin momentum técnico (MACD-, OBV-, EMA mixed simultáneos)")
+    L.append("- Probabilidad compuesta < 50%")
+    L.append("- Stop a más de 8% del entry (riesgo desmedido)")
+    L.append("- Target del modelo a > 20 días (fuera de horizonte)")
+    L.append("- R:R < 1.0 (downside mayor que upside)")
+    L.append("")
+    L.append("*SOFT (degrada a MAYOR RIESGO con sizing 50% y cap 8% del capital):*")
+    L.append("- EMA20 < EMA50 × 0.98 (sin tendencia confirmada, pero no rota)")
+    L.append("- R:R entre 1.0 y 1.4 (marginal pero gestionable)")
+    L.append("- Stop entre 6% y 8% del entry")
+    L.append("- MTM > +12% con 4-5d al target (chasing moderado)")
+    L.append("- MTM entre +15% y +22% (señal madura pero no consumida)")
+    L.append("- Target del modelo entre 15 y 20 días")
+    L.append("- Probabilidad compuesta entre 50% y 55% (limítrofe)")
     L.append("")
     L.append("**Sizing:**")
     L.append("- Stop = max(low 5d, entry − 2·ATR), capeado a entry × 0.95")
@@ -868,6 +923,7 @@ def build_json_output(
     macro: dict[str, Any],
     buys: list[Candidate],
     watches: list[Candidate],
+    mayor_riesgo: list[Candidate],
     discarded: list[Candidate],
     capital: float,
     risk_pct: float,
@@ -885,6 +941,7 @@ def build_json_output(
         },
         "buys": [asdict(c) for c in buys],
         "watches": [asdict(c) for c in watches],
+        "mayor_riesgo": [asdict(c) for c in mayor_riesgo],
         "discarded_sample": [
             {"ticker": c.ticker, "composite_prob": c.composite_prob, "reject_reason": c.reject_reason}
             for c in discarded[:30]
@@ -920,6 +977,7 @@ def render_telegram(
     macro: dict[str, Any],
     buys: list["Candidate"],
     watches: list["Candidate"],
+    mayor_riesgo: list["Candidate"],
     discarded_count: int,
     capital: float,
     risk_pct: float,
@@ -976,6 +1034,25 @@ def render_telegram(
 
     L.append("")
     L.append("━━━━━━━━━━━━━━━━━━━━")
+
+    if mayor_riesgo:
+        L.append("")
+        L.append(f"⚠️ <b>MAYOR RIESGO ({len(mayor_riesgo)})</b> — sizing reducido")
+        L.append("<i>Descartados solo por filtros blandos. Tesis válida pero R:R marginal / prob limítrofe / EMA mixed.</i>")
+        for c in mayor_riesgo[:5]:
+            entry = c.current or 0.0
+            stop = c.stop_price or 0.0
+            target = c.target_price or 0.0
+            L.append("")
+            L.append(f"<b>⚠️ {c.ticker}</b> — prob {c.composite_prob*100:.0f}%  ·  R:R {c.rr_ratio or '—'}")
+            L.append(f"   Entry ${entry:.2f}  →  Target ${target:.2f} ({c.upside_pct:+.1f}%)  ·  Stop ${stop:.2f}")
+            if c.shares > 0:
+                L.append(f"   {c.shares} acc  ·  Cap USD {c.shares*entry:,.2f}  ·  Riesgo USD {c.risk_usd:,.2f}")
+            soft = (c.reject_reason or "").replace("SOFT: ", "")
+            L.append(f"   <i>Motivo blando:</i> {soft[:140]}")
+            top_up = "; ".join(c.why_up[:2]) if c.why_up else ""
+            if top_up:
+                L.append(f"   ✅ {top_up}")
 
     if watches:
         L.append("")
@@ -1095,16 +1172,28 @@ def main() -> int:
 
     buys = [c for c in candidates if c.decision == "COMPRAR"][: args.max_picks]
     watches = [c for c in candidates if c.decision.startswith("WATCH")][:10]
+    mayor_riesgo = [c for c in candidates if c.decision == "MAYOR_RIESGO"][: max(args.max_picks, 5)]
     discarded = [c for c in candidates if c.decision == "DESCARTAR"]
 
-    # Cap agregado al 100% del capital (prorratea si excede)
+    # Sizing reducido para MAYOR_RIESGO: mitad del risk_pct y cap 8% del capital
+    # (cap se aplica clampeando shares contra capital * 0.08 / entry)
+    for c in mayor_riesgo:
+        compute_sizing(c, args.capital, args.risk_pct * 0.5)
+        if c.current and c.current > 0:
+            cap8 = int((args.capital * 0.08) / c.current)
+            if c.shares > cap8:
+                c.shares = cap8
+                stop = c.stop_price or 0.0
+                c.risk_usd = round(c.shares * max(0.01, (c.current - stop)), 2)
+
+    # Cap agregado al 100% del capital (prorratea si excede) — solo aplica a BUYS
     enforce_aggregate_capital_cap(buys, args.capital)
 
-    log(f"buys: {len(buys)}  watches: {len(watches)}  discarded: {len(discarded)}")
+    log(f"buys: {len(buys)}  watches: {len(watches)}  mayor_riesgo: {len(mayor_riesgo)}  discarded: {len(discarded)}")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    plan_md = render_markdown(meta, macro, buys, watches, discarded, args.capital, args.risk_pct, args.max_picks)
-    plan_json = build_json_output(meta, macro, buys, watches, discarded, args.capital, args.risk_pct, args.max_picks)
+    plan_md = render_markdown(meta, macro, buys, watches, mayor_riesgo, discarded, args.capital, args.risk_pct, args.max_picks)
+    plan_json = build_json_output(meta, macro, buys, watches, mayor_riesgo, discarded, args.capital, args.risk_pct, args.max_picks)
 
     today_iso = date.today().isoformat()
     md_path = args.output_dir / f"plan_{today_iso}.md"
@@ -1116,14 +1205,14 @@ def main() -> int:
 
     # Envio Telegram (opcional, requiere TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID en env)
     if not args.no_telegram:
-        tg_msg = render_telegram(meta, macro, buys, watches, len(discarded), args.capital, args.risk_pct)
+        tg_msg = render_telegram(meta, macro, buys, watches, mayor_riesgo, len(discarded), args.capital, args.risk_pct)
         send_telegram(tg_msg, log)
     else:
         log("--no-telegram → skip Telegram")
 
     # Imprimir resumen breve a stdout
     print("=" * 70)
-    print(f"PLAN INVERSION {today_iso}  ·  {len(buys)} compras  ·  {len(watches)} watch  ·  {len(discarded)} descartes")
+    print(f"PLAN INVERSION {today_iso}  ·  {len(buys)} compras  ·  {len(watches)} watch  ·  {len(mayor_riesgo)} mayor_riesgo  ·  {len(discarded)} descartes")
     for c in buys:
         print(f"  {c.ticker:6s}  prob {c.composite_prob*100:5.1f}%  ${c.current:.2f}  ×{c.shares}  stop ${c.stop_price:.2f}  target ${c.target_price:.2f}  R:R {c.rr_ratio}")
     print("=" * 70)
