@@ -687,20 +687,20 @@ def build_learning_command(
 
 
 def load_runtime_market_dates(fecha_base: date | None = None) -> list[str]:
-    sql = """
-        SELECT DISTINCT date
-        FROM prices
-        WHERE ticker = 'SPY'
-    """
+    # Lee fechas de mercado desde titan.db (SQLite local del runner de CI).
+    # TitanDB es siempre la fuente de precios; Supabase solo tiene predictions/outcomes/snapshots.
+    sql = "SELECT DISTINCT date FROM prices WHERE ticker = 'SPY'"
     params: tuple[Any, ...] = ()
     if fecha_base is not None:
         sql += " AND date <= ?"
         params = (fecha_base.isoformat(),)
     sql += " ORDER BY date"
 
-    with connect_runtime_db() as con:
-        rows = con.execute(sql, params).fetchall()
-    return [str(row[0]) for row in rows if row and row[0]]
+    with TitanDB() as db:
+        frame = db.execute_raw(sql, params)
+    if frame.empty or "date" not in frame.columns:
+        return []
+    return [str(v) for v in frame["date"].dropna().tolist()]
 
 
 def dashboard_history_window_dates(fecha_base: date, min_market_days: int = MIN_DASHBOARD_HISTORY_DAYS) -> list[str]:
@@ -1212,6 +1212,13 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
     expected_entries = expected_monitored_snapshot_entries()
     expected_labels = [entry["label"] for entry in expected_entries]
 
+    # latest_prices_date viene de titan.db (fuente de precios); el resto de Supabase.
+    with TitanDB() as _titan:
+        _prices_frame = _titan.execute_raw("SELECT MAX(date) AS max_date FROM prices")
+    latest_prices_date = (
+        str(_prices_frame.iloc[0, 0]) if not _prices_frame.empty and _prices_frame.iloc[0, 0] else None
+    )
+
     with connect_runtime_db() as con:
         snapshot_rows = fetch_model_run_snapshots(
             con,
@@ -1219,7 +1226,6 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
             analyzed_date_from=fecha_base.isoformat(),
             analyzed_date_to=fecha_base.isoformat(),
         )
-        latest_prices_date = con.scalar("SELECT MAX(date) FROM prices")
         latest_prediction_date = con.scalar("SELECT MAX(prediction_date) FROM predictions")
         prediction_details_by_label = {
             entry["label"]: build_prediction_freshness_details(con, entry)
