@@ -119,16 +119,13 @@ def build_analysis_prompt(
     breadth = meta.get("breadth_pct", "?")
     generated_at = meta.get("generated_at", "?")
 
-    spy_p  = macro.get("spy_pct5d", None)
-    qqq_p  = macro.get("qqq_pct5d", None)
-    vix    = macro.get("vix", None)
-    vix_ch = macro.get("vix_change_pct", None)
+    spy_d  = macro.get("spy") or {}
+    qqq_d  = macro.get("qqq") or {}
+    vix_d  = macro.get("vix") or {}
 
-    spy_str = f"SPY {spy_p:+.2f}% 5d" if spy_p is not None else "SPY ?"
-    qqq_str = f"QQQ {qqq_p:+.2f}% 5d" if qqq_p is not None else "QQQ ?"
-    vix_str = f"VIX {vix:.1f}" if vix is not None else "VIX ?"
-    if vix_ch is not None:
-        vix_str += f" ({vix_ch:+.1f}%)"
+    spy_str = f"SPY {spy_d['last']} ({spy_d['chg_5d_pct']:+.2f}% 5d)" if spy_d else "SPY ?"
+    qqq_str = f"QQQ {qqq_d['last']} ({qqq_d['chg_5d_pct']:+.2f}% 5d)" if qqq_d else "QQQ ?"
+    vix_str = f"VIX {vix_d['last']:.1f} ({vix_d['chg_5d_pct']:+.1f}%)" if vix_d else "VIX ?"
     macro_one_line = f"{spy_str} | {qqq_str} | {vix_str}"
 
     # ── Candidatos ────────────────────────────────────────────────────────────
