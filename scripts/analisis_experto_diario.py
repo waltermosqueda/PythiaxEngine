@@ -442,9 +442,9 @@ def consult_copilot_proxy(prompt: str, proxy_url: str, proxy_token: str | None, 
 
     # Claude models disponibles via ambos proxies (Copilot Pro los incluye)
     MODELS = [
-        "claude-opus-4-5",            # Más capaz disponible via Copilot
-        "claude-sonnet-4-5",          # Balance velocidad/calidad
-        "claude-3-5-sonnet-20241022",  # Anterior Sonnet (fallback estable)
+        "claude-opus-4.7",            # Más capaz disponible via Copilot
+        "claude-sonnet-4.6",          # Balance velocidad/calidad
+        "claude-sonnet-4.5",          # Anterior Sonnet (fallback estable)
     ]
 
     headers: dict[str, str] = {"Content-Type": "application/json"}
