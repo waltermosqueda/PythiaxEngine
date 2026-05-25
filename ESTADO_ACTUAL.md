@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-25T21:29:41Z -->
-<!-- git_head: 69bf11c -->
+<!-- generated_at: 2026-05-25T22:39:01Z -->
+<!-- git_head: 4f55cf7 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 69bf11c → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-25 18:29 AR (Lun) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 4f55cf7 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-25 19:39 AR (Lun) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-25T21:29:41Z | `2026-05-25 18:29 AR (Lun)` | HEAD: `69bf11c`*
+*Auto-generado: 2026-05-25T22:39:01Z | `2026-05-25 19:39 AR (Lun)` | HEAD: `4f55cf7`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `69bf11c`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-25 18:29 AR (Lun)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `4f55cf7`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-25 19:39 AR (Lun)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-25T21:29:41Z` |
-| Hora AR | `2026-05-25 18:29 AR (Lun)` |
+| Generado | `2026-05-25T22:39:01Z` |
+| Hora AR | `2026-05-25 19:39 AR (Lun)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -58,37 +58,23 @@
   20:30 UTC = 17:30 AR  [✅ PASADO]
 ```
 
-**Pipeline diario** (19:30 AR = 22:30 UTC): `⏳ PENDIENTE`
+**Pipeline diario** (19:30 AR = 22:30 UTC): `✅ PASADO`
 
 ---
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `69bf11c` — fix(analisis-experto): endpoint correcto models.github.ai + consult_anthropic() + GPT-4.1
-**Timestamp commit:** 2026-05-25 18:27:55 -0300
+**HEAD:** `4f55cf7` — fix(analisis-experto): modelos OpenAI only + Claude completo
+**Timestamp commit:** 2026-05-25 18:36:10 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-69bf11c fix(analisis-experto): endpoint correcto models.github.ai + consult_anthropic() + GPT-4.1
-6485b48 analisis_experto: anÃ¡lisis IA 2026-05-25 [skip ci]
-f9ae85a fix(claude): auto-discover model IDs via /models endpoint â€” unknown_model fallback
-3097299 analisis_experto: anÃ¡lisis IA 2026-05-25 [skip ci]
-e2fc808 fix(analisis): models:read permission + IDs Claude 4.x (Opus/Sonnet)
-6d3630c analisis_experto: anÃ¡lisis IA 2026-05-25 [skip ci]
-ab74741 feat(analisis): Claude via GitHub Models (GITHUB_TOKEN) + Gemini fallback
-e9b9aa4 analisis_experto: anÃ¡lisis Gemini 2026-05-25 [skip ci]
-3b5a4ca fix(gemini): REST puro sin SDK, free-tier models primero (1.5-flash antes que 2.5-pro)
-865d639 analisis_experto: anÃ¡lisis Gemini 2026-05-25 [skip ci]
+4f55cf7 fix(analisis-experto): modelos OpenAI only + Claude completo
 ```
 
 ### Working tree
-```
-?? _AUDITORIA_PORCENTAJES.md
-?? _build_snapshot_from_dashboard.py
-?? _real_out/
-?? _real_snapshot.json
-```
+_Rama limpia — sin cambios sin commitear_
 
 ---
 
