@@ -372,15 +372,60 @@ def consult_claude_github_models(prompt: str, token: str, log) -> tuple[str | No
     """
     import urllib.error
 
-    GITHUB_MODELS_URL = "https://models.inference.ai.azure.com/chat/completions"
+    GITHUB_MODELS_BASE = "https://models.inference.ai.azure.com"
+    GITHUB_MODELS_URL = f"{GITHUB_MODELS_BASE}/chat/completions"
 
-    # Claude models disponibles en GitHub Models con Copilot Pro
-    CLAUDE_MODELS = [
-        "claude-opus-4-5",     # Claude Opus 4.x (máxima calidad)
-        "claude-sonnet-4-5",   # Claude Sonnet 4.5
-        "claude-3-7-sonnet",   # Claude 3.7 Sonnet (fallback)
-        "claude-3-5-sonnet",   # Claude 3.5 Sonnet (fallback)
+    # IDs fallback por si el discovery falla (nombrado VS Code Copilot → GitHub Models)
+    CLAUDE_MODELS_FALLBACK = [
+        "claude-opus-4-7",
+        "claude-sonnet-4-6",
+        "claude-sonnet-4-5",
+        "claude-haiku-4-5",
+        "claude-3-7-sonnet",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-sonnet",
     ]
+
+    def _discover_claude_models() -> list[str]:
+        """Descubre los model IDs reales disponibles en GitHub Models API."""
+        try:
+            req = urllib.request.Request(
+                f"{GITHUB_MODELS_BASE}/models",
+                headers={"Authorization": f"Bearer {token}"},
+                method="GET",
+            )
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            # La respuesta puede ser una lista directa o {"data": [...]}
+            items = data if isinstance(data, list) else data.get("data", [])
+            claude_ids = [
+                m.get("id", m) if isinstance(m, dict) else str(m)
+                for m in items
+                if "claude" in str(m.get("id", m) if isinstance(m, dict) else m).lower()
+            ]
+            # Ordenar: opus primero, luego sonnet alto (4.6+), luego sonnet, haiku último
+            def _priority(mid: str) -> int:
+                m = mid.lower()
+                if "opus" in m:
+                    return 0
+                if "sonnet" in m and ("4-6" in m or "4.6" in m):
+                    return 1
+                if "sonnet" in m:
+                    return 2
+                if "haiku" in m:
+                    return 3
+                return 4
+            claude_ids.sort(key=_priority)
+            if claude_ids:
+                log(f"[claude] modelos descubiertos: {claude_ids}")
+            return claude_ids
+        except Exception as exc:
+            log(f"[claude] discovery falló: {exc} — usando lista fallback")
+            return []
+
+    # Primero intentar descubrir los IDs reales, luego usar fallback
+    discovered = _discover_claude_models()
+    CLAUDE_MODELS = discovered if discovered else CLAUDE_MODELS_FALLBACK
 
     def _call(model_id: str) -> str | None:
         body = json.dumps({
