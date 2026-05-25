@@ -419,6 +419,86 @@ def consult_anthropic(prompt: str, api_key: str, log) -> tuple[str | None, str]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Consulta vía proxy local Copilot (caozhiyuan/copilot-api o voidsteed/copilot-proxy-api)
+# Claude real via Copilot Pro SIN pagar Anthropic extra
+# Iniciar: npx @jeffreycao/copilot-api@latest start  (puerto 4141 por defecto)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def consult_copilot_proxy(prompt: str, proxy_url: str, proxy_token: str | None, log) -> tuple[str | None, str]:
+    """
+    Consulta Claude vía proxy local de Copilot.
+    Soporta: caozhiyuan/copilot-api  y  voidsteed/copilot-proxy-api
+    Ambos exponen /v1/chat/completions compatible con Claude models
+    usando tu suscripción Copilot Pro — SIN API key de Anthropic.
+
+    Prerequisito: proxy corriendo localmente (o en CI con GH_TOKEN).
+    COPILOT_PROXY_URL=http://localhost:4141 (default)
+    COPILOT_PROXY_TOKEN=<api_key> (opcional — solo si configuraste auth.apiKeys)
+    """
+    import urllib.error
+
+    base = proxy_url.rstrip("/")
+    ENDPOINT = f"{base}/v1/chat/completions"
+
+    # Claude models disponibles via ambos proxies (Copilot Pro los incluye)
+    MODELS = [
+        "claude-opus-4-5",            # Más capaz disponible via Copilot
+        "claude-sonnet-4-5",          # Balance velocidad/calidad
+        "claude-3-5-sonnet-20241022",  # Anterior Sonnet (fallback estable)
+    ]
+
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if proxy_token:
+        headers["Authorization"] = f"Bearer {proxy_token}"
+    # Sin token: el proxy acepta sin auth por defecto (auth.apiKeys vacío)
+
+    # Health check rápido (3s) para no bloquear CI si el proxy no corre
+    try:
+        chk_headers = {k: v for k, v in headers.items() if k != "Content-Type"}
+        chk = urllib.request.Request(
+            f"{base}/v1/models",
+            headers=chk_headers or {"User-Agent": "PythiaxEngine"},
+            method="GET",
+        )
+        urllib.request.urlopen(chk, timeout=3)
+    except Exception as exc:
+        log(f"[copilot-proxy] no disponible en {proxy_url} → skip ({type(exc).__name__})")
+        return None, ""
+
+    log(f"[copilot-proxy] proxy activo en {proxy_url}")
+    for model_id in MODELS:
+        log(f"[copilot-proxy] {model_id}…")
+        body = json.dumps({
+            "model": model_id,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 8192,
+            "temperature": 0.3,
+        }).encode("utf-8")
+        req = urllib.request.Request(ENDPOINT, data=body, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                resp = json.loads(r.read().decode("utf-8"))
+                choices = resp.get("choices", [])
+                if choices:
+                    text = choices[0].get("message", {}).get("content", "")
+                    if text:
+                        log(f"[copilot-proxy] ✓ {model_id} ({len(text):,} chars)")
+                        return text, f"copilot-proxy/{model_id}"
+                log(f"[copilot-proxy]   {model_id}: respuesta vacía — {str(resp)[:200]}")
+        except urllib.error.HTTPError as exc:
+            body_err = exc.read().decode("utf-8", errors="replace")
+            log(f"[copilot-proxy]   {model_id}: HTTP {exc.code} — {body_err[:200]}")
+        except urllib.error.URLError as exc:
+            log(f"[copilot-proxy]   proxy caído mid-call ({exc.reason}) → abort")
+            break
+        except Exception as exc:
+            log(f"[copilot-proxy]   {model_id}: {str(exc)[:200]}")
+
+    log("[copilot-proxy] ⚠️  todos los modelos fallaron")
+    return None, ""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Consulta vía GitHub Models API (models.github.ai — GPT-4.1, sin secrets)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -506,13 +586,20 @@ def render_markdown_experto(
     L: list[str] = []
 
     if model_used:
-        if "claude" in model_used.lower():
+        ml = model_used.lower()
+        if "copilot-proxy" in ml:
+            # copilot-proxy/claude-opus-4-5 → "Claude (Copilot)"
+            inner = model_used.split("/")[-1]
+            provider = f"Claude · Copilot ({inner})"
+        elif "claude" in ml:
             provider = "Claude"
-        elif "gpt" in model_used.lower() or "openai" in model_used.lower():
-            provider = "GPT-4.1"
-        elif "gemini" in model_used.lower():
+        elif "gpt" in ml or "openai" in ml:
+            # openai/gpt-4.1 → "GPT-4.1" | openai/gpt-4o → "GPT-4o"
+            raw = model_used.split("/")[-1] if "/" in model_used else model_used
+            provider = raw.upper().replace("GPT-", "GPT-")  # preserve casing
+        elif "gemini" in ml:
             provider = "Gemini"
-        elif "llama" in model_used.lower():
+        elif "llama" in ml:
             provider = "Llama"
         else:
             provider = model_used.split("/")[-1] if "/" in model_used else model_used
@@ -770,7 +857,15 @@ def main() -> int:
         else:
             log("ANTHROPIC_API_KEY ausente → skip Claude directo")
 
-        # Intento 2: GitHub Models API (GPT-4.1, GITHUB_TOKEN automático en CI)
+        # Intento 2: Copilot Proxy local — Claude via Copilot Pro (sin pagar Anthropic)
+        # Iniciar proxy: npx @jeffreycao/copilot-api@latest start
+        if not ai_text:
+            proxy_url = os.environ.get("COPILOT_PROXY_URL", "http://localhost:4141")
+            proxy_token = os.environ.get("COPILOT_PROXY_TOKEN")
+            log(f"probando Copilot Proxy ({proxy_url}) — Claude vía Copilot Pro…")
+            ai_text, model_used = consult_copilot_proxy(prompt, proxy_url, proxy_token, log)
+
+        # Intento 3: GitHub Models API (GPT-4.1, GITHUB_TOKEN automático en CI)
         if not ai_text:
             gh_token = os.environ.get("GITHUB_TOKEN")
             if gh_token:
@@ -779,7 +874,7 @@ def main() -> int:
             else:
                 log("GITHUB_TOKEN ausente → skip GitHub Models")
 
-        # Intento 3: Gemini como último fallback
+        # Intento 4: Gemini como último fallback
         if not ai_text:
             api_key = os.environ.get("GEMINI_API_KEY")
             if api_key:
