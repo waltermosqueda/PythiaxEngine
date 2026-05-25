@@ -59,21 +59,26 @@ jobs:
           # Solo lo que necesitamos: yfinance + numpy + pandas (sin Supabase)
           pip install yfinance numpy pandas
 
-      - name: Fetch latest snapshot from GitHub Pages
+      - name: Fetch latest snapshot from GitHub Pages (with repo fallback)
         run: |
           mkdir -p dashboards/maquina_pensante
-          set -e
+          SNAP=dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
           # URL publica del snapshot — generado por el Cloud Daily Operations
           URL="https://waltermosqueda.github.io/PythiaxEngine/tablero_maquina_pensante_snapshot.json"
           echo "Descargando snapshot: $URL"
-          if curl -fsSL "$URL" -o dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json; then
-            echo "✓ Snapshot descargado"
-            python -c "import json; s=json.load(open('dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json')); print('generated_at:', s.get('generated_at','?'))"
+          if curl -fsSL "$URL" -o "$SNAP.tmp"; then
+            mv "$SNAP.tmp" "$SNAP"
+            echo "✓ Snapshot descargado de GitHub Pages"
+          elif curl -fsSL "https://pythiaxengine.pages.dev/tablero_maquina_pensante_snapshot.json" -o "$SNAP.tmp"; then
+            mv "$SNAP.tmp" "$SNAP"
+            echo "✓ Snapshot descargado de Cloudflare"
+          elif [ -f "$SNAP" ]; then
+            echo "⚠️ Descargas fallidas — usando snapshot commiteado en repo (fallback)"
           else
-            echo "❌ Fallo descarga de Pages — intentando Cloudflare"
-            curl -fsSL "https://pythiaxengine.pages.dev/tablero_maquina_pensante_snapshot.json" \
-              -o dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
+            echo "❌ No hay snapshot disponible (ni remoto ni en repo)"
+            exit 1
           fi
+          python -c "import json; s=json.load(open('$SNAP', encoding='utf-8-sig')); print('generated_at:', s.get('generated_at','?'))"
 
       - name: Run plan inversion diario
         env:

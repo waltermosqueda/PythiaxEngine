@@ -1,0 +1,553 @@
+{
+  "generated_at": "2026-05-22T23:11:33Z",
+  "active": {
+    "active_run": {
+      "regime_label": "SEGURO",
+      "breadth_pct": 61.9
+    }
+  },
+  "competition_recent": {
+    "dashboard_league_equalized": [
+      {
+        "version": "ML_V97",
+        "latest_tickers": [
+          "MRNA",
+          "INTC",
+          "LAR",
+          "SPCE"
+        ],
+        "latest_target_date": "2026-05-27",
+        "equalized_recent": {
+          "accuracy_pct": 76.79
+        },
+        "recent_30": {
+          "calendar": [
+            {
+              "tickers": [
+                "MRNA",
+                "INTC",
+                "LAR",
+                "SPCE"
+              ],
+              "mtm_assets": [
+                {
+                  "ticker": "MRNA",
+                  "entry_close": 47.2581,
+                  "latest_close": 46.88,
+                  "mtm_return": -0.008,
+                  "confidence": 0.78395
+                },
+                {
+                  "ticker": "INTC",
+                  "entry_close": 118.5361,
+                  "latest_close": 119.84,
+                  "mtm_return": 0.011,
+                  "confidence": 0.78395
+                },
+                {
+                  "ticker": "LAR",
+                  "entry_close": 9.5332,
+                  "latest_close": 9.19,
+                  "mtm_return": -0.036,
+                  "confidence": 0.78395
+                },
+                {
+                  "ticker": "SPCE",
+                  "entry_close": 2.5,
+                  "latest_close": 3.24,
+                  "mtm_return": 0.296,
+                  "confidence": 0.78395
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "V13",
+        "latest_tickers": [
+          "ASTS",
+          "ERIC",
+          "PM",
+          "HAL",
+          "PBI",
+          "UNH",
+          "NUE",
+          "ZM"
+        ],
+        "latest_target_date": "2026-06-05",
+        "equalized_recent": {
+          "accuracy_pct": 65.26
+        },
+        "recent_30": {
+          "calendar": [
+            {
+              "tickers": [
+                "ASTS",
+                "ERIC",
+                "PM",
+                "HAL",
+                "PBI",
+                "UNH",
+                "NUE",
+                "ZM"
+              ],
+              "mtm_assets": [
+                {
+                  "ticker": "ASTS",
+                  "entry_close": 96.2364,
+                  "latest_close": 105.86,
+                  "mtm_return": 0.1,
+                  "confidence": 0.7263000000000001
+                },
+                {
+                  "ticker": "ERIC",
+                  "entry_close": 13.2353,
+                  "latest_close": 13.5,
+                  "mtm_return": 0.02,
+                  "confidence": 0.7263000000000001
+                },
+                {
+                  "ticker": "PM",
+                  "entry_close": 191.4792,
+                  "latest_close": 188.99,
+                  "mtm_return": -0.013,
+                  "confidence": 0.7263000000000001
+                },
+                {
+                  "ticker": "HAL",
+                  "entry_close": 42.7967,
+                  "latest_close": 41.47,
+                  "mtm_return": -0.031,
+                  "confidence": 0.7263000000000001
+                },
+                {
+                  "ticker": "PBI",
+                  "entry_close": 15.7541,
+                  "latest_close": 15.25,
+                  "mtm_return": -0.032,
+                  "confidence": 0.7263000000000001
+                },
+                {
+                  "ticker": "UNH",
+                  "entry_close": 393.9858,
+                  "latest_close": 388.47,
+                  "mtm_return": -0.014,
+                  "confidence": 0.7263000000000001
+                },
+                {
+                  "ticker": "NUE",
+                  "entry_close": 232.9317,
+                  "latest_close": 232.0,
+                  "mtm_return": -0.004,
+                  "confidence": 0.7263000000000001
+                },
+                {
+                  "ticker": "ZM",
+                  "entry_close": 107.14,
+                  "latest_close": 105.64,
+                  "mtm_return": -0.014,
+                  "confidence": 0.7263000000000001
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "ML_V39",
+        "latest_tickers": [
+          "QCOM",
+          "WMT"
+        ],
+        "latest_target_date": "2026-05-25",
+        "equalized_recent": {
+          "accuracy_pct": 58.62
+        },
+        "recent_30": {
+          "calendar": [
+            {
+              "tickers": [
+                "QCOM",
+                "WMT"
+              ],
+              "mtm_assets": [
+                {
+                  "ticker": "QCOM",
+                  "entry_close": 213.405,
+                  "latest_close": 238.16,
+                  "mtm_return": 0.116,
+                  "confidence": 0.6931
+                },
+                {
+                  "ticker": "WMT",
+                  "entry_close": 121.3623,
+                  "latest_close": 120.27,
+                  "mtm_return": -0.009,
+                  "confidence": 0.6931
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "ML_V39FULL",
+        "latest_tickers": [
+          "QCOM",
+          "GOLD"
+        ],
+        "latest_target_date": "2026-05-25",
+        "equalized_recent": {
+          "accuracy_pct": 58.26
+        },
+        "recent_30": {
+          "calendar": [
+            {
+              "tickers": [
+                "QCOM",
+                "GOLD"
+              ],
+              "mtm_assets": [
+                {
+                  "ticker": "QCOM",
+                  "entry_close": 213.405,
+                  "latest_close": 238.16,
+                  "mtm_return": 0.116,
+                  "confidence": 0.6913
+                },
+                {
+                  "ticker": "GOLD",
+                  "entry_close": 41.7709,
+                  "latest_close": 43.4,
+                  "mtm_return": 0.039,
+                  "confidence": 0.6913
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "ML_V94",
+        "latest_tickers": [
+          "QCOM",
+          "GLW",
+          "INTC",
+          "CAR",
+          "SBS"
+        ],
+        "latest_target_date": "2026-05-29",
+        "equalized_recent": {
+          "accuracy_pct": 57.69
+        },
+        "recent_30": {
+          "calendar": [
+            {
+              "tickers": [
+                "QCOM",
+                "GLW",
+                "INTC",
+                "CAR",
+                "SBS"
+              ],
+              "mtm_assets": [
+                {
+                  "ticker": "QCOM",
+                  "entry_close": 213.405,
+                  "latest_close": 238.16,
+                  "mtm_return": 0.116,
+                  "confidence": 0.68845
+                },
+                {
+                  "ticker": "GLW",
+                  "entry_close": 191.9387,
+                  "latest_close": 194.05,
+                  "mtm_return": 0.011,
+                  "confidence": 0.68845
+                },
+                {
+                  "ticker": "INTC",
+                  "entry_close": 119.007,
+                  "latest_close": 119.84,
+                  "mtm_return": 0.007,
+                  "confidence": 0.68845
+                },
+                {
+                  "ticker": "CAR",
+                  "entry_close": 152.8362,
+                  "latest_close": 167.05,
+                  "mtm_return": 0.093,
+                  "confidence": 0.68845
+                },
+                {
+                  "ticker": "SBS",
+                  "entry_close": 5.6827,
+                  "latest_close": 5.66,
+                  "mtm_return": -0.004,
+                  "confidence": 0.68845
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "ML_BRAIN_V11",
+        "latest_tickers": [
+          "PBR",
+          "PAAS",
+          "CRM",
+          "AMD",
+          "HAL",
+          "FDX",
+          "LRCX",
+          "AMAT",
+          "QCOM"
+        ],
+        "latest_target_date": "2026-05-29",
+        "equalized_recent": {
+          "accuracy_pct": 56.73
+        },
+        "recent_30": {
+          "calendar": [
+            {
+              "tickers": [
+                "PBR",
+                "PAAS",
+                "CRM",
+                "AMD",
+                "HAL",
+                "FDX",
+                "LRCX",
+                "AMAT",
+                "QCOM"
+              ],
+              "mtm_assets": [
+                {
+                  "ticker": "PBR",
+                  "entry_close": 20.0201,
+                  "latest_close": 19.9,
+                  "mtm_return": -0.006,
+                  "confidence": 0.68365
+                },
+                {
+                  "ticker": "PAAS",
+                  "entry_close": 54.8171,
+                  "latest_close": 53.94,
+                  "mtm_return": -0.016,
+                  "confidence": 0.68365
+                },
+                {
+                  "ticker": "CRM",
+                  "entry_close": 180.07,
+                  "latest_close": 180.07,
+                  "mtm_return": 0.0,
+                  "confidence": 0.68365
+                },
+                {
+                  "ticker": "AMD",
+                  "entry_close": 447.378,
+                  "latest_close": 467.51,
+                  "mtm_return": 0.045,
+                  "confidence": 0.68365
+                },
+                {
+                  "ticker": "HAL",
+                  "entry_close": 42.9741,
+                  "latest_close": 41.47,
+                  "mtm_return": -0.035,
+                  "confidence": 0.68365
+                },
+                {
+                  "ticker": "FDX",
+                  "entry_close": 375.0714,
+                  "latest_close": 394.2,
+                  "mtm_return": 0.051,
+                  "confidence": 0.68365
+                },
+                {
+                  "ticker": "LRCX",
+                  "entry_close": 277.8435,
+                  "latest_close": 305.35,
+                  "mtm_return": 0.099,
+                  "confidence": 0.68365
+                },
+                {
+                  "ticker": "AMAT",
+                  "entry_close": 413.5502,
+                  "latest_close": 432.16,
+                  "mtm_return": 0.045,
+                  "confidence": 0.68365
+                },
+                {
+                  "ticker": "QCOM",
+                  "entry_close": 201.489,
+                  "latest_close": 238.16,
+                  "mtm_return": 0.182,
+                  "confidence": 0.68365
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "ML_BRAIN_V11_OPT",
+        "latest_tickers": [
+          "GOLD",
+          "VIST",
+          "PBR",
+          "CRM",
+          "HAL"
+        ],
+        "latest_target_date": "2026-05-29",
+        "equalized_recent": {
+          "accuracy_pct": 51.92
+        },
+        "recent_30": {
+          "calendar": [
+            {
+              "tickers": [
+                "GOLD",
+                "VIST",
+                "PBR",
+                "CRM",
+                "HAL"
+              ],
+              "mtm_assets": [
+                {
+                  "ticker": "GOLD",
+                  "entry_close": 41.7709,
+                  "latest_close": 43.4,
+                  "mtm_return": 0.039,
+                  "confidence": 0.6596000000000001
+                },
+                {
+                  "ticker": "VIST",
+                  "entry_close": 75.5611,
+                  "latest_close": 75.41,
+                  "mtm_return": -0.002,
+                  "confidence": 0.6596000000000001
+                },
+                {
+                  "ticker": "PBR",
+                  "entry_close": 19.8207,
+                  "latest_close": 19.9,
+                  "mtm_return": 0.004,
+                  "confidence": 0.6596000000000001
+                },
+                {
+                  "ticker": "CRM",
+                  "entry_close": 180.07,
+                  "latest_close": 180.07,
+                  "mtm_return": 0.0,
+                  "confidence": 0.6596000000000001
+                },
+                {
+                  "ticker": "HAL",
+                  "entry_close": 42.9741,
+                  "latest_close": 41.47,
+                  "mtm_return": -0.035,
+                  "confidence": 0.6596000000000001
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "ML_V37",
+        "latest_tickers": [
+          "ARM",
+          "AMD"
+        ],
+        "latest_target_date": "2026-05-25",
+        "equalized_recent": {
+          "accuracy_pct": 43.12
+        },
+        "recent_30": {
+          "calendar": [
+            {
+              "tickers": [
+                "ARM",
+                "AMD"
+              ],
+              "mtm_assets": [
+                {
+                  "ticker": "ARM",
+                  "entry_close": 298.1615,
+                  "latest_close": 306.51,
+                  "mtm_return": 0.028,
+                  "confidence": 0.6156
+                },
+                {
+                  "ticker": "AMD",
+                  "entry_close": 449.5288,
+                  "latest_close": 467.51,
+                  "mtm_return": 0.04,
+                  "confidence": 0.6156
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "version": "ML_BRAIN_V10",
+        "latest_tickers": [
+          "ABNB",
+          "AMZN",
+          "PANW",
+          "SLB"
+        ],
+        "latest_target_date": "2026-05-29",
+        "equalized_recent": {
+          "accuracy_pct": 38.46
+        },
+        "recent_30": {
+          "calendar": [
+            {
+              "tickers": [
+                "ABNB",
+                "AMZN",
+                "PANW",
+                "SLB"
+              ],
+              "mtm_assets": [
+                {
+                  "ticker": "ABNB",
+                  "entry_close": 134.2292,
+                  "latest_close": 132.35,
+                  "mtm_return": -0.014,
+                  "confidence": 0.5923
+                },
+                {
+                  "ticker": "AMZN",
+                  "entry_close": 268.4677,
+                  "latest_close": 266.32,
+                  "mtm_return": -0.008,
+                  "confidence": 0.5923
+                },
+                {
+                  "ticker": "PANW",
+                  "entry_close": 246.7614,
+                  "latest_close": 260.58,
+                  "mtm_return": 0.056,
+                  "confidence": 0.5923
+                },
+                {
+                  "ticker": "SLB",
+                  "entry_close": 56.7691,
+                  "latest_close": 57.28,
+                  "mtm_return": 0.009,
+                  "confidence": 0.5923
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

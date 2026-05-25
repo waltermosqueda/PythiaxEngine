@@ -98,6 +98,8 @@ class Candidate:
     obv_rising: bool = False
     atr: float | None = None
     upside_52w: float | None = None
+    rel_vol_5d: float | None = None      # volumen 5d / volumen 20d (>1 = interés creciente)
+    dist_ema200_pct: float | None = None # distancia % entre close y EMA200 (sweet spot 3-12%)
     pe: float | None = None
     analyst_target: float | None = None
     sector: str = ""
@@ -218,16 +220,18 @@ def score_consensus(cand: Candidate) -> float:
     Score 0-1 ponderado por:
       - Cardinalidad de modelos votantes (mas modelos = mas robusto)
       - Accuracy histórica promedio (WR)
+      - WR del MEJOR modelo (un campeón solo puede valer mucho)
       - Confianza ML promedio
     """
     n_models = len(cand.models)
     if n_models == 0:
         return 0.0
-    avg_wr = sum(cand.wrs) / n_models / 100.0           # 0-1
-    avg_conf = sum(cand.confidences) / n_models          # 0-1
-    cardinality_bonus = min(n_models / 4.0, 1.0)         # 1 modelo=0.25, 4+=1.0
-    # Pesos: 0.45 cardinalidad, 0.35 accuracy histórica, 0.20 confianza ML
-    return round(0.45 * cardinality_bonus + 0.35 * avg_wr + 0.20 * avg_conf, 4)
+    avg_wr = sum(cand.wrs) / n_models / 100.0
+    max_wr = max(cand.wrs) / 100.0
+    avg_conf = sum(cand.confidences) / n_models
+    cardinality_bonus = min(n_models / 3.0, 1.0)         # 1 modelo=0.33, 3+=1.0
+    # Pesos: 0.30 cardinalidad, 0.30 WR avg, 0.25 WR máx (mejor modelo), 0.15 confianza
+    return round(0.30 * cardinality_bonus + 0.30 * avg_wr + 0.25 * max_wr + 0.15 * avg_conf, 4)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -299,6 +303,17 @@ def _enrich_one(c: Candidate, yf, np, log) -> None:
         c.obv_rising = bool(float(h["OBV"].tail(20).iloc[-1] - h["OBV"].tail(20).iloc[0]) > 0)
         c.atr = float(last["ATR"]) if not _is_nan(last["ATR"]) else None
         c.upside_52w = round(min((high52 - price) / price * 100, 120.0), 2) if price > 0 else None
+        # Volumen relativo: si los últimos 5d superan el promedio 20d, hay interés
+        try:
+            vol_5d = float(h["Volume"].tail(5).mean())
+            vol_20d = float(h["Volume"].tail(20).mean())
+            if vol_20d > 0:
+                c.rel_vol_5d = round(vol_5d / vol_20d, 2)
+        except Exception:
+            pass
+        # Distancia a EMA200: en estructura alcista, sweet spot 3-12% arriba
+        if c.ema200 and c.ema200 > 0:
+            c.dist_ema200_pct = round((price - c.ema200) / c.ema200 * 100, 1)
         # Stop sugerido: max(low 5d, entry - 2*ATR)
         low5d = float(h["Low"].tail(5).min())
         entry = c.entry if c.entry else price
@@ -368,23 +383,44 @@ def score_technical(c: Candidate) -> float:
     if c.rsi is None:
         return 0.3  # sin datos = neutral-bajo
     score = 0.0
-    # RSI sweet spot (40-65 = trend constructivo sin sobrecompra)
-    if 40 <= c.rsi <= 65:
-        score += 0.30
-    elif 35 <= c.rsi < 40 or 65 < c.rsi <= 70:
-        score += 0.15
+    # RSI sweet spot estricto (45-62 = trend constructivo SIN signo de sobrecompra)
+    if 45 <= c.rsi <= 62:
+        score += 0.28
+    elif 38 <= c.rsi < 45 or 62 < c.rsi <= 68:
+        score += 0.14
     # Estructura EMA
     if c.ema_aligned:
-        score += 0.30
+        score += 0.25
     elif c.ema20 and c.ema50 and c.ema20 > c.ema50:
-        score += 0.15
+        score += 0.12
     # MACD
     if c.macd_pos:
         score += 0.20
     # OBV
     if c.obv_rising:
-        score += 0.20
-    return round(min(score, 1.0), 3)
+        score += 0.15
+    # Sweet spot de MTM (señal arrancando, no consumida)
+    if -1.0 <= c.mtm_pct <= 4.0:
+        score += 0.12
+    elif 4.0 < c.mtm_pct <= 8.0:
+        score += 0.04
+    elif c.mtm_pct > 15.0:
+        score -= 0.20
+    # Volumen relativo creciente (>1.15 = interés real)
+    if c.rel_vol_5d is not None:
+        if c.rel_vol_5d >= 1.15:
+            score += 0.08
+        elif c.rel_vol_5d < 0.80:
+            score -= 0.05
+    # Distancia a EMA200 — sweet spot 3-12% en estructura alcista
+    if c.dist_ema200_pct is not None:
+        if 3 <= c.dist_ema200_pct <= 12:
+            score += 0.05
+        elif c.dist_ema200_pct > 25:
+            score -= 0.08      # demasiado extendido, riesgo mean-reversion
+        elif c.dist_ema200_pct < -3:
+            score -= 0.05
+    return round(max(0.0, min(score, 1.0)), 3)
 
 
 def score_fundamental(c: Candidate) -> float:
@@ -420,34 +456,75 @@ def score_fundamental(c: Candidate) -> float:
 
 
 def composite_probability(c: Candidate) -> float:
-    """Probabilidad compuesta 0-1: consenso 40% + técnico 35% + fundamental 25%."""
-    return round(0.40 * c.consensus_score + 0.35 * c.technical_score + 0.25 * c.fundamental_score, 4)
+    """Probabilidad compuesta 0-1: consenso 40% + técnico 35% + fundamental 25%.
+
+    Ajustes por horizonte (queremos PROXIMA RUEDA, no swing):
+      - target en 2-5 días → bonus +5%
+      - target en 8-12 días → penalización -8%
+      - target > 12 días → penalización -15%
+    """
+    base = 0.40 * c.consensus_score + 0.35 * c.technical_score + 0.25 * c.fundamental_score
+    if 2 <= c.days_to_target <= 5:
+        base *= 1.05
+    elif 8 <= c.days_to_target <= 12:
+        base *= 0.92
+    elif c.days_to_target > 12:
+        base *= 0.85
+    return round(min(base, 1.0), 4)
 
 
 # ────────────────────────────────────────────────────────────────────────────
 # Filtros de calidad y razonamiento
 # ────────────────────────────────────────────────────────────────────────────
 def apply_quality_filters(c: Candidate) -> None:
-    """Marca c.decision y c.reject_reason segun filtros estrictos."""
+    """Marca c.decision y c.reject_reason segun filtros estrictos.
+
+    Objetivo: MAXIMA probabilidad de suba en la PROXIMA RUEDA con buen %.
+    Por eso los filtros son agresivos — preferimos 0 picks a un mal pick.
+    """
     reasons: list[str] = []
 
-    if c.rsi is not None and c.rsi > 75:
-        reasons.append(f"RSI {c.rsi:.0f} sobrecomprado (>75)")
+    # Sobrecompra: nada de comprar arriba de RSI 72
+    if c.rsi is not None and c.rsi > 72:
+        reasons.append(f"RSI {c.rsi:.0f} sobrecomprado (>72)")
+    # Earnings inminente = riesgo binario (solo si es FUTURO, no pasado)
     if c.earnings_in_days is not None and 0 <= c.earnings_in_days <= 5:
         reasons.append(f"earnings en {c.earnings_in_days}d (riesgo binario)")
-    if c.ema20 and c.ema50 and c.ema20 < c.ema50 * 0.97:
+    # Sin estructura técnica alcista
+    if c.ema20 and c.ema50 and c.ema20 < c.ema50 * 0.98:
         reasons.append("EMA20 debajo de EMA50 (sin tendencia)")
-    if c.mtm_pct < -4.0:
-        reasons.append(f"drawdown abierto {c.mtm_pct:.1f}% (tesis posiblemente rota)")
-    if c.composite_prob < 0.45:
+    # Tesis abierta SERIAMENTE rota (un drawdown -3% no es problema: el ticker
+    # está ahora más barato que el entry del modelo, posiblemente mejor entry)
+    if c.mtm_pct < -8.0:
+        reasons.append(f"drawdown abierto {c.mtm_pct:.1f}% (tesis rota)")
+    # Anti-chasing: la señal ya corrió
+    if c.mtm_pct > 12.0 and c.days_to_target <= 5:
+        reasons.append(f"chasing: MTM +{c.mtm_pct:.1f}% con {c.days_to_target}d al target")
+    if c.mtm_pct > 22.0:
+        reasons.append(f"MTM +{c.mtm_pct:.1f}% (señal ya consumida)")
+    # Horizonte demasiado lejano: queremos PROXIMA RUEDA
+    if c.days_to_target > 15:
+        reasons.append(f"target a {c.days_to_target}d (no es próxima rueda)")
+    # R:R insuficiente — si el upside no compensa el downside, salteamos
+    if c.rr_ratio is not None and c.rr_ratio < 1.4:
+        reasons.append(f"R:R {c.rr_ratio:.2f} insuficiente (<1.4)")
+    # Stop ridículamente lejos (operación demasiado arriesgada)
+    if c.stop_price and c.current and (c.current - c.stop_price) / c.current > 0.06:
+        stop_pct = (c.stop_price - c.current) / c.current * 100
+        reasons.append(f"stop muy lejos ({stop_pct:.1f}%)")
+    # Sin viento de cola técnico: ni MACD, ni OBV, ni EMA alineadas
+    if c.rsi is not None and not c.macd_pos and not c.obv_rising and not c.ema_aligned:
+        reasons.append("sin momentum técnico (MACD-, OBV-, EMA mixed)")
+    # Probabilidad muy baja
+    if c.composite_prob < 0.55:
         reasons.append(f"probabilidad compuesta baja ({c.composite_prob*100:.0f}%)")
 
     if reasons:
         c.decision = "DESCARTAR"
         c.reject_reason = "; ".join(reasons)
-    elif c.composite_prob >= 0.62:
+    elif c.composite_prob >= 0.65:
         c.decision = "COMPRAR"
-    elif c.composite_prob >= 0.52:
+    elif c.composite_prob >= 0.56:
         c.decision = "WATCH-COMPRAR"
     else:
         c.decision = "WATCH"
@@ -470,7 +547,7 @@ def apply_quality_filters(c: Candidate) -> None:
     if avg_wr >= 60:
         c.why_up.append(f"WR histórico promedio {avg_wr:.0f}%")
 
-    if c.rsi and c.rsi > 70:
+    if c.rsi and c.rsi > 68:
         c.why_risk.append(f"RSI {c.rsi:.0f} cerca de sobrecompra")
     if c.earnings_in_days is not None and 0 <= c.earnings_in_days <= 14:
         c.why_risk.append(f"earnings en {c.earnings_in_days}d")
@@ -482,6 +559,8 @@ def apply_quality_filters(c: Candidate) -> None:
         c.why_risk.append(f"solo {c.days_to_target}d al target del modelo")
     if c.mtm_pct < -1.5:
         c.why_risk.append(f"drawdown abierto {c.mtm_pct:.1f}%")
+    if c.mtm_pct > 8.0:
+        c.why_risk.append(f"MTM +{c.mtm_pct:.1f}% (señal corrida)")
 
 
 def compute_sizing(c: Candidate, capital: float, risk_pct: float) -> None:
@@ -492,22 +571,57 @@ def compute_sizing(c: Candidate, capital: float, risk_pct: float) -> None:
     if c.stop_price is None or c.stop_price >= entry:
         # fallback: stop 3% debajo
         c.stop_price = round(entry * 0.97, 2)
+    # Cap stop a -5% del entry: si el stop natural quedó más lejos, lo ajustamos
+    # (el sizing usa este stop ajustado, riesgo USD se mantiene dentro de 2%)
+    max_stop_distance = entry * 0.05
+    if entry - c.stop_price > max_stop_distance:
+        c.stop_price = round(entry - max_stop_distance, 2)
     risk_per_share = max(0.01, entry - c.stop_price)
     risk_usd = capital * risk_pct
     shares = int(risk_usd / risk_per_share) if risk_per_share > 0 else 0
-    # Limitar a 30% del capital en una sola posicion
-    max_shares_capital = int((capital * 0.30) / entry) if entry > 0 else 0
+    # Cap individual por CONVICCION: menos plata en picks marginales
+    #   prob >= 75%  →  hasta 25% del capital
+    #   prob 68-75%  →  hasta 18% del capital
+    #   prob < 68%   →  hasta 12% del capital
+    if c.composite_prob >= 0.75:
+        cap_frac = 0.25
+    elif c.composite_prob >= 0.68:
+        cap_frac = 0.18
+    else:
+        cap_frac = 0.12
+    max_shares_capital = int((capital * cap_frac) / entry) if entry > 0 else 0
     shares = max(0, min(shares, max_shares_capital))
     c.shares = shares
     c.risk_usd = round(shares * risk_per_share, 2)
-    # Target
+    # Target inteligente: max( analyst_target si > entry*1.03,
+    #                          entry + 2.5*ATR (basado en volatilidad real),
+    #                          entry * 1.06 (mínimo 6%) )
+    candidates_target = [entry * 1.06]
     if c.analyst_target and c.analyst_target > entry * 1.03:
-        c.target_price = round(c.analyst_target, 2)
-    else:
-        c.target_price = round(entry * 1.05, 2)
+        candidates_target.append(c.analyst_target)
+    if c.atr and c.atr > 0:
+        candidates_target.append(entry + 2.5 * c.atr)
+    c.target_price = round(max(candidates_target), 2)
     c.upside_pct = round((c.target_price - entry) / entry * 100, 2)
     reward = c.target_price - entry
     c.rr_ratio = round(reward / risk_per_share, 2) if risk_per_share > 0 else None
+
+
+def enforce_aggregate_capital_cap(buys: list[Candidate], capital: float) -> None:
+    """Asegura que la suma de capital comprometido <= 100% del capital.
+
+    Si la suma excede, prorratea shares proporcionalmente y recalcula riesgo.
+    """
+    total = sum((c.shares * (c.current or 0.0)) for c in buys)
+    if total <= capital or total <= 0:
+        return
+    scale = capital / total
+    for c in buys:
+        if c.shares > 0:
+            c.shares = int(c.shares * scale)
+            entry = c.current or 0.0
+            stop = c.stop_price or 0.0
+            c.risk_usd = round(c.shares * max(0.01, entry - stop), 2)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -637,21 +751,28 @@ def render_markdown(
     L.append("")
     L.append("$$P_{up} = 0.40 \\cdot S_{consenso} + 0.35 \\cdot S_{técnico} + 0.25 \\cdot S_{fundamental}$$")
     L.append("")
-    L.append("- **Consenso (0.45·cardinalidad + 0.35·WR + 0.20·ML conf)**: 14 modelos PythiaxEngine (V13, V11, ML_V97, ML_V39, ML_V94, etc.) — un mismo ticker votado por más modelos con mayor WR histórico = mayor score.")
-    L.append("- **Técnico (yfinance, daily 1y)**: RSI(14), EMA20/50/200, MACD, OBV, ATR(14), %52w. Sweet spot RSI 40-65, EMA aligned alcista, MACD>0, OBV creciente.")
+    L.append("- **Consenso (0.30 cardinalidad + 0.30 WR avg + 0.25 WR max + 0.15 ML conf)**: más modelos votando, mejor WR histórico y un campeón entre ellos = mayor score.")
+    L.append("- **Técnico (yfinance, daily 1y)**: RSI(14), EMA20/50/200, MACD, OBV, ATR(14), volumen relativo 5d/20d, distancia a EMA200. Sweet spot RSI 45-62, EMA aligned alcista, MACD+, OBV↑, relVol>1.15, distancia a EMA200 3-12%, MTM en −1% a +4%.")
     L.append("- **Fundamental (yfinance.info)**: P/E forward/trailing, target analistas, sector, beta, market cap, flujo de noticias 14d.")
     L.append("")
     L.append("**Filtros de descarte estricto:**")
-    L.append("- RSI > 75 (sobrecompra)")
+    L.append("- RSI > 72 (sobrecompra)")
     L.append("- Earnings en ≤ 5 días (riesgo binario)")
-    L.append("- EMA20 < EMA50 × 0.97 (sin tendencia)")
-    L.append("- Drawdown abierto > 4% (tesis rota)")
-    L.append("- Probabilidad compuesta < 45%")
+    L.append("- EMA20 < EMA50 × 0.98 (sin tendencia alcista)")
+    L.append("- Drawdown abierto > 8% (tesis rota — hasta -7% se considera mejor entry)")
+    L.append("- **Anti-chasing**: MTM > +12% con ≤5d al target, o MTM > +22% absoluto")
+    L.append("- **Horizonte**: target del modelo > 15 días (no es próxima rueda)")
+    L.append("- **R:R < 1.4** (upside no compensa downside)")
+    L.append("- **Stop > 6%** del entry (operación demasiado arriesgada)")
+    L.append("- Sin viento de cola técnico (MACD-, OBV-, EMA mixed)")
+    L.append("- Probabilidad compuesta < 55%")
     L.append("")
     L.append("**Sizing:**")
-    L.append("- Stop = max(low 5d, entry − 2·ATR)")
-    L.append("- Shares = ⌊capital · risk_pct / (entry − stop)⌋, limitado a 30% del capital por posición")
-    L.append("- Target = analyst_target si > entry·1.03, else entry·1.05")
+    L.append("- Stop = max(low 5d, entry − 2·ATR), capeado a entry × 0.95")
+    L.append("- Shares = ⌊capital · risk_pct / (entry − stop)⌋")
+    L.append("- **Cap por convicción**: prob ≥75% → 25%, prob 68-75% → 18%, prob <68% → 12% del capital por posición")
+    L.append("- **Cap agregado**: suma de capital comprometido ≤ 100% (prorrateo si excede)")
+    L.append("- **Target inteligente**: max( analyst_target, entry + 2.5·ATR, entry·1.06 )")
     L.append("")
     L.append("---")
     L.append(f"_Generado por `scripts/plan_inversion_diario.py` · PythiaxEngine_")
@@ -675,7 +796,7 @@ def _render_pick_md(rank: int, c: Candidate) -> str:
     L.append(f"- **Técnico:** {c.technical_score*100:.0f}% — " + _tech_inline(c))
     L.append(f"- **Fundamental:** {c.fundamental_score*100:.0f}% — " + _fund_inline(c))
     L.append(f"- **Target modelo:** {c.target_date}  ({c.days_to_target}d)  ·  **MTM actual:** {c.mtm_pct:+.2f}%")
-    if c.earnings_in_days is not None:
+    if c.earnings_in_days is not None and c.earnings_in_days >= 0:
         L.append(f"- **Próximo earnings:** {c.earnings_in_days}d")
     if c.news_count_14d:
         L.append(f"- **News 14d:** {c.news_count_14d} headlines")
@@ -706,12 +827,15 @@ def _tech_inline(c: Candidate) -> str:
         parts.append("MACD+")
     if c.obv_rising:
         parts.append("OBV↑")
+    if c.rel_vol_5d is not None:
+        parts.append(f"relVol {c.rel_vol_5d:.2f}")
+    if c.dist_ema200_pct is not None:
+        parts.append(f"vs EMA200 {c.dist_ema200_pct:+.1f}%")
     if c.upside_52w is not None:
         parts.append(f"upside 52w {c.upside_52w:+.1f}%")
     if c.atr:
         parts.append(f"ATR {c.atr:.2f}")
     return "  ·  ".join(parts) if parts else "sin datos"
-
 
 def _fund_inline(c: Candidate) -> str:
     parts: list[str] = []
@@ -972,6 +1096,9 @@ def main() -> int:
     buys = [c for c in candidates if c.decision == "COMPRAR"][: args.max_picks]
     watches = [c for c in candidates if c.decision.startswith("WATCH")][:10]
     discarded = [c for c in candidates if c.decision == "DESCARTAR"]
+
+    # Cap agregado al 100% del capital (prorratea si excede)
+    enforce_aggregate_capital_cap(buys, args.capital)
 
     log(f"buys: {len(buys)}  watches: {len(watches)}  discarded: {len(discarded)}")
 
