@@ -59,21 +59,28 @@ jobs:
           # Solo lo que necesitamos: yfinance + numpy + pandas (sin Supabase)
           pip install yfinance numpy pandas
 
-      - name: Fetch latest snapshot from GitHub Pages (with repo fallback)
+      - name: Fetch latest snapshot (Pages → Cloudflare → repo fallback)
         run: |
           mkdir -p dashboards/maquina_pensante
           SNAP=dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
-          # URL publica del snapshot — generado por el Cloud Daily Operations
-          URL="https://waltermosqueda.github.io/PythiaxEngine/tablero_maquina_pensante_snapshot.json"
-          echo "Descargando snapshot: $URL"
-          if curl -fsSL "$URL" -o "$SNAP.tmp"; then
-            mv "$SNAP.tmp" "$SNAP"
+          TMP="$SNAP.tmp"
+
+          try_download() {
+            local url="$1"
+            curl -fsSL "$url" -o "$TMP" || return 1
+            # Validar que el contenido sea JSON parseable con la clave esperada
+            python -c "import json,sys; d=json.load(open('$TMP', encoding='utf-8-sig')); sys.exit(0 if 'generated_at' in d else 1)" 2>/dev/null || return 1
+            mv "$TMP" "$SNAP"
+            return 0
+          }
+
+          if try_download "https://waltermosqueda.github.io/PythiaxEngine/tablero_maquina_pensante_snapshot.json"; then
             echo "✓ Snapshot descargado de GitHub Pages"
-          elif curl -fsSL "https://pythiaxengine.pages.dev/tablero_maquina_pensante_snapshot.json" -o "$SNAP.tmp"; then
-            mv "$SNAP.tmp" "$SNAP"
+          elif try_download "https://pythiaxengine.pages.dev/tablero_maquina_pensante_snapshot.json"; then
             echo "✓ Snapshot descargado de Cloudflare"
           elif [ -f "$SNAP" ]; then
-            echo "⚠️ Descargas fallidas — usando snapshot commiteado en repo (fallback)"
+            rm -f "$TMP"
+            echo "⚠️ Descargas remotas fallaron o devolvieron contenido invalido — usando snapshot commiteado en repo"
           else
             echo "❌ No hay snapshot disponible (ni remoto ni en repo)"
             exit 1
