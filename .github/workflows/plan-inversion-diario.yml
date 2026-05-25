@@ -1,0 +1,112 @@
+name: Plan Inversion Diario
+
+# Se dispara automaticamente despues del Cloud Daily Operations exitoso (post-cierre NYSE).
+# Tambien permite ejecucion manual via workflow_dispatch.
+#
+# Estrategia: descarga el snapshot publicado en GitHub Pages (publico, sin egress Supabase),
+# corre el script y commitea el plan a logs/plan_diario/.
+
+on:
+  workflow_run:
+    workflows: ["Cloud Daily Operations"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      capital:
+        description: "Capital USD"
+        default: "10000"
+        required: false
+      risk_pct:
+        description: "Riesgo por posicion (0.02 = 2%)"
+        default: "0.02"
+        required: false
+      max_picks:
+        description: "Maximo de picks"
+        default: "5"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: plan-inversion-diario
+  cancel-in-progress: false
+
+jobs:
+  generate-plan:
+    # Solo correr si el upstream cloud-daily fue exitoso, o si es manual
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Solo lo que necesitamos: yfinance + numpy + pandas (sin Supabase)
+          pip install yfinance numpy pandas
+
+      - name: Fetch latest snapshot from GitHub Pages
+        run: |
+          mkdir -p dashboards/maquina_pensante
+          set -e
+          # URL publica del snapshot — generado por el Cloud Daily Operations
+          URL="https://waltermosqueda.github.io/PythiaxEngine/tablero_maquina_pensante_snapshot.json"
+          echo "Descargando snapshot: $URL"
+          if curl -fsSL "$URL" -o dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json; then
+            echo "✓ Snapshot descargado"
+            python -c "import json; s=json.load(open('dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json')); print('generated_at:', s.get('generated_at','?'))"
+          else
+            echo "❌ Fallo descarga de Pages — intentando Cloudflare"
+            curl -fsSL "https://pythiaxengine.pages.dev/tablero_maquina_pensante_snapshot.json" \
+              -o dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
+          fi
+
+      - name: Run plan inversion diario
+        env:
+          PYTHONIOENCODING: utf-8
+          CAPITAL: ${{ github.event.inputs.capital || '10000' }}
+          RISK_PCT: ${{ github.event.inputs.risk_pct || '0.02' }}
+          MAX_PICKS: ${{ github.event.inputs.max_picks || '5' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python scripts/plan_inversion_diario.py \
+            --capital "$CAPITAL" \
+            --risk-pct "$RISK_PCT" \
+            --max-picks "$MAX_PICKS"
+
+      - name: Commit plan
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add logs/plan_diario/
+          if git diff --cached --quiet; then
+            echo "Sin cambios en logs/plan_diario/ — nothing to commit"
+          else
+            TODAY=$(date -u +%Y-%m-%d)
+            git commit -m "plan_diario: plan de inversion $TODAY [skip ci]"
+            git push
+          fi
+
+      - name: Upload plan as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan-inversion-${{ github.run_id }}
+          path: logs/plan_diario/plan_*.md
+          retention-days: 30
+          if-no-files-found: ignore
