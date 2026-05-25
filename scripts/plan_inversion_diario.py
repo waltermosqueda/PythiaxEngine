@@ -113,6 +113,8 @@ class Candidate:
     technical_score: float = 0.0
     fundamental_score: float = 0.0
     composite_prob: float = 0.0
+    prob_ajustada: float = 0.0
+    prob_adjustments: list[str] = field(default_factory=list)
     # plan
     decision: str = "WATCH"
     reject_reason: str = ""
@@ -596,6 +598,112 @@ def apply_quality_filters(c: Candidate) -> None:
         c.why_risk.append(f"MTM +{c.mtm_pct:.1f}% (señal corrida)")
 
 
+def compute_adjusted_probability(c: Candidate) -> None:
+    """Ajusta composite_prob con heuristicas que la formula plana no captura.
+
+    Penaliza:
+      - d2t corto (deadline inminente)
+      - upside_52w bajo (techo cerca)
+      - MTM extendido (entrada chasing)
+      - RSI alto (sobrecompra) o muy bajo
+      - R:R debil
+    Premia:
+      - Trifecta EMA+MACD+OBV (momentum confirmado por las 3 senales)
+      - Beta neutro (descorrelacionado)
+      - Deep value (P/E < 8)
+      - Earnings recientes ya digeridos
+      - RSI en zona ideal 40-60
+      - WR historico alto >=65%
+
+    Resultado entre 0.20 y 0.95. Lista de ajustes va a c.prob_adjustments.
+    Esta es la probabilidad que se usa para RANKEAR; la decision
+    (COMPRAR/WATCH/MAYOR_RIESGO/DESCARTAR) se sigue tomando con composite_prob
+    + apply_quality_filters para no romper semantica historica.
+    """
+    p = c.composite_prob
+    adj: list[str] = []
+
+    # Penalizaciones
+    if c.days_to_target <= 0:
+        p -= 0.08
+        adj.append("-8pp: target ya expiro (d2t<=0)")
+    elif c.days_to_target == 1:
+        p -= 0.05
+        adj.append("-5pp: solo 1d al target")
+    elif c.days_to_target == 2:
+        p -= 0.03
+        adj.append("-3pp: solo 2d al target")
+
+    if c.upside_52w is not None:
+        if c.upside_52w < 5:
+            p -= 0.05
+            adj.append(f"-5pp: upside_52w {c.upside_52w:.1f}% (techo cerca)")
+        elif c.upside_52w < 10:
+            p -= 0.02
+            adj.append(f"-2pp: upside_52w {c.upside_52w:.1f}% (margen reducido)")
+
+    if c.mtm_pct > 15:
+        p -= 0.06
+        adj.append(f"-6pp: MTM +{c.mtm_pct:.1f}% (chasing extremo)")
+    elif c.mtm_pct > 8:
+        p -= 0.03
+        adj.append(f"-3pp: MTM +{c.mtm_pct:.1f}% (entrada extendida)")
+
+    if c.rsi is not None:
+        if c.rsi > 70:
+            p -= 0.03
+            adj.append(f"-3pp: RSI {c.rsi:.0f} (sobrecompra)")
+        elif c.rsi > 65:
+            p -= 0.01
+            adj.append(f"-1pp: RSI {c.rsi:.0f} (caliente)")
+        elif c.rsi < 35:
+            p -= 0.02
+            adj.append(f"-2pp: RSI {c.rsi:.0f} (oversold, momentum negativo)")
+
+    if c.rr_ratio is not None:
+        if c.rr_ratio < 1.5:
+            p -= 0.04
+            adj.append(f"-4pp: R:R {c.rr_ratio:.2f} (asimetria debil)")
+        elif c.rr_ratio < 2.0:
+            p -= 0.02
+            adj.append(f"-2pp: R:R {c.rr_ratio:.2f} (asimetria modesta)")
+
+    # Bonificaciones
+    confirms = sum([bool(c.ema_aligned), bool(c.macd_pos), bool(c.obv_rising)])
+    if confirms == 3:
+        p += 0.04
+        adj.append("+4pp: trifecta EMA+MACD+OBV (momentum confirmado 3/3)")
+    elif confirms == 2:
+        p += 0.01
+        adj.append("+1pp: 2/3 confirmaciones tecnicas")
+
+    if c.beta is not None and abs(c.beta) < 0.3:
+        p += 0.01
+        adj.append(f"+1pp: beta {c.beta:+.2f} (descorrelacionado)")
+
+    if c.pe is not None and 0 < c.pe < 8:
+        p += 0.01
+        adj.append(f"+1pp: P/E {c.pe:.2f} (deep value)")
+
+    if c.earnings_in_days is not None and -45 < c.earnings_in_days < 0:
+        p += 0.01
+        adj.append("+1pp: earnings recientes ya digeridos")
+
+    if c.rsi is not None and 40 <= c.rsi <= 60:
+        p += 0.01
+        adj.append(f"+1pp: RSI {c.rsi:.0f} en zona ideal")
+
+    avg_wr = sum(c.wrs) / max(1, len(c.wrs))
+    if avg_wr >= 65:
+        p += 0.01
+        adj.append(f"+1pp: WR historico {avg_wr:.0f}%")
+
+    # Cap [0.20, 0.95]
+    p = max(0.20, min(0.95, p))
+    c.prob_ajustada = round(p, 4)
+    c.prob_adjustments = adj
+
+
 def compute_sizing(c: Candidate, capital: float, risk_pct: float) -> None:
     """Calcula stop, target, shares, R:R."""
     if c.current is None or c.current <= 0:
@@ -742,7 +850,7 @@ def render_markdown(
 
     # Buys detallados
     if buys:
-        L.append("## ✅ Picks recomendados (orden por probabilidad compuesta)")
+        L.append("## ✅ Picks recomendados (orden por probabilidad honesta ajustada)")
         L.append("")
         for i, c in enumerate(buys, 1):
             L.append(_render_pick_md(i, c))
@@ -752,13 +860,14 @@ def render_markdown(
     if watches:
         L.append("## 👀 Watch list (cerca del threshold, no comprar aún)")
         L.append("")
-        L.append("| # | Ticker | Prob. | Consenso | Téc | Fund | Modelos | Razón |")
-        L.append("|---|--------|-------|----------|-----|------|---------|-------|")
+        L.append("| # | Ticker | Prob. honesta | Formula | Consenso | Téc | Fund | Razón |")
+        L.append("|---|--------|---------------|---------|----------|-----|------|-------|")
         for i, c in enumerate(watches, 1):
             L.append(
-                f"| {i} | `{c.ticker}` | {c.composite_prob*100:.0f}% | "
+                f"| {i} | `{c.ticker}` | **{c.prob_ajustada*100:.0f}%** | "
+                f"{c.composite_prob*100:.0f}% | "
                 f"{c.consensus_score*100:.0f}% | {c.technical_score*100:.0f}% | "
-                f"{c.fundamental_score*100:.0f}% | {len(c.models)} | "
+                f"{c.fundamental_score*100:.0f}% | "
                 f"{'; '.join(c.why_risk[:2]) if c.why_risk else '—'} |"
             )
         L.append("")
@@ -777,10 +886,10 @@ def render_markdown(
     if discarded:
         L.append("## 🚫 Descartados (transparencia de filtrado)")
         L.append("")
-        L.append("| Ticker | Prob. | Motivo de descarte |")
-        L.append("|--------|-------|--------------------|")
+        L.append("| Ticker | Prob. honesta | Formula | Motivo de descarte |")
+        L.append("|--------|---------------|---------|--------------------|")
         for c in discarded[:15]:
-            L.append(f"| `{c.ticker}` | {c.composite_prob*100:.0f}% | {c.reject_reason or '—'} |")
+            L.append(f"| `{c.ticker}` | {c.prob_ajustada*100:.0f}% | {c.composite_prob*100:.0f}% | {c.reject_reason or '—'} |")
         if len(discarded) > 15:
             L.append(f"| _… {len(discarded)-15} más_ | | |")
         L.append("")
@@ -789,7 +898,17 @@ def render_markdown(
     L.append("")
     L.append("## 🧮 Metodología")
     L.append("")
-    L.append("**Score compuesto (probabilidad de suba próxima rueda):**")
+    L.append("**Probabilidad honesta ajustada (lo que se muestra como número principal):**")
+    L.append("")
+    L.append("Se parte del score compuesto plano y se aplican heurísticas que la fórmula no captura. **Esta es la métrica usada para rankear los picks.**")
+    L.append("")
+    L.append("_Penalizaciones:_ `d2t≤0` −8pp · `d2t=1` −5pp · `d2t=2` −3pp · `upside_52w<5%` −5pp · `upside_52w<10%` −2pp · `MTM>+15%` −6pp · `MTM>+8%` −3pp · `RSI>70` −3pp · `RSI>65` −1pp · `RSI<35` −2pp · `R:R<1.5` −4pp · `R:R<2.0` −2pp.")
+    L.append("")
+    L.append("_Bonificaciones:_ trifecta EMA+MACD+OBV +4pp · 2/3 confirmaciones +1pp · `|β|<0.3` (descorrelacionado) +1pp · `P/E<8` (deep value) +1pp · earnings recientes digeridos +1pp · `RSI 40-60` (zona ideal) +1pp · WR histórico ≥65% +1pp.")
+    L.append("")
+    L.append("Cap final: rango [20%, 95%].")
+    L.append("")
+    L.append("**Score compuesto plano (base, antes de heurísticas):**")
     L.append("")
     L.append("$$P_{up} = 0.40 \\cdot S_{consenso} + 0.35 \\cdot S_{técnico} + 0.25 \\cdot S_{fundamental}$$")
     L.append("")
@@ -838,10 +957,13 @@ def _render_pick_md(rank: int, c: Candidate) -> str:
     risk_per_sh = entry - stop if entry > stop else 0.0
     cap_used = c.shares * entry
     L: list[str] = []
-    L.append(f"### {rank}. `{c.ticker}` — prob. suba **{c.composite_prob*100:.0f}%**  ·  {c.decision}")
+    L.append(f"### {rank}. `{c.ticker}` — prob. honesta **{c.prob_ajustada*100:.0f}%**  ·  _(formula plana: {c.composite_prob*100:.0f}%)_  ·  {c.decision}")
     L.append("")
     L.append(f"**Entry (close hoy):** ${entry:.2f}  |  **Stop:** ${stop:.2f} ({(stop-entry)/entry*100:+.2f}%)  |  **Target:** ${target:.2f} ({c.upside_pct:+.2f}%)")
     L.append(f"**Shares sugeridas:** {c.shares}  |  **Riesgo:** USD {c.risk_usd:,.2f}  |  **R:R:** {c.rr_ratio or '—'}")
+    if c.prob_adjustments:
+        L.append("")
+        L.append(f"**Ajustes vs formula plana:** {' · '.join(c.prob_adjustments)}")
     L.append("")
     # Bloque de scores
     L.append(f"- **Consenso PythiaxEngine:** {c.consensus_score*100:.0f}% — modelos: {', '.join(f'`{m}`' for m in c.models)}  ·  WR promedio: {sum(c.wrs)/max(1,len(c.wrs)):.1f}%")
@@ -940,7 +1062,7 @@ def build_json_output(
         "watches": [asdict(c) for c in watches],
         "mayor_riesgo": [asdict(c) for c in mayor_riesgo],
         "discarded_sample": [
-            {"ticker": c.ticker, "composite_prob": c.composite_prob, "reject_reason": c.reject_reason}
+            {"ticker": c.ticker, "composite_prob": c.composite_prob, "prob_ajustada": c.prob_ajustada, "reject_reason": c.reject_reason}
             for c in discarded[:30]
         ],
     }
@@ -1014,10 +1136,13 @@ def render_telegram(
         stop = c.stop_price or 0.0
         target = c.target_price or 0.0
         L.append("")
-        L.append(f"<b>{i}. {c.ticker}</b> — prob <b>{c.composite_prob*100:.0f}%</b>")
+        L.append(f"<b>{i}. {c.ticker}</b> — prob honesta <b>{c.prob_ajustada*100:.0f}%</b> <i>(form. {c.composite_prob*100:.0f}%)</i>")
         L.append(f"   Entry ${entry:.2f}  →  Target ${target:.2f} ({c.upside_pct:+.1f}%)")
         L.append(f"   Stop ${stop:.2f} ({(stop-entry)/entry*100:+.2f}%)  ·  R:R {c.rr_ratio or '—'}")
         L.append(f"   <b>{c.shares} acciones</b>  ·  Riesgo USD {c.risk_usd:,.2f}")
+        if c.prob_adjustments:
+            top_adj = " · ".join(c.prob_adjustments[:3])
+            L.append(f"   <i>Ajustes:</i> {top_adj}")
         # Compactar razones (top 3 por lado)
         top_up = "; ".join(c.why_up[:3]) if c.why_up else ""
         if top_up:
@@ -1039,7 +1164,7 @@ def render_telegram(
             stop = c.stop_price or 0.0
             target = c.target_price or 0.0
             L.append("")
-            L.append(f"<b>⚠️ {c.ticker}</b> — prob {c.composite_prob*100:.0f}%  ·  R:R {c.rr_ratio or '—'}")
+            L.append(f"<b>⚠️ {c.ticker}</b> — prob honesta {c.prob_ajustada*100:.0f}% <i>(form. {c.composite_prob*100:.0f}%)</i>  ·  R:R {c.rr_ratio or '—'}")
             L.append(f"   Entry ${entry:.2f}  →  Target ${target:.2f} ({c.upside_pct:+.1f}%)  ·  Stop ${stop:.2f}")
             if c.shares > 0:
                 L.append(f"   {c.shares} acc  ·  Riesgo USD {c.risk_usd:,.2f}")
@@ -1051,7 +1176,7 @@ def render_telegram(
 
     if watches:
         L.append("")
-        L.append(f"👀 <b>Watch ({len(watches)}):</b> " + ", ".join(f"<code>{c.ticker}</code> {c.composite_prob*100:.0f}%" for c in watches[:5]))
+        L.append(f"👀 <b>Watch ({len(watches)}):</b> " + ", ".join(f"<code>{c.ticker}</code> {c.prob_ajustada*100:.0f}%" for c in watches[:5]))
 
     L.append("")
     L.append(f"<i>Descartados por filtros: {discarded_count}</i>")
@@ -1161,9 +1286,10 @@ def main() -> int:
         c.composite_prob = composite_probability(c)
         compute_sizing(c, args.capital, args.risk_pct)
         apply_quality_filters(c)
+        compute_adjusted_probability(c)
 
-    # Re-orden por probabilidad compuesta
-    candidates.sort(key=lambda c: -c.composite_prob)
+    # Re-orden por probabilidad honesta ajustada (heuristicas sobre composite)
+    candidates.sort(key=lambda c: -c.prob_ajustada)
 
     buys = [c for c in candidates if c.decision == "COMPRAR"][: args.max_picks]
     watches = [c for c in candidates if c.decision.startswith("WATCH")][:10]
@@ -1209,7 +1335,7 @@ def main() -> int:
     print("=" * 70)
     print(f"PLAN INVERSION {today_iso}  ·  {len(buys)} compras  ·  {len(watches)} watch  ·  {len(mayor_riesgo)} mayor_riesgo  ·  {len(discarded)} descartes")
     for c in buys:
-        print(f"  {c.ticker:6s}  prob {c.composite_prob*100:5.1f}%  ${c.current:.2f}  ×{c.shares}  stop ${c.stop_price:.2f}  target ${c.target_price:.2f}  R:R {c.rr_ratio}")
+        print(f"  {c.ticker:6s}  honesta {c.prob_ajustada*100:5.1f}%  (form {c.composite_prob*100:5.1f}%)  ${c.current:.2f}  x{c.shares}  stop ${c.stop_price:.2f}  target ${c.target_price:.2f}  R:R {c.rr_ratio}")
     print("=" * 70)
     return 0
 
