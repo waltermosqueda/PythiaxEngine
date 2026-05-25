@@ -733,9 +733,7 @@ def render_markdown(
     L.append("")
     if buys:
         total_risk = sum(c.risk_usd for c in buys)
-        total_capital_used = sum((c.shares * (c.current or 0)) for c in buys)
         L.append(f"- **{len(buys)} pick(s) propuesto(s) para compra** próxima rueda")
-        L.append(f"- **Capital comprometido:** USD {total_capital_used:,.2f}  ({total_capital_used/capital*100:.1f}% del total)")
         L.append(f"- **Riesgo total agregado (a stops):** USD {total_risk:,.2f}  ({total_risk/capital*100:.2f}% del capital)")
         L.append(f"- **Top tickers:** " + ", ".join(f"`{c.ticker}`" for c in buys))
     else:
@@ -826,7 +824,6 @@ def render_markdown(
     L.append("- Stop = max(low 5d, entry − 2·ATR), capeado a entry × 0.95")
     L.append("- Shares = ⌊capital · risk_pct / (entry − stop)⌋")
     L.append("- **Cap por convicción**: prob ≥75% → 25%, prob 68-75% → 18%, prob <68% → 12% del capital por posición")
-    L.append("- **Cap agregado**: suma de capital comprometido ≤ 100% (prorrateo si excede)")
     L.append("- **Target inteligente**: max( analyst_target, entry + 2.5·ATR, entry·1.06 )")
     L.append("")
     L.append("---")
@@ -844,7 +841,7 @@ def _render_pick_md(rank: int, c: Candidate) -> str:
     L.append(f"### {rank}. `{c.ticker}` — prob. suba **{c.composite_prob*100:.0f}%**  ·  {c.decision}")
     L.append("")
     L.append(f"**Entry (close hoy):** ${entry:.2f}  |  **Stop:** ${stop:.2f} ({(stop-entry)/entry*100:+.2f}%)  |  **Target:** ${target:.2f} ({c.upside_pct:+.2f}%)")
-    L.append(f"**Shares sugeridas:** {c.shares}  |  **Capital comprometido:** USD {cap_used:,.2f}  |  **Riesgo:** USD {c.risk_usd:,.2f}  |  **R:R:** {c.rr_ratio or '—'}")
+    L.append(f"**Shares sugeridas:** {c.shares}  |  **Riesgo:** USD {c.risk_usd:,.2f}  |  **R:R:** {c.rr_ratio or '—'}")
     L.append("")
     # Bloque de scores
     L.append(f"- **Consenso PythiaxEngine:** {c.consensus_score*100:.0f}% — modelos: {', '.join(f'`{m}`' for m in c.models)}  ·  WR promedio: {sum(c.wrs)/max(1,len(c.wrs)):.1f}%")
@@ -1007,9 +1004,7 @@ def render_telegram(
         return "\n".join(L)
 
     total_risk = sum(c.risk_usd for c in buys)
-    total_cap = sum((c.shares * (c.current or 0)) for c in buys)
     L.append(f"✅ <b>{len(buys)} pick(s) recomendado(s)</b>")
-    L.append(f"💰 Capital comprometido: USD {total_cap:,.2f} ({total_cap/capital*100:.1f}%)")
     L.append(f"⚠️ Riesgo total a stops: USD {total_risk:,.2f} ({total_risk/capital*100:.2f}%)")
     L.append("")
     L.append("━━━━━━━━━━━━━━━━━━━━")
@@ -1022,7 +1017,7 @@ def render_telegram(
         L.append(f"<b>{i}. {c.ticker}</b> — prob <b>{c.composite_prob*100:.0f}%</b>")
         L.append(f"   Entry ${entry:.2f}  →  Target ${target:.2f} ({c.upside_pct:+.1f}%)")
         L.append(f"   Stop ${stop:.2f} ({(stop-entry)/entry*100:+.2f}%)  ·  R:R {c.rr_ratio or '—'}")
-        L.append(f"   <b>{c.shares} acciones</b>  ·  Cap USD {c.shares*entry:,.2f}  ·  Riesgo USD {c.risk_usd:,.2f}")
+        L.append(f"   <b>{c.shares} acciones</b>  ·  Riesgo USD {c.risk_usd:,.2f}")
         # Compactar razones (top 3 por lado)
         top_up = "; ".join(c.why_up[:3]) if c.why_up else ""
         if top_up:
@@ -1047,7 +1042,7 @@ def render_telegram(
             L.append(f"<b>⚠️ {c.ticker}</b> — prob {c.composite_prob*100:.0f}%  ·  R:R {c.rr_ratio or '—'}")
             L.append(f"   Entry ${entry:.2f}  →  Target ${target:.2f} ({c.upside_pct:+.1f}%)  ·  Stop ${stop:.2f}")
             if c.shares > 0:
-                L.append(f"   {c.shares} acc  ·  Cap USD {c.shares*entry:,.2f}  ·  Riesgo USD {c.risk_usd:,.2f}")
+                L.append(f"   {c.shares} acc  ·  Riesgo USD {c.risk_usd:,.2f}")
             soft = (c.reject_reason or "").replace("SOFT: ", "")
             L.append(f"   <i>Motivo blando:</i> {soft[:140]}")
             top_up = "; ".join(c.why_up[:2]) if c.why_up else ""
