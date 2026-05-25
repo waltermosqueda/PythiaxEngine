@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-25T02:23:00Z -->
-<!-- git_head: 78a2d46 -->
+<!-- generated_at: 2026-05-25T07:13:39Z -->
+<!-- git_head: a4e2454 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 78a2d46 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-24 23:23 AR (Dom) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ a4e2454 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-25 04:13 AR (Lun) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-25T02:23:00Z | `2026-05-24 23:23 AR (Dom)` | HEAD: `78a2d46`*
+*Auto-generado: 2026-05-25T07:13:39Z | `2026-05-25 04:13 AR (Lun)` | HEAD: `a4e2454`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `78a2d46`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-24 23:23 AR (Dom)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `a4e2454`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-25 04:13 AR (Lun)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-25T02:23:00Z` |
-| Hora AR | `2026-05-24 23:23 AR (Dom)` |
+| Generado | `2026-05-25T07:13:39Z` |
+| Hora AR | `2026-05-25 04:13 AR (Lun)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,28 +64,17 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `78a2d46` — fix(tests): restore CI green â€” fix 7 failing unit tests
-**Timestamp commit:** 2026-05-24 23:22:35 -0300
+**HEAD:** `a4e2454` — feat(plan): prob_ajustada con heuristicas honestas + ranking razonado en Telegram
+**Timestamp commit:** 2026-05-25 01:39:40 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-78a2d46 fix(tests): restore CI green â€” fix 7 failing unit tests
-b1e7ce8 fix(pipeline): load_runtime_market_dates y freshness_report leen precios de TitanDB
-05db001 fix(titandb): always use local SQLite â€” eliminate 11k Supabase price reads/day
-0ceb7b3 chore: trigger Pages deploy for senales NUEVAS
-211fffb chore(auto): update ESTADO_ACTUAL â†’ 3ba9e47 [skip ci]
-3ba9e47 fix: senales NUEVAS â€” add explicit 'nuevas' to chip and ticker labels
-c729a22 chore(auto): update ESTADO_ACTUAL â†’ ea8d919 [skip ci]
-ea8d919 fix: clarify senales activas strip -- SENALES/ABIERTAS label + MTM context + sig. date prefix
-2390222 dashboard: improve Portfolio Performance chart readability
-79d4515 chore(auto): update ESTADO_ACTUAL â†’ 21f03be [skip ci]
+a4e2454 feat(plan): prob_ajustada con heuristicas honestas + ranking razonado en Telegram
 ```
 
 ### Working tree
-```
-?? _AUDITORIA_PORCENTAJES.md
-```
+_Rama limpia — sin cambios sin commitear_
 
 ---
 
