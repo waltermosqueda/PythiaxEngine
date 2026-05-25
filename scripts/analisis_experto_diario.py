@@ -374,11 +374,12 @@ def consult_claude_github_models(prompt: str, token: str, log) -> tuple[str | No
 
     GITHUB_MODELS_URL = "https://models.inference.ai.azure.com/chat/completions"
 
-    # Claude models disponibles en GitHub Models (Copilot Pro: 50 req/día)
+    # Claude models disponibles en GitHub Models con Copilot Pro
     CLAUDE_MODELS = [
-        "claude-3-7-sonnet",   # últiom modelo Claude 3.7, alta capacidad
-        "claude-3-5-sonnet",   # Claude 3.5, muy bueno y más rápido
-        "claude-3-5-haiku",    # más rápido, menor capacidad
+        "claude-opus-4-5",     # Claude Opus 4.x (máxima calidad)
+        "claude-sonnet-4-5",   # Claude Sonnet 4.5
+        "claude-3-7-sonnet",   # Claude 3.7 Sonnet (fallback)
+        "claude-3-5-sonnet",   # Claude 3.5 Sonnet (fallback)
     ]
 
     def _call(model_id: str) -> str | None:

@@ -25,6 +25,7 @@ on:
 
 permissions:
   contents: write
+  models: read
 
 concurrency:
   group: analisis-experto-diario
