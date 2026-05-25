@@ -1,6 +1,6 @@
 {
   "plan_date": "2026-05-25",
-  "generated_at_utc": "2026-05-25T04:11:50.926089+00:00",
+  "generated_at_utc": "2026-05-25T18:09:51.068947+00:00",
   "snapshot_meta": {
     "generated_at": "2026-05-22T23:11:33",
     "regime": "SEGURO",
@@ -16,8 +16,8 @@
       "chg_5d_pct": 1.21
     },
     "vix": {
-      "last": 16.7,
-      "chg_5d_pct": -9.39
+      "last": 16.59,
+      "chg_5d_pct": -6.9
     }
   },
   "parameters": {
@@ -45,10 +45,10 @@
       "mtm_pct": -0.6,
       "target_date": "2026-05-29",
       "days_to_target": 4,
-      "rsi": 44.681832002214456,
+      "rsi": 44.68183200221571,
       "ema20": 20.427279520331407,
-      "ema50": 19.8548836564049,
-      "ema200": 16.494323264719398,
+      "ema50": 19.854883656441473,
+      "ema200": 16.494323265097677,
       "ema_aligned": true,
       "macd_pos": false,
       "obv_rising": false,
@@ -68,6 +68,12 @@
       "technical_score": 0.51,
       "fundamental_score": 0.85,
       "composite_prob": 0.6649,
+      "prob_ajustada": 0.6949,
+      "prob_adjustments": [
+        "+1pp: beta -0.06 (descorrelacionado)",
+        "+1pp: P/E 4.84 (deep value)",
+        "+1pp: RSI 45 en zona ideal"
+      ],
       "decision": "COMPRAR",
       "reject_reason": "",
       "stop_price": 19.56,
@@ -106,10 +112,10 @@
       "mtm_pct": -3.1,
       "target_date": "2026-06-05",
       "days_to_target": 11,
-      "rsi": 54.731843214470096,
-      "ema20": 41.118368233383215,
-      "ema50": 39.26553713249035,
-      "ema200": 33.291905349504326,
+      "rsi": 54.73184321446258,
+      "ema20": 41.11836823338322,
+      "ema50": 39.265537132694426,
+      "ema200": 33.29190535841871,
       "ema_aligned": true,
       "macd_pos": false,
       "obv_rising": true,
@@ -129,6 +135,12 @@
       "technical_score": 0.68,
       "fundamental_score": 0.75,
       "composite_prob": 0.664,
+      "prob_ajustada": 0.664,
+      "prob_adjustments": [
+        "-2pp: upside_52w 5.1% (margen reducido)",
+        "+1pp: 2/3 confirmaciones tecnicas",
+        "+1pp: RSI 55 en zona ideal"
+      ],
       "decision": "COMPRAR",
       "reject_reason": "",
       "stop_price": 41.01,
@@ -188,6 +200,12 @@
       "technical_score": 0.4,
       "fundamental_score": 0.85,
       "composite_prob": 0.6389,
+      "prob_ajustada": 0.6289,
+      "prob_adjustments": [
+        "-3pp: solo 2d al target",
+        "+1pp: RSI 45 en zona ideal",
+        "+1pp: WR historico 77%"
+      ],
       "decision": "WATCH-COMPRAR",
       "reject_reason": "",
       "stop_price": 8.73,
@@ -223,14 +241,14 @@
       "mtm_pct": -1.3,
       "target_date": "2026-06-05",
       "days_to_target": 11,
-      "rsi": 67.95566888471001,
-      "ema20": 180.52298934778176,
-      "ema50": 173.49145457742276,
-      "ema200": 167.16905801853304,
+      "rsi": 67.95566888487073,
+      "ema20": 180.52298934778185,
+      "ema50": 173.49145457626457,
+      "ema200": 167.16905784452496,
       "ema_aligned": true,
       "macd_pos": true,
       "obv_rising": true,
-      "atr": 4.607819223221387,
+      "atr": 4.607819223221388,
       "upside_52w": 2.15,
       "rel_vol_5d": 0.91,
       "dist_ema200_pct": 13.1,
@@ -246,6 +264,13 @@
       "technical_score": 0.74,
       "fundamental_score": 0.75,
       "composite_prob": 0.6198,
+      "prob_ajustada": 0.6098,
+      "prob_adjustments": [
+        "-5pp: upside_52w 2.1% (techo cerca)",
+        "-1pp: RSI 68 (caliente)",
+        "+4pp: trifecta EMA+MACD+OBV (momentum confirmado 3/3)",
+        "+1pp: WR historico 65%"
+      ],
       "decision": "WATCH-COMPRAR",
       "reject_reason": "",
       "stop_price": 185.64,
@@ -257,6 +282,67 @@
       "why_up": [
         "EMA20>EMA50>EMA200 (tendencia alcista estructural)",
         "MACD histograma positivo (momentum)",
+        "OBV creciente últimos 20d (volumen confirma)",
+        "WR histórico promedio 65%"
+      ],
+      "why_risk": []
+    },
+    {
+      "ticker": "UNH",
+      "models": [
+        "V13"
+      ],
+      "wrs": [
+        65.26
+      ],
+      "confidences": [
+        0.7263000000000001
+      ],
+      "entry": 393.9858,
+      "current": 388.47,
+      "mtm_pct": -1.4000000000000001,
+      "target_date": "2026-06-05",
+      "days_to_target": 11,
+      "rsi": 67.88297368826792,
+      "ema20": 375.4267434564664,
+      "ema50": 346.80340370326866,
+      "ema200": 321.9166021679731,
+      "ema_aligned": true,
+      "macd_pos": false,
+      "obv_rising": true,
+      "atr": 9.16424767021291,
+      "upside_52w": 4.04,
+      "rel_vol_5d": 0.9,
+      "dist_ema200_pct": 20.7,
+      "pe": 18.67,
+      "analyst_target": 395.15,
+      "sector": "Healthcare",
+      "market_cap": 352786841600.0,
+      "beta": 0.646,
+      "earnings_in_days": 64,
+      "news_count_14d": 0,
+      "news_titles": [],
+      "consensus_score": 0.5679,
+      "technical_score": 0.54,
+      "fundamental_score": 0.75,
+      "composite_prob": 0.5554,
+      "prob_ajustada": 0.5154,
+      "prob_adjustments": [
+        "-5pp: upside_52w 4.0% (techo cerca)",
+        "-1pp: RSI 68 (caliente)",
+        "+1pp: 2/3 confirmaciones tecnicas",
+        "+1pp: WR historico 65%"
+      ],
+      "decision": "WATCH",
+      "reject_reason": "",
+      "stop_price": 380.54,
+      "target_price": 411.78,
+      "shares": 3,
+      "risk_usd": 23.79,
+      "upside_pct": 6.0,
+      "rr_ratio": 2.94,
+      "why_up": [
+        "EMA20>EMA50>EMA200 (tendencia alcista estructural)",
         "OBV creciente últimos 20d (volumen confirma)",
         "WR histórico promedio 65%"
       ],
@@ -287,10 +373,10 @@
       "mtm_pct": 11.600000000000001,
       "target_date": "2026-05-25",
       "days_to_target": 0,
-      "rsi": 71.75415814744886,
-      "ema20": 194.92556676458125,
-      "ema50": 171.11620160424175,
-      "ema200": 158.83280176453516,
+      "rsi": 71.75415814705487,
+      "ema20": 194.92556676458926,
+      "ema50": 171.11620160385993,
+      "ema200": 158.83280158081465,
       "ema_aligned": true,
       "macd_pos": true,
       "obv_rising": true,
@@ -310,6 +396,14 @@
       "technical_score": 0.47,
       "fundamental_score": 0.5,
       "composite_prob": 0.5789,
+      "prob_ajustada": 0.4289,
+      "prob_adjustments": [
+        "-8pp: target ya expiro (d2t<=0)",
+        "-5pp: upside_52w 4.1% (techo cerca)",
+        "-3pp: MTM +11.6% (entrada extendida)",
+        "-3pp: RSI 72 (sobrecompra)",
+        "+4pp: trifecta EMA+MACD+OBV (momentum confirmado 3/3)"
+      ],
       "decision": "WATCH-COMPRAR",
       "reject_reason": "",
       "stop_price": 226.25,
@@ -329,60 +423,6 @@
         "solo 0d al target del modelo",
         "MTM +11.6% (señal corrida)"
       ]
-    },
-    {
-      "ticker": "UNH",
-      "models": [
-        "V13"
-      ],
-      "wrs": [
-        65.26
-      ],
-      "confidences": [
-        0.7263000000000001
-      ],
-      "entry": 393.9858,
-      "current": 388.47,
-      "mtm_pct": -1.4000000000000001,
-      "target_date": "2026-06-05",
-      "days_to_target": 11,
-      "rsi": 67.88297368826773,
-      "ema20": 375.4267434564665,
-      "ema50": 346.8034037059397,
-      "ema200": 321.91660217913943,
-      "ema_aligned": true,
-      "macd_pos": false,
-      "obv_rising": true,
-      "atr": 9.16424767021291,
-      "upside_52w": 4.04,
-      "rel_vol_5d": 0.9,
-      "dist_ema200_pct": 20.7,
-      "pe": 18.67,
-      "analyst_target": 395.15,
-      "sector": "Healthcare",
-      "market_cap": 352786841600.0,
-      "beta": 0.646,
-      "earnings_in_days": 64,
-      "news_count_14d": 0,
-      "news_titles": [],
-      "consensus_score": 0.5679,
-      "technical_score": 0.54,
-      "fundamental_score": 0.75,
-      "composite_prob": 0.5554,
-      "decision": "WATCH",
-      "reject_reason": "",
-      "stop_price": 380.54,
-      "target_price": 411.78,
-      "shares": 3,
-      "risk_usd": 23.79,
-      "upside_pct": 6.0,
-      "rr_ratio": 2.94,
-      "why_up": [
-        "EMA20>EMA50>EMA200 (tendencia alcista estructural)",
-        "OBV creciente últimos 20d (volumen confirma)",
-        "WR histórico promedio 65%"
-      ],
-      "why_risk": []
     }
   ],
   "mayor_riesgo": [
@@ -405,14 +445,14 @@
       "mtm_pct": 3.9,
       "target_date": "2026-05-25",
       "days_to_target": 0,
-      "rsi": 52.088874155338985,
-      "ema20": 42.340546083765744,
-      "ema50": 43.8718911364868,
-      "ema200": 39.81499552512684,
+      "rsi": 52.08887416809613,
+      "ema20": 42.34054608286684,
+      "ema50": 43.871891127306334,
+      "ema200": 39.814995561960416,
       "ema_aligned": false,
       "macd_pos": true,
       "obv_rising": true,
-      "atr": 1.8938100943981584,
+      "atr": 1.8938100944264527,
       "upside_52w": 52.39,
       "rel_vol_5d": 0.79,
       "dist_ema200_pct": 9.0,
@@ -428,6 +468,13 @@
       "technical_score": 0.75,
       "fundamental_score": 0.9,
       "composite_prob": 0.7324,
+      "prob_ajustada": 0.6824,
+      "prob_adjustments": [
+        "-8pp: target ya expiro (d2t<=0)",
+        "+1pp: 2/3 confirmaciones tecnicas",
+        "+1pp: earnings recientes ya digeridos",
+        "+1pp: RSI 52 en zona ideal"
+      ],
       "decision": "MAYOR_RIESGO",
       "reject_reason": "SOFT: EMA20 debajo de EMA50 (sin tendencia confirmada)",
       "stop_price": 41.23,
@@ -448,69 +495,6 @@
       ]
     },
     {
-      "ticker": "INTC",
-      "models": [
-        "ML_V97",
-        "ML_V94"
-      ],
-      "wrs": [
-        76.79,
-        57.69
-      ],
-      "confidences": [
-        0.78395,
-        0.68845
-      ],
-      "entry": 118.5361,
-      "current": 119.84,
-      "mtm_pct": 1.0999999999999999,
-      "target_date": "2026-05-27",
-      "days_to_target": 2,
-      "rsi": 68.17974302967103,
-      "ema20": 106.42262327515814,
-      "ema50": 85.48778506590506,
-      "ema200": 56.42778526847409,
-      "ema_aligned": true,
-      "macd_pos": false,
-      "obv_rising": true,
-      "atr": 8.789984825714726,
-      "upside_52w": 10.77,
-      "rel_vol_5d": 0.84,
-      "dist_ema200_pct": 112.4,
-      "pe": 77.83,
-      "analyst_target": 87.86,
-      "sector": "Technology",
-      "market_cap": 602315816960.0,
-      "beta": 2.19,
-      "earnings_in_days": 59,
-      "news_count_14d": 0,
-      "news_titles": [],
-      "consensus_score": 0.7041,
-      "technical_score": 0.44,
-      "fundamental_score": 0.35,
-      "composite_prob": 0.5493,
-      "decision": "MAYOR_RIESGO",
-      "reject_reason": "SOFT: probabilidad limítrofe (55%)",
-      "stop_price": 113.85,
-      "target_price": 141.81,
-      "shares": 6,
-      "risk_usd": 35.94,
-      "upside_pct": 18.33,
-      "rr_ratio": 3.67,
-      "why_up": [
-        "EMA20>EMA50>EMA200 (tendencia alcista estructural)",
-        "OBV creciente últimos 20d (volumen confirma)",
-        "consenso 2 modelos PythiaxEngine",
-        "WR histórico promedio 67%"
-      ],
-      "why_risk": [
-        "RSI 68 cerca de sobrecompra",
-        "beta 2.19 (volátil vs SPY)",
-        "P/E 78 elevado",
-        "solo 2d al target del modelo"
-      ]
-    },
-    {
       "ticker": "PBI",
       "models": [
         "V13"
@@ -526,10 +510,10 @@
       "mtm_pct": -3.2,
       "target_date": "2026-06-05",
       "days_to_target": 11,
-      "rsi": 55.4893625093889,
+      "rsi": 55.489362509387746,
       "ema20": 15.137158428850025,
-      "ema50": 13.73412421177132,
-      "ema200": 11.732190711282826,
+      "ema50": 13.734124211717976,
+      "ema200": 11.732190701163843,
       "ema_aligned": true,
       "macd_pos": false,
       "obv_rising": true,
@@ -549,6 +533,14 @@
       "technical_score": 0.55,
       "fundamental_score": 0.7,
       "composite_prob": 0.5471,
+      "prob_ajustada": 0.5671,
+      "prob_adjustments": [
+        "-2pp: upside_52w 8.6% (margen reducido)",
+        "+1pp: 2/3 confirmaciones tecnicas",
+        "+1pp: earnings recientes ya digeridos",
+        "+1pp: RSI 55 en zona ideal",
+        "+1pp: WR historico 65%"
+      ],
       "decision": "MAYOR_RIESGO",
       "reject_reason": "SOFT: probabilidad limítrofe (55%)",
       "stop_price": 15.09,
@@ -608,6 +600,13 @@
       "technical_score": 0.74,
       "fundamental_score": 0.35,
       "composite_prob": 0.5278,
+      "prob_ajustada": 0.5378,
+      "prob_adjustments": [
+        "-3pp: MTM +10.0% (entrada extendida)",
+        "-1pp: RSI 68 (caliente)",
+        "+4pp: trifecta EMA+MACD+OBV (momentum confirmado 3/3)",
+        "+1pp: WR historico 65%"
+      ],
       "decision": "MAYOR_RIESGO",
       "reject_reason": "SOFT: probabilidad limítrofe (53%)",
       "stop_price": 100.57,
@@ -626,112 +625,203 @@
         "beta 2.60 (volátil vs SPY)",
         "MTM +10.0% (señal corrida)"
       ]
+    },
+    {
+      "ticker": "INTC",
+      "models": [
+        "ML_V97",
+        "ML_V94"
+      ],
+      "wrs": [
+        76.79,
+        57.69
+      ],
+      "confidences": [
+        0.78395,
+        0.68845
+      ],
+      "entry": 118.5361,
+      "current": 119.84,
+      "mtm_pct": 1.0999999999999999,
+      "target_date": "2026-05-27",
+      "days_to_target": 2,
+      "rsi": 68.17974302967103,
+      "ema20": 106.42262327515814,
+      "ema50": 85.48778506590506,
+      "ema200": 56.42778526847409,
+      "ema_aligned": true,
+      "macd_pos": false,
+      "obv_rising": true,
+      "atr": 8.789984825714726,
+      "upside_52w": 10.77,
+      "rel_vol_5d": 0.84,
+      "dist_ema200_pct": 112.4,
+      "pe": 77.83,
+      "analyst_target": 87.86,
+      "sector": "Technology",
+      "market_cap": 602315816960.0,
+      "beta": 2.19,
+      "earnings_in_days": 59,
+      "news_count_14d": 0,
+      "news_titles": [],
+      "consensus_score": 0.7041,
+      "technical_score": 0.44,
+      "fundamental_score": 0.35,
+      "composite_prob": 0.5493,
+      "prob_ajustada": 0.5293,
+      "prob_adjustments": [
+        "-3pp: solo 2d al target",
+        "-1pp: RSI 68 (caliente)",
+        "+1pp: 2/3 confirmaciones tecnicas",
+        "+1pp: WR historico 67%"
+      ],
+      "decision": "MAYOR_RIESGO",
+      "reject_reason": "SOFT: probabilidad limítrofe (55%)",
+      "stop_price": 113.85,
+      "target_price": 141.81,
+      "shares": 6,
+      "risk_usd": 35.94,
+      "upside_pct": 18.33,
+      "rr_ratio": 3.67,
+      "why_up": [
+        "EMA20>EMA50>EMA200 (tendencia alcista estructural)",
+        "OBV creciente últimos 20d (volumen confirma)",
+        "consenso 2 modelos PythiaxEngine",
+        "WR histórico promedio 67%"
+      ],
+      "why_risk": [
+        "RSI 68 cerca de sobrecompra",
+        "beta 2.19 (volátil vs SPY)",
+        "P/E 78 elevado",
+        "solo 2d al target del modelo"
+      ]
     }
   ],
   "discarded_sample": [
     {
       "ticker": "CRM",
       "composite_prob": 0.7478,
+      "prob_ajustada": 0.7678,
       "reject_reason": "HARD: earnings en 2d (riesgo binario) | SOFT: EMA20 debajo de EMA50 (sin tendencia confirmada)"
     },
     {
       "ticker": "SPCE",
       "composite_prob": 0.6247,
+      "prob_ajustada": 0.5547,
       "reject_reason": "HARD: MTM +29.6% (señal ya consumida); chasing extremo: MTM +29.6% con 2d al target"
     },
     {
       "ticker": "ERIC",
       "composite_prob": 0.5558,
+      "prob_ajustada": 0.4858,
       "reject_reason": "HARD: RSI 72 sobrecomprado (>72) | SOFT: R:R 1.32 marginal (<1.4)"
-    },
-    {
-      "ticker": "AMD",
-      "composite_prob": 0.5188,
-      "reject_reason": "HARD: RSI 73 sobrecomprado (>72) | SOFT: probabilidad limítrofe (52%)"
-    },
-    {
-      "ticker": "MRNA",
-      "composite_prob": 0.4693,
-      "reject_reason": "HARD: sin momentum técnico (MACD-, OBV-, EMA mixed); probabilidad muy baja (47%)"
     },
     {
       "ticker": "GLW",
       "composite_prob": 0.4602,
-      "reject_reason": "HARD: probabilidad muy baja (46%)"
-    },
-    {
-      "ticker": "CAR",
-      "composite_prob": 0.4602,
+      "prob_ajustada": 0.4602,
       "reject_reason": "HARD: probabilidad muy baja (46%)"
     },
     {
       "ticker": "SBS",
       "composite_prob": 0.4602,
+      "prob_ajustada": 0.4602,
       "reject_reason": "HARD: probabilidad muy baja (46%)"
+    },
+    {
+      "ticker": "MRNA",
+      "composite_prob": 0.4693,
+      "prob_ajustada": 0.4593,
+      "reject_reason": "HARD: sin momentum técnico (MACD-, OBV-, EMA mixed); probabilidad muy baja (47%)"
     },
     {
       "ticker": "PAAS",
       "composite_prob": 0.4576,
+      "prob_ajustada": 0.4576,
       "reject_reason": "HARD: probabilidad muy baja (46%)"
     },
     {
       "ticker": "FDX",
       "composite_prob": 0.4576,
-      "reject_reason": "HARD: probabilidad muy baja (46%)"
-    },
-    {
-      "ticker": "LRCX",
-      "composite_prob": 0.4576,
+      "prob_ajustada": 0.4576,
       "reject_reason": "HARD: probabilidad muy baja (46%)"
     },
     {
       "ticker": "AMAT",
       "composite_prob": 0.4576,
+      "prob_ajustada": 0.4576,
       "reject_reason": "HARD: probabilidad muy baja (46%)"
+    },
+    {
+      "ticker": "AMD",
+      "composite_prob": 0.5188,
+      "prob_ajustada": 0.4488,
+      "reject_reason": "HARD: RSI 73 sobrecomprado (>72) | SOFT: probabilidad limítrofe (52%)"
     },
     {
       "ticker": "VIST",
       "composite_prob": 0.445,
-      "reject_reason": "HARD: probabilidad muy baja (44%)"
-    },
-    {
-      "ticker": "WMT",
-      "composite_prob": 0.4406,
+      "prob_ajustada": 0.445,
       "reject_reason": "HARD: probabilidad muy baja (44%)"
     },
     {
       "ticker": "NUE",
       "composite_prob": 0.4206,
+      "prob_ajustada": 0.4306,
       "reject_reason": "HARD: probabilidad muy baja (42%)"
     },
     {
       "ticker": "ZM",
       "composite_prob": 0.4206,
+      "prob_ajustada": 0.4306,
       "reject_reason": "HARD: probabilidad muy baja (42%)"
+    },
+    {
+      "ticker": "CAR",
+      "composite_prob": 0.4602,
+      "prob_ajustada": 0.4302,
+      "reject_reason": "HARD: probabilidad muy baja (46%)"
+    },
+    {
+      "ticker": "LRCX",
+      "composite_prob": 0.4576,
+      "prob_ajustada": 0.4276,
+      "reject_reason": "HARD: probabilidad muy baja (46%)"
     },
     {
       "ticker": "ABNB",
       "composite_prob": 0.4097,
+      "prob_ajustada": 0.4097,
       "reject_reason": "HARD: probabilidad muy baja (41%)"
     },
     {
       "ticker": "AMZN",
       "composite_prob": 0.4097,
+      "prob_ajustada": 0.4097,
       "reject_reason": "HARD: probabilidad muy baja (41%)"
     },
     {
       "ticker": "PANW",
       "composite_prob": 0.4097,
+      "prob_ajustada": 0.4097,
       "reject_reason": "HARD: probabilidad muy baja (41%)"
     },
     {
       "ticker": "SLB",
       "composite_prob": 0.4097,
+      "prob_ajustada": 0.4097,
       "reject_reason": "HARD: probabilidad muy baja (41%)"
+    },
+    {
+      "ticker": "WMT",
+      "composite_prob": 0.4406,
+      "prob_ajustada": 0.3606,
+      "reject_reason": "HARD: probabilidad muy baja (44%)"
     },
     {
       "ticker": "ARM",
       "composite_prob": 0.4018,
+      "prob_ajustada": 0.3218,
       "reject_reason": "HARD: probabilidad muy baja (40%)"
     }
   ]
