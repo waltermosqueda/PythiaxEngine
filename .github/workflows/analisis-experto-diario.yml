@@ -53,11 +53,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Mismas dependencias que plan-inversion-diario + SDKs de Gemini
+          # Gemini vía REST API directo — no requiere SDK
           pip install yfinance numpy pandas
-          # Intentar instalar ambos SDKs de Gemini (nuevo y legacy)
-          pip install google-genai || echo "google-genai no disponible, intentando alternativa"
-          pip install google-generativeai || echo "google-generativeai no disponible"
 
       - name: Fetch latest snapshot (Pages → Cloudflare → repo fallback)
         run: |

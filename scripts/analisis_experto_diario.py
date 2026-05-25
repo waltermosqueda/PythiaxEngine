@@ -71,20 +71,13 @@ DEFAULT_SNAPSHOT = (
 )
 DEFAULT_OUTPUT_DIR = ROOT / "logs" / "analisis_experto"
 
-# Modelos Gemini en orden de preferencia (mejor → más robusto)
-# Nombres válidos verificados contra API v1beta (mayo 2026):
-#   - gemini-2.5-pro-preview-05-06 → 404 (nombre incorrecto)
-#   - gemini-2.5-pro-exp-03-25     → 404 (nombre incorrecto)
-#   - gemini-2.5-pro               → existe, requiere billing
-#   - gemini-2.5-flash             → existe, requiere billing
-#   - gemini-2.0-flash             → existe, requiere billing
-#   - gemini-1.5-pro               → existe, free tier funciona
+# Modelos Gemini en orden de preferencia — free tier primero (no requieren billing)
 GEMINI_MODELS = [
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-pro",
-    "gemini-1.5-flash",
+    "gemini-1.5-flash",    # ✅ free tier, no billing, 1500 req/día
+    "gemini-2.0-flash",    # ✅ free tier, no billing
+    "gemini-1.5-pro",      # ✅ free tier (2 RPM)
+    "gemini-2.5-flash",    # requiere billing
+    "gemini-2.5-pro",      # requiere billing
 ]
 
 TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
@@ -297,124 +290,70 @@ def build_analysis_prompt(
 
 def consult_gemini(prompt: str, api_key: str, log) -> tuple[str | None, str]:
     """
-    Consulta a Gemini. Retorna (texto_respuesta, modelo_usado).
-    SDK: google-genai (nuevo, thinking mode) → google-generativeai (legacy).
-    Retry: 1 intento adicional con 65s de espera si recibe 429 (quota/min).
-    Retorna (None, '') si todos los intentos fallan.
+    Consulta a Gemini vía REST API directo (sin SDK, solo urllib).
+    Modelos free-tier primero (no requieren billing).
+    Retry único con 65s de espera en 429. Retorna (None, '') si todo falla.
     """
     import time
+    import urllib.error
 
-    def _try_genai_new(model_id: str, retry: bool = False) -> str | None:
-        """Prueba con google-genai SDK (thinking mode)."""
+    GEMINI_REST = (
+        "https://generativelanguage.googleapis.com/v1beta/models"
+        "/{model}:generateContent?key={key}"
+    )
+
+    def _call_rest(model_id: str, retry: bool = False) -> str | None:
+        url = GEMINI_REST.format(model=model_id, key=api_key)
+        body = json.dumps({
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "maxOutputTokens": 8192,
+                "temperature": 0.4,
+            },
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            url, data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        label = f"{model_id}{'·retry' if retry else ''}"
+        log(f"[gemini] {label}…")
         try:
-            from google import genai as genai_new  # type: ignore
-            from google.genai import types as genai_types  # type: ignore
-        except ImportError:
-            return None
-
-        try:
-            client = genai_new.Client(api_key=api_key)
-            label = f"{model_id} (thinking{'·retry' if retry else ''})"
-            log(f"[gemini] {label}…")
-
-            # Intentar con thinking_config primero; algunos modelos no lo soportan
-            try:
-                resp = client.models.generate_content(
-                    model=model_id,
-                    contents=prompt,
-                    config=genai_types.GenerateContentConfig(
-                        thinking_config=genai_types.ThinkingConfig(thinking_budget=10000),
-                        max_output_tokens=8192,
-                        temperature=1.0,
-                    ),
+            with urllib.request.urlopen(req, timeout=120) as r:
+                resp_data = json.loads(r.read().decode("utf-8"))
+                cands = resp_data.get("candidates", [])
+                if cands:
+                    parts = cands[0].get("content", {}).get("parts", [])
+                    text = "".join(p.get("text", "") for p in parts)
+                    if text:
+                        log(f"[gemini] ✓ {model_id} REST ({len(text)} chars)")
+                        return text
+                feedback = resp_data.get("promptFeedback", "")
+                log(f"[gemini]   {model_id}: respuesta vacía — {feedback}")
+                return None
+        except urllib.error.HTTPError as exc:
+            body_err = exc.read().decode("utf-8", errors="replace")[:300]
+            if exc.code == 429:
+                log(
+                    f"[gemini]   {model_id}: 429 quota — {body_err[:150]} — "
+                    f"{'reintentando en 65s' if not retry else 'sin más reintentos'}"
                 )
-            except Exception:
-                # Fallback sin thinking (para modelos que no soportan thinking)
-                resp = client.models.generate_content(
-                    model=model_id,
-                    contents=prompt,
-                    config=genai_types.GenerateContentConfig(
-                        max_output_tokens=8192,
-                        temperature=0.4,
-                    ),
-                )
-
-            text = resp.text
-            if text:
-                log(f"[gemini] ✓ {model_id} SDK-nuevo ({len(text)} chars)")
-                return text
-            return None
-        except Exception as exc:
-            exc_str = str(exc)
-            if "429" in exc_str or "RESOURCE_EXHAUSTED" in exc_str:
-                log(f"[gemini]   {model_id}: 429 quota — {'reintentando en 65s' if not retry else 'sin más reintentos'}")
                 if not retry:
                     time.sleep(65)
-                    return _try_genai_new(model_id, retry=True)
+                    return _call_rest(model_id, retry=True)
+            elif exc.code == 403:
+                log(f"[gemini]   {model_id}: 403 key inválida/sin permisos — {body_err[:150]}")
             else:
-                log(f"[gemini]   {model_id}: {exc_str[:200]}")
-            return None
-
-    def _try_genai_legacy(model_id: str, retry: bool = False) -> str | None:
-        """Prueba con google-generativeai SDK (legacy)."""
-        try:
-            import google.generativeai as genai_legacy  # type: ignore
-        except ImportError:
-            return None
-
-        try:
-            genai_legacy.configure(api_key=api_key)
-            label = f"{model_id} (legacy{'·retry' if retry else ''})"
-            log(f"[gemini] {label}…")
-            model = genai_legacy.GenerativeModel(
-                model_name=model_id,
-                generation_config=genai_legacy.types.GenerationConfig(
-                    max_output_tokens=8192,
-                    temperature=0.4,
-                ),
-            )
-            resp = model.generate_content(prompt)
-            text = resp.text
-            if text:
-                log(f"[gemini] ✓ {model_id} SDK-legacy ({len(text)} chars)")
-                return text
+                log(f"[gemini]   {model_id}: HTTP {exc.code} — {body_err[:200]}")
             return None
         except Exception as exc:
-            exc_str = str(exc)
-            if "429" in exc_str or "RESOURCE_EXHAUSTED" in exc_str:
-                log(f"[gemini]   {model_id}: 429 quota — {'reintentando en 65s' if not retry else 'sin más reintentos'}")
-                if not retry:
-                    time.sleep(65)
-                    return _try_genai_legacy(model_id, retry=True)
-            else:
-                log(f"[gemini]   {model_id}: {exc_str[:200]}")
+            log(f"[gemini]   {model_id}: {str(exc)[:200]}")
             return None
-
-    # ── Intentar con SDK nuevo primero, luego legacy ────────────────────
-    sdk_new_available = True
-    try:
-        from google import genai  # noqa: F401  # type: ignore
-    except ImportError:
-        sdk_new_available = False
-        log("[gemini] google-genai no disponible, usando google-generativeai…")
 
     for model_id in GEMINI_MODELS:
-        if sdk_new_available:
-            text = _try_genai_new(model_id)
-            if text:
-                return text, model_id
-        else:
-            text = _try_genai_legacy(model_id)
-            if text:
-                return text, model_id
-
-    # Si SDK nuevo falló en todos, probar legacy como segunda pasada
-    if sdk_new_available:
-        log("[gemini] SDK nuevo agotado, intentando con google-generativeai…")
-        for model_id in GEMINI_MODELS:
-            text = _try_genai_legacy(model_id)
-            if text:
-                return text, f"{model_id}-legacy"
+        text = _call_rest(model_id)
+        if text:
+            return text, model_id
 
     log("[gemini] ⚠️  todos los modelos fallaron")
     return None, ""
