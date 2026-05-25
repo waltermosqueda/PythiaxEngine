@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-25T07:13:39Z -->
-<!-- git_head: a4e2454 -->
+<!-- generated_at: 2026-05-25T18:44:22Z -->
+<!-- git_head: 51c5d36 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ a4e2454 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-25 04:13 AR (Lun) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 51c5d36 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-25 15:44 AR (Lun) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-25T07:13:39Z | `2026-05-25 04:13 AR (Lun)` | HEAD: `a4e2454`*
+*Auto-generado: 2026-05-25T18:44:22Z | `2026-05-25 15:44 AR (Lun)` | HEAD: `51c5d36`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `a4e2454`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-25 04:13 AR (Lun)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `51c5d36`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-25 15:44 AR (Lun)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,19 +41,19 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-25T07:13:39Z` |
-| Hora AR | `2026-05-25 04:13 AR (Lun)` |
+| Generado | `2026-05-25T18:44:22Z` |
+| Hora AR | `2026-05-25 15:44 AR (Lun)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
 ### Estado crons intraday al momento de generación
 ```
-  13:30 UTC = 10:30 AR  [⏳ PENDIENTE]
-  14:30 UTC = 11:30 AR  [⏳ PENDIENTE]
-  15:30 UTC = 12:30 AR  [⏳ PENDIENTE]
-  16:30 UTC = 13:30 AR  [⏳ PENDIENTE]
-  17:30 UTC = 14:30 AR  [⏳ PENDIENTE]
-  18:30 UTC = 15:30 AR  [⏳ PENDIENTE]
+  13:30 UTC = 10:30 AR  [✅ PASADO]
+  14:30 UTC = 11:30 AR  [✅ PASADO]
+  15:30 UTC = 12:30 AR  [✅ PASADO]
+  16:30 UTC = 13:30 AR  [✅ PASADO]
+  17:30 UTC = 14:30 AR  [✅ PASADO]
+  18:30 UTC = 15:30 AR  [✅ PASADO]
   19:30 UTC = 16:30 AR  [⏳ PENDIENTE]
   20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
 ```
@@ -64,17 +64,32 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `a4e2454` — feat(plan): prob_ajustada con heuristicas honestas + ranking razonado en Telegram
-**Timestamp commit:** 2026-05-25 01:39:40 -0300
+**HEAD:** `51c5d36` — feat(experto): analisis_experto_diario.py + workflow Gemini 2.5 Pro
+**Timestamp commit:** 2026-05-25 15:43:29 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+51c5d36 feat(experto): analisis_experto_diario.py + workflow Gemini 2.5 Pro
+2b1c995 plan_diario: plan de inversion 2026-05-25 [skip ci]
+57f5624 chore(auto): update ESTADO_ACTUAL â†’ a4e245424244b46a4a44f0aa6a9302e427e99457 [skip ci]
 a4e2454 feat(plan): prob_ajustada con heuristicas honestas + ranking razonado en Telegram
+04fd894 feat(plan): workflow para enviar ranking honesto via Telegram
+76a123b plan_diario: plan de inversion 2026-05-25 [skip ci]
+5f9616f refactor(plan-inversion): remover 'Capital comprometido' / 'Cap USD' del output
+3b76a86 plan_diario: plan de inversion 2026-05-25 [skip ci]
+0d7342f feat(plan-inversion): MAYOR_RIESGO tier (soft vs hard filters, sizing reducido)
+0fd8ac7 plan_diario: plan de inversion 2026-05-25 [skip ci]
 ```
 
 ### Working tree
-_Rama limpia — sin cambios sin commitear_
+```
+M herramientas/refrescar_datos_dashboard.py
+?? _AUDITORIA_PORCENTAJES.md
+?? _build_snapshot_from_dashboard.py
+?? _real_out/
+?? _real_snapshot.json
+```
 
 ---
 
