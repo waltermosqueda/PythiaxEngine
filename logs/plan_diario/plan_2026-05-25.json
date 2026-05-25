@@ -1,0 +1,515 @@
+{
+  "plan_date": "2026-05-25",
+  "generated_at_utc": "2026-05-25T03:30:04.835186+00:00",
+  "snapshot_meta": {
+    "generated_at": "2026-05-22T23:11:33",
+    "regime": "SEGURO",
+    "breadth_pct": 61.9
+  },
+  "macro": {
+    "spy": {
+      "last": 745.64,
+      "chg_5d_pct": 0.88
+    },
+    "qqq": {
+      "last": 717.54,
+      "chg_5d_pct": 1.21
+    },
+    "vix": {
+      "last": 16.7,
+      "chg_5d_pct": -9.39
+    }
+  },
+  "parameters": {
+    "capital_usd": 10000.0,
+    "risk_pct": 0.02,
+    "max_picks": 5
+  },
+  "buys": [
+    {
+      "ticker": "PBR",
+      "models": [
+        "ML_BRAIN_V11",
+        "ML_BRAIN_V11_OPT"
+      ],
+      "wrs": [
+        56.73,
+        51.92
+      ],
+      "confidences": [
+        0.68365,
+        0.6596000000000001
+      ],
+      "entry": 20.0201,
+      "current": 19.9,
+      "mtm_pct": -0.6,
+      "target_date": "2026-05-29",
+      "days_to_target": 4,
+      "rsi": 44.68183200221575,
+      "ema20": 20.427279520331407,
+      "ema50": 19.85488365644139,
+      "ema200": 16.494323265088898,
+      "ema_aligned": true,
+      "macd_pos": false,
+      "obv_rising": false,
+      "atr": 0.6473404634716104,
+      "upside_52w": 11.76,
+      "rel_vol_5d": 1.0,
+      "dist_ema200_pct": 20.6,
+      "pe": 4.84,
+      "analyst_target": 22.64,
+      "sector": "Energy",
+      "market_cap": 128242884608.0,
+      "beta": -0.064,
+      "earnings_in_days": 73,
+      "news_count_14d": 0,
+      "news_titles": [],
+      "consensus_score": 0.6055,
+      "technical_score": 0.51,
+      "fundamental_score": 0.85,
+      "composite_prob": 0.6649,
+      "decision": "COMPRAR",
+      "reject_reason": "",
+      "stop_price": 19.56,
+      "target_price": 22.64,
+      "shares": 60,
+      "risk_usd": 20.4,
+      "upside_pct": 13.77,
+      "rr_ratio": 8.06,
+      "why_up": [
+        "EMA20>EMA50>EMA200 (tendencia alcista estructural)",
+        "RSI 45 en zona constructiva",
+        "analistas objetivo $22.64 (+14%)",
+        "consenso 2 modelos PythiaxEngine"
+      ],
+      "why_risk": []
+    },
+    {
+      "ticker": "HAL",
+      "models": [
+        "V13",
+        "ML_BRAIN_V11",
+        "ML_BRAIN_V11_OPT"
+      ],
+      "wrs": [
+        65.26,
+        56.73,
+        51.92
+      ],
+      "confidences": [
+        0.7263000000000001,
+        0.68365,
+        0.6596000000000001
+      ],
+      "entry": 42.7967,
+      "current": 41.47,
+      "mtm_pct": -3.1,
+      "target_date": "2026-06-05",
+      "days_to_target": 11,
+      "rsi": 54.73184321446899,
+      "ema20": 41.118368233383215,
+      "ema50": 39.2655371325011,
+      "ema200": 33.29190534276065,
+      "ema_aligned": true,
+      "macd_pos": false,
+      "obv_rising": true,
+      "atr": 1.214615140123992,
+      "upside_52w": 5.11,
+      "rel_vol_5d": 1.06,
+      "dist_ema200_pct": 24.6,
+      "pe": 14.28,
+      "analyst_target": 43.52,
+      "sector": "Energy",
+      "market_cap": 34643947520.0,
+      "beta": 0.742,
+      "earnings_in_days": 57,
+      "news_count_14d": 0,
+      "news_titles": [],
+      "consensus_score": 0.7405,
+      "technical_score": 0.68,
+      "fundamental_score": 0.75,
+      "composite_prob": 0.664,
+      "decision": "COMPRAR",
+      "reject_reason": "",
+      "stop_price": 41.01,
+      "target_price": 44.51,
+      "shares": 28,
+      "risk_usd": 12.88,
+      "upside_pct": 7.33,
+      "rr_ratio": 6.61,
+      "why_up": [
+        "EMA20>EMA50>EMA200 (tendencia alcista estructural)",
+        "OBV creciente últimos 20d (volumen confirma)",
+        "RSI 55 en zona constructiva",
+        "consenso 3 modelos PythiaxEngine"
+      ],
+      "why_risk": [
+        "drawdown abierto -3.1%"
+      ]
+    }
+  ],
+  "watches": [
+    {
+      "ticker": "LAR",
+      "models": [
+        "ML_V97"
+      ],
+      "wrs": [
+        76.79
+      ],
+      "confidences": [
+        0.78395
+      ],
+      "entry": 9.5332,
+      "current": 9.19,
+      "mtm_pct": -3.5999999999999996,
+      "target_date": "2026-05-27",
+      "days_to_target": 2,
+      "rsi": 45.074601144986744,
+      "ema20": 9.825623266962902,
+      "ema50": 9.0125750865893,
+      "ema200": 6.903509587574244,
+      "ema_aligned": true,
+      "macd_pos": false,
+      "obv_rising": false,
+      "atr": 0.6971269937757378,
+      "upside_52w": 31.12,
+      "rel_vol_5d": 0.73,
+      "dist_ema200_pct": 33.1,
+      "pe": 19.53,
+      "analyst_target": 13.12,
+      "sector": "Basic Materials",
+      "market_cap": 1505634432.0,
+      "beta": null,
+      "earnings_in_days": 77,
+      "news_count_14d": 0,
+      "news_titles": [],
+      "consensus_score": 0.6399,
+      "technical_score": 0.4,
+      "fundamental_score": 0.85,
+      "composite_prob": 0.6389,
+      "decision": "WATCH-COMPRAR",
+      "reject_reason": "",
+      "stop_price": 8.73,
+      "target_price": 13.12,
+      "shares": 130,
+      "risk_usd": 59.8,
+      "upside_pct": 42.76,
+      "rr_ratio": 8.54,
+      "why_up": [
+        "EMA20>EMA50>EMA200 (tendencia alcista estructural)",
+        "RSI 45 en zona constructiva",
+        "analistas objetivo $13.12 (+43%)",
+        "WR histórico promedio 77%"
+      ],
+      "why_risk": [
+        "solo 2d al target del modelo",
+        "drawdown abierto -3.6%"
+      ]
+    },
+    {
+      "ticker": "PM",
+      "models": [
+        "V13"
+      ],
+      "wrs": [
+        65.26
+      ],
+      "confidences": [
+        0.7263000000000001
+      ],
+      "entry": 191.4792,
+      "current": 188.99,
+      "mtm_pct": -1.3,
+      "target_date": "2026-06-05",
+      "days_to_target": 11,
+      "rsi": 67.95566888484632,
+      "ema20": 180.5229893477816,
+      "ema50": 173.49145457344827,
+      "ema200": 167.16905764727764,
+      "ema_aligned": true,
+      "macd_pos": true,
+      "obv_rising": true,
+      "atr": 4.607819223221388,
+      "upside_52w": 2.15,
+      "rel_vol_5d": 0.91,
+      "dist_ema200_pct": 13.1,
+      "pe": 20.69,
+      "analyst_target": 192.79,
+      "sector": "Consumer Defensive",
+      "market_cap": 294552043520.0,
+      "beta": 0.393,
+      "earnings_in_days": 58,
+      "news_count_14d": 0,
+      "news_titles": [],
+      "consensus_score": 0.5679,
+      "technical_score": 0.74,
+      "fundamental_score": 0.75,
+      "composite_prob": 0.6198,
+      "decision": "WATCH-COMPRAR",
+      "reject_reason": "",
+      "stop_price": 185.64,
+      "target_price": 200.51,
+      "shares": 6,
+      "risk_usd": 20.1,
+      "upside_pct": 6.1,
+      "rr_ratio": 3.44,
+      "why_up": [
+        "EMA20>EMA50>EMA200 (tendencia alcista estructural)",
+        "MACD histograma positivo (momentum)",
+        "OBV creciente últimos 20d (volumen confirma)",
+        "WR histórico promedio 65%"
+      ],
+      "why_risk": []
+    },
+    {
+      "ticker": "QCOM",
+      "models": [
+        "ML_V39",
+        "ML_V39FULL",
+        "ML_V94",
+        "ML_BRAIN_V11"
+      ],
+      "wrs": [
+        58.62,
+        58.26,
+        57.69,
+        56.73
+      ],
+      "confidences": [
+        0.6931,
+        0.6913,
+        0.68845,
+        0.68365
+      ],
+      "entry": 213.405,
+      "current": 238.16,
+      "mtm_pct": 11.600000000000001,
+      "target_date": "2026-05-25",
+      "days_to_target": 0,
+      "rsi": 71.75415814706454,
+      "ema20": 194.92556676458926,
+      "ema50": 171.11620160440515,
+      "ema200": 158.83280155939923,
+      "ema_aligned": true,
+      "macd_pos": true,
+      "obv_rising": true,
+      "atr": 17.578505821524452,
+      "upside_52w": 4.09,
+      "rel_vol_5d": 0.74,
+      "dist_ema200_pct": 49.9,
+      "pe": 22.39,
+      "analyst_target": 177.81,
+      "sector": "Technology",
+      "market_cap": 251020640256.0,
+      "beta": 1.493,
+      "earnings_in_days": 65,
+      "news_count_14d": 0,
+      "news_titles": [],
+      "consensus_score": 0.7234,
+      "technical_score": 0.47,
+      "fundamental_score": 0.5,
+      "composite_prob": 0.5789,
+      "decision": "WATCH-COMPRAR",
+      "reject_reason": "",
+      "stop_price": 226.25,
+      "target_price": 282.11,
+      "shares": 5,
+      "risk_usd": 59.55,
+      "upside_pct": 18.45,
+      "rr_ratio": 3.69,
+      "why_up": [
+        "EMA20>EMA50>EMA200 (tendencia alcista estructural)",
+        "MACD histograma positivo (momentum)",
+        "OBV creciente últimos 20d (volumen confirma)",
+        "consenso 4 modelos PythiaxEngine"
+      ],
+      "why_risk": [
+        "RSI 72 cerca de sobrecompra",
+        "solo 0d al target del modelo",
+        "MTM +11.6% (señal corrida)"
+      ]
+    },
+    {
+      "ticker": "UNH",
+      "models": [
+        "V13"
+      ],
+      "wrs": [
+        65.26
+      ],
+      "confidences": [
+        0.7263000000000001
+      ],
+      "entry": 393.9858,
+      "current": 388.47,
+      "mtm_pct": -1.4000000000000001,
+      "target_date": "2026-06-05",
+      "days_to_target": 11,
+      "rsi": 67.88297368695306,
+      "ema20": 375.4267434564346,
+      "ema50": 346.80340365386337,
+      "ema200": 321.9166013805458,
+      "ema_aligned": true,
+      "macd_pos": false,
+      "obv_rising": true,
+      "atr": 9.164247670212605,
+      "upside_52w": 4.04,
+      "rel_vol_5d": 0.9,
+      "dist_ema200_pct": 20.7,
+      "pe": 18.67,
+      "analyst_target": 395.15,
+      "sector": "Healthcare",
+      "market_cap": 352786841600.0,
+      "beta": 0.646,
+      "earnings_in_days": 64,
+      "news_count_14d": 0,
+      "news_titles": [],
+      "consensus_score": 0.5679,
+      "technical_score": 0.54,
+      "fundamental_score": 0.75,
+      "composite_prob": 0.5554,
+      "decision": "WATCH",
+      "reject_reason": "",
+      "stop_price": 380.54,
+      "target_price": 411.78,
+      "shares": 3,
+      "risk_usd": 23.79,
+      "upside_pct": 6.0,
+      "rr_ratio": 2.94,
+      "why_up": [
+        "EMA20>EMA50>EMA200 (tendencia alcista estructural)",
+        "OBV creciente últimos 20d (volumen confirma)",
+        "WR histórico promedio 65%"
+      ],
+      "why_risk": []
+    }
+  ],
+  "discarded_sample": [
+    {
+      "ticker": "CRM",
+      "composite_prob": 0.7478,
+      "reject_reason": "earnings en 2d (riesgo binario); EMA20 debajo de EMA50 (sin tendencia)"
+    },
+    {
+      "ticker": "GOLD",
+      "composite_prob": 0.7324,
+      "reject_reason": "EMA20 debajo de EMA50 (sin tendencia)"
+    },
+    {
+      "ticker": "SPCE",
+      "composite_prob": 0.6247,
+      "reject_reason": "chasing: MTM +29.6% con 2d al target; MTM +29.6% (señal ya consumida)"
+    },
+    {
+      "ticker": "ERIC",
+      "composite_prob": 0.5558,
+      "reject_reason": "RSI 72 sobrecomprado (>72); R:R 1.32 insuficiente (<1.4)"
+    },
+    {
+      "ticker": "INTC",
+      "composite_prob": 0.5493,
+      "reject_reason": "probabilidad compuesta baja (55%)"
+    },
+    {
+      "ticker": "PBI",
+      "composite_prob": 0.5471,
+      "reject_reason": "probabilidad compuesta baja (55%)"
+    },
+    {
+      "ticker": "ASTS",
+      "composite_prob": 0.5278,
+      "reject_reason": "probabilidad compuesta baja (53%)"
+    },
+    {
+      "ticker": "AMD",
+      "composite_prob": 0.5188,
+      "reject_reason": "RSI 73 sobrecomprado (>72); probabilidad compuesta baja (52%)"
+    },
+    {
+      "ticker": "MRNA",
+      "composite_prob": 0.4693,
+      "reject_reason": "sin momentum técnico (MACD-, OBV-, EMA mixed); probabilidad compuesta baja (47%)"
+    },
+    {
+      "ticker": "GLW",
+      "composite_prob": 0.4602,
+      "reject_reason": "probabilidad compuesta baja (46%)"
+    },
+    {
+      "ticker": "CAR",
+      "composite_prob": 0.4602,
+      "reject_reason": "probabilidad compuesta baja (46%)"
+    },
+    {
+      "ticker": "SBS",
+      "composite_prob": 0.4602,
+      "reject_reason": "probabilidad compuesta baja (46%)"
+    },
+    {
+      "ticker": "PAAS",
+      "composite_prob": 0.4576,
+      "reject_reason": "probabilidad compuesta baja (46%)"
+    },
+    {
+      "ticker": "FDX",
+      "composite_prob": 0.4576,
+      "reject_reason": "probabilidad compuesta baja (46%)"
+    },
+    {
+      "ticker": "LRCX",
+      "composite_prob": 0.4576,
+      "reject_reason": "probabilidad compuesta baja (46%)"
+    },
+    {
+      "ticker": "AMAT",
+      "composite_prob": 0.4576,
+      "reject_reason": "probabilidad compuesta baja (46%)"
+    },
+    {
+      "ticker": "VIST",
+      "composite_prob": 0.445,
+      "reject_reason": "probabilidad compuesta baja (44%)"
+    },
+    {
+      "ticker": "WMT",
+      "composite_prob": 0.4406,
+      "reject_reason": "probabilidad compuesta baja (44%)"
+    },
+    {
+      "ticker": "NUE",
+      "composite_prob": 0.4206,
+      "reject_reason": "probabilidad compuesta baja (42%)"
+    },
+    {
+      "ticker": "ZM",
+      "composite_prob": 0.4206,
+      "reject_reason": "probabilidad compuesta baja (42%)"
+    },
+    {
+      "ticker": "ABNB",
+      "composite_prob": 0.4097,
+      "reject_reason": "probabilidad compuesta baja (41%)"
+    },
+    {
+      "ticker": "AMZN",
+      "composite_prob": 0.4097,
+      "reject_reason": "probabilidad compuesta baja (41%)"
+    },
+    {
+      "ticker": "PANW",
+      "composite_prob": 0.4097,
+      "reject_reason": "probabilidad compuesta baja (41%)"
+    },
+    {
+      "ticker": "SLB",
+      "composite_prob": 0.4097,
+      "reject_reason": "probabilidad compuesta baja (41%)"
+    },
+    {
+      "ticker": "ARM",
+      "composite_prob": 0.4018,
+      "reject_reason": "probabilidad compuesta baja (40%)"
+    }
+  ]
+}
