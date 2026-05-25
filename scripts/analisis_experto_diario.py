@@ -373,7 +373,13 @@ def consult_anthropic(prompt: str, api_key: str, log) -> tuple[str | None, str]:
     ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
     ANTHROPIC_VERSION = "2023-06-01"
     # Modelos en orden de preferencia
-    MODELS = ["claude-opus-4-5", "claude-sonnet-4-5", "claude-3-5-sonnet-20241022"]
+    # Claude más modernos primero
+    MODELS = [
+        "claude-opus-4-5",           # Más capaz
+        "claude-sonnet-4-5",         # Balance capacidad/velocidad
+        "claude-3-5-sonnet-20241022", # Anterior Sonnet (fallback)
+        "claude-haiku-4-5",          # Rápido, último recurso
+    ]
 
     for model_id in MODELS:
         log(f"[anthropic] {model_id}…")
@@ -427,13 +433,13 @@ def consult_claude_github_models(prompt: str, token: str, log) -> tuple[str | No
     # ENDPOINT CORRECTO (no models.inference.ai.azure.com)
     GITHUB_MODELS_URL = "https://models.github.ai/inference/chat/completions"
 
-    # Modelos disponibles en GitHub Models (formato {publisher}/{model_name})
-    # Claude NO está — primero GPT-4.1 (high tier, gratis con Copilot Pro)
+    # OpenAI más modernos disponibles en GitHub Models (high tier = gratis con Copilot Pro)
+    # Nota: gpt-5/o3/o4-mini son "custom" tier (requieren billing extra) — se prueban primero
+    # por si el token tiene acceso, y se cae al siguiente si no.
     MODELS = [
-        "openai/gpt-4.1",           # Mejor calidad, tier alto
-        "meta/llama-4-scout-17b-16e-instruct",  # Llama 4 Scout (10M ctx)
-        "openai/gpt-4o",            # Fallback OpenAI
-        "meta/llama-3.3-70b-instruct",  # Fallback Meta
+        "openai/gpt-4.1",       # Más moderno con high tier — confirmado funcionando
+        "openai/gpt-4o",        # Alta calidad, high tier
+        "openai/gpt-4.1-mini",  # Fallback compacto, low tier
     ]
 
     def _call(model_id: str) -> str | None:
