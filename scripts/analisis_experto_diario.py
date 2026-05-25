@@ -360,6 +360,73 @@ def consult_gemini(prompt: str, api_key: str, log) -> tuple[str | None, str]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Consulta a Claude vía GitHub Models API
+# ─────────────────────────────────────────────────────────────────────────────
+
+def consult_claude_github_models(prompt: str, token: str, log) -> tuple[str | None, str]:
+    """
+    Consulta Claude vía GitHub Models API (OpenAI-compatible, sin SDKs).
+    Usa GITHUB_TOKEN — disponible automáticamente en GitHub Actions,
+    sin secretos adicionales. Requiere suscripción GitHub Copilot.
+    Modelos High-tier: 50 req/día (Copilot Pro) — más que suficiente para uso diario.
+    """
+    import urllib.error
+
+    GITHUB_MODELS_URL = "https://models.inference.ai.azure.com/chat/completions"
+
+    # Claude models disponibles en GitHub Models (Copilot Pro: 50 req/día)
+    CLAUDE_MODELS = [
+        "claude-3-7-sonnet",   # últiom modelo Claude 3.7, alta capacidad
+        "claude-3-5-sonnet",   # Claude 3.5, muy bueno y más rápido
+        "claude-3-5-haiku",    # más rápido, menor capacidad
+    ]
+
+    def _call(model_id: str) -> str | None:
+        body = json.dumps({
+            "model": model_id,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 8192,
+            "temperature": 0.4,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            GITHUB_MODELS_URL,
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+            method="POST",
+        )
+        log(f"[claude] {model_id}…")
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                resp_data = json.loads(r.read().decode("utf-8"))
+                choices = resp_data.get("choices", [])
+                if choices:
+                    text = choices[0].get("message", {}).get("content", "")
+                    if text:
+                        log(f"[claude] ✓ {model_id} ({len(text)} chars)")
+                        return text
+                log(f"[claude]   {model_id}: respuesta vacía — {resp_data}")
+                return None
+        except urllib.error.HTTPError as exc:
+            body_err = exc.read().decode("utf-8", errors="replace")[:300]
+            log(f"[claude]   {model_id}: HTTP {exc.code} — {body_err[:200]}")
+            return None
+        except Exception as exc:
+            log(f"[claude]   {model_id}: {str(exc)[:200]}")
+            return None
+
+    for model_id in CLAUDE_MODELS:
+        text = _call(model_id)
+        if text:
+            return text, model_id
+
+    log("[claude] ⚠️  todos los modelos Claude fallaron")
+    return None, ""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Render Markdown (archivo)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -375,7 +442,8 @@ def render_markdown_experto(
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     L: list[str] = []
 
-    L.append("# 🧠 Análisis Experto Diario — PythiaxEngine + Gemini")
+    provider = "Claude" if (model_used and "claude" in model_used.lower()) else ("Gemini" if model_used else "IA")
+    L.append(f"# 🧠 Análisis Experto Diario — PythiaxEngine + {provider}")
     L.append("")
     L.append(f"**Fecha:** {today}  |  **Generado:** {now_utc}")
     L.append(
@@ -509,7 +577,7 @@ def send_telegram_experto(
         H.append("")
 
     if not ai_text:
-        H.append("⚠️ <i>Consulta Gemini no disponible hoy.</i>")
+        H.append("⚠️ <i>Consulta IA no disponible hoy.</i>")
     else:
         H.append(f"🤖 <i>Análisis completo abajo ({len(ai_text):,} chars)</i>")
 
@@ -609,21 +677,33 @@ def main() -> int:
         f"descartados: {sum(1 for c in candidates if c.decision=='DESCARTAR')}"
     )
 
-    # 6. Consultar Gemini
+    # 6. Consultar IA — Claude primero (GITHUB_TOKEN automático en CI), Gemini como fallback
     ai_text: str | None = None
     model_used = ""
     if not args.no_ai:
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if not api_key:
-            log("GEMINI_API_KEY no presente en env → skip IA")
+        prompt = build_analysis_prompt(
+            meta, macro, candidates[: args.max_candidates], args.capital
+        )
+        log(f"prompt: {len(prompt):,} chars")
+
+        # Intento 1: Claude vía GitHub Models (GITHUB_TOKEN, sin secrets extra)
+        gh_token = os.environ.get("GITHUB_TOKEN")
+        if gh_token:
+            log("consultando Claude vía GitHub Models (GITHUB_TOKEN)…")
+            ai_text, model_used = consult_claude_github_models(prompt, gh_token, log)
         else:
-            prompt = build_analysis_prompt(
-                meta, macro, candidates[: args.max_candidates], args.capital
-            )
-            log(f"prompt: {len(prompt):,} chars → enviando a Gemini…")
-            ai_text, model_used = consult_gemini(prompt, api_key, log)
+            log("GITHUB_TOKEN ausente → skip Claude")
+
+        # Intento 2: Gemini como fallback si Claude no respondió
+        if not ai_text:
+            api_key = os.environ.get("GEMINI_API_KEY")
+            if api_key:
+                log("fallback → consultando Gemini…")
+                ai_text, model_used = consult_gemini(prompt, api_key, log)
+            elif not gh_token:
+                log("GITHUB_TOKEN y GEMINI_API_KEY ausentes → skip IA")
     else:
-        log("--no-ai → skip Gemini")
+        log("--no-ai → skip IA")
 
     # 7. Guardar output
     today_iso = date.today().isoformat()

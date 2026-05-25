@@ -1,4 +1,4 @@
-name: Análisis Experto Diario (Gemini)
+name: Análisis Experto Diario (Claude + Gemini)
 
 # Se dispara automaticamente despues del Plan Inversion Diario exitoso,
 # y tambien permite ejecucion manual via workflow_dispatch.
@@ -89,6 +89,7 @@ jobs:
           PYTHONIOENCODING: utf-8
           CAPITAL: ${{ github.event.inputs.capital || '10000' }}
           MAX_CANDIDATES: ${{ github.event.inputs.max_candidates || '10' }}
+          GITHUB_TOKEN: ${{ github.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -106,7 +107,7 @@ jobs:
             echo "Sin cambios en logs/analisis_experto/ — nothing to commit"
           else
             TODAY=$(date -u +%Y-%m-%d)
-            git commit -m "analisis_experto: análisis Gemini $TODAY [skip ci]"
+            git commit -m "analisis_experto: análisis IA $TODAY [skip ci]"
             git push
           fi
 
