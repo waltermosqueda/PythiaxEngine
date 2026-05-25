@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 ANÁLISIS EXPERTO DIARIO — PythiaxEngine + Gemini 2.5 Pro
 =========================================================
@@ -72,11 +72,19 @@ DEFAULT_SNAPSHOT = (
 DEFAULT_OUTPUT_DIR = ROOT / "logs" / "analisis_experto"
 
 # Modelos Gemini en orden de preferencia (mejor → más robusto)
+# Nombres válidos verificados contra API v1beta (mayo 2026):
+#   - gemini-2.5-pro-preview-05-06 → 404 (nombre incorrecto)
+#   - gemini-2.5-pro-exp-03-25     → 404 (nombre incorrecto)
+#   - gemini-2.5-pro               → existe, requiere billing
+#   - gemini-2.5-flash             → existe, requiere billing
+#   - gemini-2.0-flash             → existe, requiere billing
+#   - gemini-1.5-pro               → existe, free tier funciona
 GEMINI_MODELS = [
-    "gemini-2.5-pro-preview-05-06",
     "gemini-2.5-pro",
-    "gemini-2.5-pro-exp-03-25",
+    "gemini-2.5-flash",
     "gemini-2.0-flash",
+    "gemini-1.5-pro",
+    "gemini-1.5-flash",
 ]
 
 TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
@@ -106,222 +114,312 @@ def build_analysis_prompt(
     today = date.today().isoformat()
     L: list[str] = []
 
-    L.append(
-        f"Sos un analista de trading cuantitativo experto con 20 años de experiencia "
-        f"en mercados de equity NYSE/NASDAQ. Fecha de hoy: {today}."
-    )
-    L.append(
-        "Tu misión: análisis de trading PROFUNDO, QUIRÚRGICO y HONESTO de los "
-        "candidatos detectados por PythiaxEngine (sistema algorítmico ML ensemble)."
-    )
-    L.append("")
+    # ── Contexto del sistema ──────────────────────────────────────────────────
+    regime = meta.get("regime", "?")
+    breadth = meta.get("breadth_pct", "?")
+    generated_at = meta.get("generated_at", "?")
 
-    L.append("═══ CONTEXTO DEL SISTEMA ═══")
-    L.append("PythiaxEngine: 9 modelos ML ensemble, predice dirección de equity NYSE/NASDAQ.")
-    L.append(f"Régimen de mercado: {meta.get('regime')} | Breadth del mercado: {meta.get('breadth_pct')}%")
-    L.append(f"Snapshot generado: {meta.get('generated_at')}")
-    macro_txt = macro_label(macro)
-    if macro_txt and macro_txt != "macro no disponible":
-        L.append(f"Contexto macro actual: {macro_txt}")
-    L.append(f"Capital del inversor: USD {capital:,.0f}")
-    L.append("")
+    spy_p  = macro.get("spy_pct5d", None)
+    qqq_p  = macro.get("qqq_pct5d", None)
+    vix    = macro.get("vix", None)
+    vix_ch = macro.get("vix_change_pct", None)
 
-    # Solo candidatos que superaron o están cerca del threshold del bot
+    spy_str = f"SPY {spy_p:+.2f}% 5d" if spy_p is not None else "SPY ?"
+    qqq_str = f"QQQ {qqq_p:+.2f}% 5d" if qqq_p is not None else "QQQ ?"
+    vix_str = f"VIX {vix:.1f}" if vix is not None else "VIX ?"
+    if vix_ch is not None:
+        vix_str += f" ({vix_ch:+.1f}%)"
+    macro_one_line = f"{spy_str} | {qqq_str} | {vix_str}"
+
+    # ── Candidatos ────────────────────────────────────────────────────────────
     actionable = [
         c for c in candidates
         if c.decision in ("COMPRAR", "WATCH-COMPRAR", "WATCH", "MAYOR_RIESGO")
     ][:10]
+    descartados = [c for c in candidates if c.decision == "DESCARTAR"][:8]
 
-    L.append(f"═══ CANDIDATOS A ANALIZAR ({len(actionable)}) ═══")
+    # ── Helpers de serialización ──────────────────────────────────────────────
+    def _indicator_line(c: Candidate) -> str:
+        parts: list[str] = []
+        if c.consensus_score is not None:
+            parts.append(f"Cons {c.consensus_score:.2f}")
+        if c.rsi is not None:
+            parts.append(f"RSI {c.rsi:.1f}")
+        if c.obv_rising is not None:
+            parts.append("OBV+" if c.obv_rising else "OBV-")
+        if c.macd_pos is not None:
+            parts.append("MACD+" if c.macd_pos else "MACD-")
+        if c.ema_aligned is not None:
+            parts.append("EMA alineada" if c.ema_aligned else "EMA NO alineada")
+        elif c.ema20 and c.ema50:
+            parts.append("EMA20>EMA50" if c.ema20 > c.ema50 else "EMA20<EMA50")
+        if c.rr_ratio is not None:
+            parts.append(f"R:R {c.rr_ratio:.2f}")
+        if c.days_to_target is not None:
+            parts.append(f"{c.days_to_target}d target")
+        return " | ".join(parts)
+
+    def _fund_line(c: Candidate) -> str:
+        price = c.current or c.entry or 0.0
+        parts: list[str] = []
+        if c.sector:
+            parts.append(c.sector)
+        if c.pe is not None:
+            parts.append(f"P/E {c.pe:.1f}")
+        if c.beta is not None:
+            parts.append(f"beta={c.beta:.2f}")
+        if c.analyst_target and price:
+            upside_a = (c.analyst_target - price) / price * 100
+            parts.append(f"analistas {_fmt(c.analyst_target, 2, '$')} ({upside_a:+.1f}%)")
+        if c.market_cap:
+            mc = c.market_cap
+            parts.append(
+                "MegaCap" if mc >= 1e11 else
+                "LargeCap" if mc >= 1e10 else
+                "MidCap" if mc >= 2e9 else "SmallCap"
+            )
+        return " | ".join(parts)
+
+    # ── Cuerpo del prompt ─────────────────────────────────────────────────────
+    L.append(
+        f"Sos un portfolio manager cuantitativo con 20 anos de experiencia en equity "
+        f"NYSE/NASDAQ. Fecha: {today}. Tenes que entregar un analisis PROFUNDO y HONESTO, "
+        f"respaldado por todo tu poder de razonamiento. Usa pensamiento critico, no frases genericas."
+    )
     L.append("")
 
+    L.append("── SISTEMA: PythiaxEngine ──")
+    L.append("9 modelos ML ensemble que votan direccion de equity. Accuracy historica ~80%.")
+    L.append(f"Snapshot: {generated_at}  |  Regimen: {regime}  |  Breadth: {breadth}%")
+    L.append(f"Macro: {macro_one_line}")
+    L.append(f"Capital a asignar: USD {capital:,.0f}")
+    L.append("")
+
+    L.append(f"── CANDIDATOS ACTIVOS ({len(actionable)}) ──")
+    L.append("")
     for i, c in enumerate(actionable, 1):
         price = c.current or c.entry or 0.0
         avg_wr = sum(c.wrs) / max(1, len(c.wrs))
+        mtm_str = f"{c.mtm_pct:+.2f}%" if c.mtm_pct is not None else "—"
 
-        L.append(f"┌── CANDIDATO {i}: {c.ticker} | Decisión bot: {c.decision} ──")
+        L.append(f"{i}. {c.ticker}  [{c.decision}]")
         L.append(
-            f"│ Prob honesta ajustada: {c.prob_ajustada * 100:.1f}%  "
-            f"│  Formula plana: {c.composite_prob * 100:.1f}%"
+            f"   Prob ajustada: {c.prob_ajustada*100:.1f}%  (formula plana: {c.composite_prob*100:.1f}%)  "
+            f"| {len(c.models)} modelos | WR medio: {avg_wr:.1f}%"
         )
         L.append(
-            f"│ Modelos que votan: {len(c.models)} ({', '.join(c.models[:5])})  "
-            f"│  WR promedio: {avg_wr:.1f}%"
+            f"   Precio: {_fmt(price, 2, '$')}  | MTM: {mtm_str}  "
+            f"| Entry: {_fmt(c.entry, 2, '$')}  "
+            f"| Stop: {_fmt(c.stop_price, 2, '$')}  | Target: {_fmt(c.target_price, 2, '$')}"
         )
-        L.append(
-            f"│ Entry modelo: {_fmt(c.entry, 2, '$')}  "
-            f"│  Close actual: {_fmt(price, 2, '$')}  "
-            f"│  MTM abierto: {c.mtm_pct:+.2f}%"
-        )
-        L.append(
-            f"│ Target modelo: {c.target_date} ({c.days_to_target}d)  "
-            f"│  Stop sugerido: {_fmt(c.stop_price, 2, '$')}  "
-            f"│  Target precio: {_fmt(c.target_price, 2, '$')}  "
-            f"│  R:R: {_fmt(c.rr_ratio, 2)}"
-        )
-
-        # Técnico
-        if c.rsi is not None:
-            if c.ema_aligned:
-                ema_str = "EMA20>EMA50>EMA200 (tendencia alcista)"
-            elif c.ema20 and c.ema50 and c.ema20 > c.ema50:
-                ema_str = "EMA20>EMA50 (sin confirmación EMA200)"
-            else:
-                ema_str = "EMA desordenada (sin tendencia)"
-            L.append(
-                f"│ Técnico: RSI {c.rsi:.1f}  │  {ema_str}  │  "
-                f"MACD+ {'SÍ' if c.macd_pos else 'NO'}  │  "
-                f"OBV subiendo {'SÍ' if c.obv_rising else 'NO'}"
-            )
-            L.append(
-                f"│   ATR: {_fmt(c.atr, 3)}  │  "
-                f"Distancia EMA200: {_fmt(c.dist_ema200_pct, 1, '', '%')}  │  "
-                f"Upside 52w: {_fmt(c.upside_52w, 1, '', '%')}  │  "
-                f"Vol relativo 5d: {_fmt(c.rel_vol_5d, 2)}"
-            )
-
-        # Fundamental
-        fund_parts: list[str] = []
-        if c.sector:
-            fund_parts.append(f"Sector: {c.sector}")
-        if c.pe is not None:
-            fund_parts.append(f"P/E: {c.pe:.1f}")
-        if c.analyst_target and price:
-            upside_a = (c.analyst_target - price) / price * 100
-            fund_parts.append(f"Target analistas: {_fmt(c.analyst_target, 2, '$')} ({upside_a:+.1f}%)")
-        if c.beta is not None:
-            fund_parts.append(f"Beta: {c.beta:.2f}")
-        if c.market_cap:
-            mc = c.market_cap
-            cap_label = (
-                "MegaCap" if mc >= 1e11 else
-                "LargeCap" if mc >= 1e10 else
-                "MidCap" if mc >= 2e9 else
-                "SmallCap"
-            )
-            fund_parts.append(cap_label)
-        if fund_parts:
-            L.append(f"│ Fundamental: {' | '.join(fund_parts)}")
-
-        # Earnings
+        ind = _indicator_line(c)
+        if ind:
+            L.append(f"   Indicadores: {ind}")
+        if c.upside_52w is not None:
+            L.append(f"   Upside 52w: {c.upside_52w:.1f}%  | Dist EMA200: {_fmt(c.dist_ema200_pct, 1, '', '%')}  | Vol rel 5d: {_fmt(c.rel_vol_5d, 2)}")
+        fund = _fund_line(c)
+        if fund:
+            L.append(f"   Fundamental: {fund}")
         if c.earnings_in_days is not None and c.earnings_in_days >= 0:
-            flag = " ⚠️ RIESGO BINARIO" if c.earnings_in_days <= 5 else ""
-            L.append(f"│ Earnings próximos: en {c.earnings_in_days}d{flag}")
-
-        # News
+            flag = " <- RIESGO BINARIO" if c.earnings_in_days <= 5 else ""
+            L.append(f"   Earnings: en {c.earnings_in_days}d{flag}")
         if c.news_titles:
-            L.append(f"│ News recientes ({c.news_count_14d} en últimos 14d):")
-            for t in c.news_titles[:3]:
-                L.append(f"│   - {t}")
-
-        # Ajustes heurísticos
+            for t in c.news_titles[:2]:
+                L.append(f"   News: {t}")
         if c.prob_adjustments:
-            L.append(f"│ Heurísticas aplicadas: {' · '.join(c.prob_adjustments[:6])}")
-
-        # Narrativa del bot
+            L.append(f"   Ajustes: {' | '.join(c.prob_adjustments[:5])}")
         if c.why_up:
-            L.append(f"│ Bot favor: {' | '.join(c.why_up[:3])}")
+            L.append(f"   A favor: {' | '.join(c.why_up[:3])}")
         if c.why_risk:
-            L.append(f"│ Bot riesgos: {' | '.join(c.why_risk[:3])}")
-        if c.reject_reason and c.decision == "MAYOR_RIESGO":
-            L.append(f"│ Motivo degradación: {c.reject_reason}")
-
-        L.append("└" + "─" * 60)
+            L.append(f"   En contra: {' | '.join(c.why_risk[:3])}")
         L.append("")
 
-    L.append("═══ INSTRUCCIONES PARA TU ANÁLISIS ═══")
+    if descartados:
+        L.append("── DESCARTADOS (referencia) ──")
+        for c in descartados:
+            L.append(f"  {c.ticker}: {c.reject_reason or c.decision}  | comp={c.composite_prob*100:.0f}%")
+        L.append("")
+
+    bot_rank = [c.ticker for c in sorted(actionable, key=lambda x: -x.composite_prob)[:5]]
+
+    L.append("=" * 70)
+    L.append("INSTRUCCIONES DE SALIDA — SEGUIRLAS AL PIE DE LA LETRA")
+    L.append("=" * 70)
     L.append("")
-    L.append("Para cada candidato, producí el siguiente bloque:")
+    L.append(
+        "Produce EXACTAMENTE el siguiente formato. Sin introduccion. Sin conclusion. "
+        "Directo al formato. Usa TODO tu poder de razonamiento antes de escribir cada linea."
+    )
     L.append("")
-    L.append("### [TICKER] — Convicción: [0-100] | Timing: [ENTRAR AHORA / ESPERAR / EVITAR]")
-    L.append("**Setup técnico**: ¿Es un setup limpio o forzado? ¿Qué patrón técnico domina?")
-    L.append("**Catalizadores**: Drivers específicos para los próximos 5-10 días.")
-    L.append("**Tesis bear**: Escenario específico que invalidaría la tesis. Nivel técnico de invalidación.")
-    L.append("**Timing de entrada**: ¿Ahora al open, o esperar un nivel? ¿Cuál?")
-    L.append("**Vs bot**: ¿Coincidís con la decisión del bot? Si diferís, explicá por qué.")
+    L.append("-" * 70)
+    L.append(f"RANKING HONESTO — {today}")
+    L.append("Ajustado por d2t, upside_52w, MTM extendido y confirmacion multiple")
     L.append("")
-    L.append("Al final, una única sección de síntesis:")
+    L.append(f"Macro: {macro_one_line} -> regimen [describir en 5 palabras]")
     L.append("")
-    L.append("## CARTERA HONESTA DEL ANALISTA")
-    L.append("- Los 2-3 picks que VOS elegirías, con sizing relativo (% del capital)")
-    L.append("- Los que evitarías aunque el bot los marque")
-    L.append("- Riesgo de la cartera en el contexto del régimen actual")
-    L.append("- Una línea sobre cómo el macro condiciona la convicción")
+    L.append("TOP N — probabilidad real de suba (proximas 5-15 ruedas)")
     L.append("")
-    L.append("REGLAS:")
-    L.append("- NO repetir los números ya dados. INTERPRETARLOS, agregar valor.")
-    L.append("- Sé directo y técnico. Sin frases genéricas ni disclaimers de relleno.")
-    L.append("- Si un candidato no tiene setup claro, decirlo sin rodeos.")
-    L.append("- Máxima densidad informativa.")
+    L.append("[Para cada candidato que consideras accionable, en orden de conviccion TUYA:")
+    L.append("  Nro TICKER XX-YY% — [descriptor corto de 3-5 palabras]")
+    L.append("     [indicadores clave: Cons X.XX, OBV+/-, MACD+/-, EMA status, RSI XX.X, R:R X.X, Xd margen]")
+    L.append("     [advertencia principal — exactamente 1 linea concisa]")
+    L.append("]")
+    L.append("")
+    L.append(f"CARTERA HONESTA — USD {capital:,.0f}")
+    L.append("[Para cada posicion:]")
+    L.append("- TICKER XX% (USD X.XXX) — [razon de 3-5 palabras]")
+    L.append("- CASH XX% (USD X.XXX) — reserva para [condicion especifica de deploy]")
+    L.append("[La cartera DEBE sumar 100% siempre]")
+    L.append("")
+    L.append("NO TOMAR (aunque el bot los marque)")
+    L.append("[Para cada ticker que rechazas, aunque el bot lo marque COMPRAR/WATCH:]")
+    L.append("- TICKER — [razon directa y especifica en 1 linea]")
+    L.append("")
+    L.append("ESPERAR confirmacion")
+    L.append("[Tickers en zona limitrofe que necesitan 1-2 ruedas mas:]")
+    L.append("- TICKER — [que senal falta exactamente]")
+    L.append("")
+    L.append("Vs ranking del bot")
+    L.append(f"Bot: {' > '.join(bot_rank)} (por composite_prob crudo)")
+    L.append("Honesto: [tu ranking] ([razon de la diferencia principal en 1 linea])")
+    L.append("-" * 70)
+    L.append("")
+    L.append("REGLAS CRITICAS — OBLIGATORIAS:")
+    L.append("1. Probabilidades como RANGOS (ej: 65-68%), nunca numero unico")
+    L.append("2. Mencionar EXPLICITAMENTE el estado de MACD, OBV y EMA para cada pick")
+    L.append("3. La cartera SIEMPRE suma exactamente 100%")
+    L.append("4. CASH siempre tiene condicion especifica de deploy (no generica)")
+    L.append("5. NO TOMAR y ESPERAR son secciones obligatorias aunque esten vacias")
+    L.append("6. El 'Vs bot' SIEMPRE muestra el ranking del algoritmo y el tuyo con diferencia explicada")
+    L.append("7. CERO frases genericas. CERO disclaimers. CERO relleno.")
+    L.append("8. Cada advertencia es exactamente 1 linea, directa y tecnica")
+    L.append("9. Si un ticker tiene earnings en <=5d, marcarlo como RIESGO BINARIO en el ranking")
+    L.append("10. Usa TODOS tus pasos de razonamiento antes de escribir. Este analisis va a un trader real.")
 
     return "\n".join(L)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Consulta a Gemini (SDK nuevo google-genai + fallback google-generativeai)
-# ─────────────────────────────────────────────────────────────────────────────
-
 def consult_gemini(prompt: str, api_key: str, log) -> tuple[str | None, str]:
     """
-    Consulta a Gemini 2.5 Pro. Retorna (texto_respuesta, modelo_usado).
-    Prueba google-genai (nuevo, thinking mode) → google-generativeai (legacy).
+    Consulta a Gemini. Retorna (texto_respuesta, modelo_usado).
+    SDK: google-genai (nuevo, thinking mode) → google-generativeai (legacy).
+    Retry: 1 intento adicional con 65s de espera si recibe 429 (quota/min).
     Retorna (None, '') si todos los intentos fallan.
     """
-    # Intento 1: google-genai (SDK nuevo, soporta thinking_config nativo)
-    try:
-        from google import genai as genai_new  # type: ignore
-        from google.genai import types as genai_types  # type: ignore
+    import time
 
-        client = genai_new.Client(api_key=api_key)
-        for model_id in GEMINI_MODELS:
+    def _try_genai_new(model_id: str, retry: bool = False) -> str | None:
+        """Prueba con google-genai SDK (thinking mode)."""
+        try:
+            from google import genai as genai_new  # type: ignore
+            from google.genai import types as genai_types  # type: ignore
+        except ImportError:
+            return None
+
+        try:
+            client = genai_new.Client(api_key=api_key)
+            label = f"{model_id} (thinking{'·retry' if retry else ''})"
+            log(f"[gemini] {label}…")
+
+            # Intentar con thinking_config primero; algunos modelos no lo soportan
             try:
-                log(f"[gemini] {model_id} (SDK nuevo + thinking)…")
                 resp = client.models.generate_content(
                     model=model_id,
                     contents=prompt,
                     config=genai_types.GenerateContentConfig(
-                        thinking_config=genai_types.ThinkingConfig(thinking_budget=8000),
+                        thinking_config=genai_types.ThinkingConfig(thinking_budget=10000),
                         max_output_tokens=8192,
-                        temperature=1.0,  # Requerido para thinking mode
+                        temperature=1.0,
                     ),
                 )
-                text = resp.text
-                if text:
-                    log(f"[gemini] ✓ respuesta de {model_id} ({len(text)} chars)")
-                    return text, model_id
-            except Exception as exc:
-                log(f"[gemini]   {model_id}: {exc}")
-                continue
-    except ImportError:
-        log("[gemini] google-genai no disponible, probando google-generativeai…")
+            except Exception:
+                # Fallback sin thinking (para modelos que no soportan thinking)
+                resp = client.models.generate_content(
+                    model=model_id,
+                    contents=prompt,
+                    config=genai_types.GenerateContentConfig(
+                        max_output_tokens=8192,
+                        temperature=0.4,
+                    ),
+                )
 
-    # Intento 2: google-generativeai (SDK clásico)
+            text = resp.text
+            if text:
+                log(f"[gemini] ✓ {model_id} SDK-nuevo ({len(text)} chars)")
+                return text
+            return None
+        except Exception as exc:
+            exc_str = str(exc)
+            if "429" in exc_str or "RESOURCE_EXHAUSTED" in exc_str:
+                log(f"[gemini]   {model_id}: 429 quota — {'reintentando en 65s' if not retry else 'sin más reintentos'}")
+                if not retry:
+                    time.sleep(65)
+                    return _try_genai_new(model_id, retry=True)
+            else:
+                log(f"[gemini]   {model_id}: {exc_str[:200]}")
+            return None
+
+    def _try_genai_legacy(model_id: str, retry: bool = False) -> str | None:
+        """Prueba con google-generativeai SDK (legacy)."""
+        try:
+            import google.generativeai as genai_legacy  # type: ignore
+        except ImportError:
+            return None
+
+        try:
+            genai_legacy.configure(api_key=api_key)
+            label = f"{model_id} (legacy{'·retry' if retry else ''})"
+            log(f"[gemini] {label}…")
+            model = genai_legacy.GenerativeModel(
+                model_name=model_id,
+                generation_config=genai_legacy.types.GenerationConfig(
+                    max_output_tokens=8192,
+                    temperature=0.4,
+                ),
+            )
+            resp = model.generate_content(prompt)
+            text = resp.text
+            if text:
+                log(f"[gemini] ✓ {model_id} SDK-legacy ({len(text)} chars)")
+                return text
+            return None
+        except Exception as exc:
+            exc_str = str(exc)
+            if "429" in exc_str or "RESOURCE_EXHAUSTED" in exc_str:
+                log(f"[gemini]   {model_id}: 429 quota — {'reintentando en 65s' if not retry else 'sin más reintentos'}")
+                if not retry:
+                    time.sleep(65)
+                    return _try_genai_legacy(model_id, retry=True)
+            else:
+                log(f"[gemini]   {model_id}: {exc_str[:200]}")
+            return None
+
+    # ── Intentar con SDK nuevo primero, luego legacy ────────────────────
+    sdk_new_available = True
     try:
-        import google.generativeai as genai_legacy  # type: ignore
-
-        genai_legacy.configure(api_key=api_key)
-        for model_id in GEMINI_MODELS:
-            try:
-                log(f"[gemini] {model_id} (SDK clásico)…")
-                model = genai_legacy.GenerativeModel(
-                    model_name=model_id,
-                    generation_config=genai_legacy.types.GenerationConfig(
-                        max_output_tokens=4096,
-                        temperature=0.3,
-                    ),
-                )
-                resp = model.generate_content(prompt)
-                text = resp.text
-                if text:
-                    log(f"[gemini] ✓ respuesta de {model_id} ({len(text)} chars)")
-                    return text, model_id
-            except Exception as exc:
-                log(f"[gemini]   {model_id}: {exc}")
-                continue
+        from google import genai  # noqa: F401  # type: ignore
     except ImportError:
-        log("[gemini] google-generativeai tampoco disponible")
+        sdk_new_available = False
+        log("[gemini] google-genai no disponible, usando google-generativeai…")
 
-    log("[gemini] todos los intentos fallaron")
+    for model_id in GEMINI_MODELS:
+        if sdk_new_available:
+            text = _try_genai_new(model_id)
+            if text:
+                return text, model_id
+        else:
+            text = _try_genai_legacy(model_id)
+            if text:
+                return text, model_id
+
+    # Si SDK nuevo falló en todos, probar legacy como segunda pasada
+    if sdk_new_available:
+        log("[gemini] SDK nuevo agotado, intentando con google-generativeai…")
+        for model_id in GEMINI_MODELS:
+            text = _try_genai_legacy(model_id)
+            if text:
+                return text, f"{model_id}-legacy"
+
+    log("[gemini] ⚠️  todos los modelos fallaron")
     return None, ""
 
 
