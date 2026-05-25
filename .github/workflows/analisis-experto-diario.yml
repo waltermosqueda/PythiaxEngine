@@ -1,0 +1,123 @@
+name: Análisis Experto Diario (Gemini)
+
+# Se dispara automaticamente despues del Plan Inversion Diario exitoso,
+# y tambien permite ejecucion manual via workflow_dispatch.
+#
+# Estrategia: descarga el snapshot (mismo que plan-inversion-diario),
+# enriquece con yfinance, consulta Gemini 2.5 Pro, y envía análisis
+# profundo por Telegram + commitea el .md a logs/analisis_experto/.
+
+on:
+  workflow_run:
+    workflows: ["Plan Inversion Diario"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      capital:
+        description: "Capital USD"
+        default: "10000"
+        required: false
+      max_candidates:
+        description: "Máx candidatos para enviar a Gemini"
+        default: "10"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: analisis-experto-diario
+  cancel-in-progress: false
+
+jobs:
+  analisis-experto:
+    # Solo correr si el Plan Inversion Diario upstream fue exitoso, o si es manual
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Mismas dependencias que plan-inversion-diario + SDKs de Gemini
+          pip install yfinance numpy pandas
+          # Intentar instalar ambos SDKs de Gemini (nuevo y legacy)
+          pip install google-genai || echo "google-genai no disponible, intentando alternativa"
+          pip install google-generativeai || echo "google-generativeai no disponible"
+
+      - name: Fetch latest snapshot (Pages → Cloudflare → repo fallback)
+        run: |
+          mkdir -p dashboards/maquina_pensante
+          SNAP=dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
+          TMP="$SNAP.tmp"
+
+          try_download() {
+            local url="$1"
+            curl -fsSL "$url" -o "$TMP" || return 1
+            python -c "import json,sys; d=json.load(open('$TMP', encoding='utf-8-sig')); sys.exit(0 if 'generated_at' in d else 1)" 2>/dev/null || return 1
+            mv "$TMP" "$SNAP"
+            return 0
+          }
+
+          if try_download "https://waltermosqueda.github.io/PythiaxEngine/tablero_maquina_pensante_snapshot.json"; then
+            echo "✓ Snapshot descargado de GitHub Pages"
+          elif try_download "https://pythiaxengine.pages.dev/tablero_maquina_pensante_snapshot.json"; then
+            echo "✓ Snapshot descargado de Cloudflare"
+          elif [ -f "$SNAP" ]; then
+            rm -f "$TMP"
+            echo "⚠️ Descargas remotas fallaron — usando snapshot commiteado en repo"
+          else
+            echo "❌ No hay snapshot disponible"
+            exit 1
+          fi
+
+          python -c "import json; s=json.load(open('$SNAP', encoding='utf-8-sig')); print('generated_at:', s.get('generated_at','?'))"
+
+      - name: Run análisis experto diario
+        env:
+          PYTHONIOENCODING: utf-8
+          CAPITAL: ${{ github.event.inputs.capital || '10000' }}
+          MAX_CANDIDATES: ${{ github.event.inputs.max_candidates || '10' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python scripts/analisis_experto_diario.py \
+            --capital "$CAPITAL" \
+            --max-candidates "$MAX_CANDIDATES"
+
+      - name: Commit análisis
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add logs/analisis_experto/
+          if git diff --cached --quiet; then
+            echo "Sin cambios en logs/analisis_experto/ — nothing to commit"
+          else
+            TODAY=$(date -u +%Y-%m-%d)
+            git commit -m "analisis_experto: análisis Gemini $TODAY [skip ci]"
+            git push
+          fi
+
+      - name: Upload análisis as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analisis-experto-${{ github.run_id }}
+          path: logs/analisis_experto/analisis_*.md
+          retention-days: 30
+          if-no-files-found: ignore
