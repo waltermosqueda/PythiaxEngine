@@ -360,72 +360,81 @@ def consult_gemini(prompt: str, api_key: str, log) -> tuple[str | None, str]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Consulta a Claude vía GitHub Models API
+# Consulta a Claude vía Anthropic API directa (ANTHROPIC_API_KEY)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def consult_anthropic(prompt: str, api_key: str, log) -> tuple[str | None, str]:
+    """
+    Consulta Claude via Anthropic Messages API directa.
+    Requiere ANTHROPIC_API_KEY en GitHub Secrets.
+    """
+    import urllib.error
+
+    ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+    ANTHROPIC_VERSION = "2023-06-01"
+    # Modelos en orden de preferencia
+    MODELS = ["claude-opus-4-5", "claude-sonnet-4-5", "claude-3-5-sonnet-20241022"]
+
+    for model_id in MODELS:
+        log(f"[anthropic] {model_id}…")
+        body = json.dumps({
+            "model": model_id,
+            "max_tokens": 8192,
+            "messages": [{"role": "user", "content": prompt}],
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            ANTHROPIC_URL,
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": api_key,
+                "anthropic-version": ANTHROPIC_VERSION,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                resp = json.loads(r.read().decode("utf-8"))
+                content = resp.get("content", [])
+                if content and isinstance(content, list):
+                    text = content[0].get("text", "")
+                    if text:
+                        log(f"[anthropic] ✓ {model_id} ({len(text):,} chars)")
+                        return text, model_id
+                log(f"[anthropic]   {model_id}: respuesta vacía")
+        except urllib.error.HTTPError as exc:
+            body_err = exc.read().decode("utf-8", errors="replace")[:300]
+            log(f"[anthropic]   {model_id}: HTTP {exc.code} — {body_err[:200]}")
+        except Exception as exc:
+            log(f"[anthropic]   {model_id}: {str(exc)[:200]}")
+
+    log("[anthropic] ⚠️  todos los modelos Anthropic fallaron")
+    return None, ""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Consulta vía GitHub Models API (models.github.ai — GPT-4.1, sin secrets)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def consult_claude_github_models(prompt: str, token: str, log) -> tuple[str | None, str]:
     """
-    Consulta Claude vía GitHub Models API (OpenAI-compatible, sin SDKs).
-    Usa GITHUB_TOKEN — disponible automáticamente en GitHub Actions,
-    sin secretos adicionales. Requiere suscripción GitHub Copilot.
-    Modelos High-tier: 50 req/día (Copilot Pro) — más que suficiente para uso diario.
+    Consulta modelos via GitHub Models API correcta (models.github.ai).
+    Claude NO está disponible en GitHub Models — usa GPT-4.1 o Llama 4.
+    GITHUB_TOKEN disponible automáticamente en Actions (models: read).
     """
     import urllib.error
 
-    GITHUB_MODELS_BASE = "https://models.inference.ai.azure.com"
-    GITHUB_MODELS_URL = f"{GITHUB_MODELS_BASE}/chat/completions"
+    # ENDPOINT CORRECTO (no models.inference.ai.azure.com)
+    GITHUB_MODELS_URL = "https://models.github.ai/inference/chat/completions"
 
-    # IDs fallback por si el discovery falla (nombrado VS Code Copilot → GitHub Models)
-    CLAUDE_MODELS_FALLBACK = [
-        "claude-opus-4-7",
-        "claude-sonnet-4-6",
-        "claude-sonnet-4-5",
-        "claude-haiku-4-5",
-        "claude-3-7-sonnet",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-5-sonnet",
+    # Modelos disponibles en GitHub Models (formato {publisher}/{model_name})
+    # Claude NO está — primero GPT-4.1 (high tier, gratis con Copilot Pro)
+    MODELS = [
+        "openai/gpt-4.1",           # Mejor calidad, tier alto
+        "meta/llama-4-scout-17b-16e-instruct",  # Llama 4 Scout (10M ctx)
+        "openai/gpt-4o",            # Fallback OpenAI
+        "meta/llama-3.3-70b-instruct",  # Fallback Meta
     ]
-
-    def _discover_claude_models() -> list[str]:
-        """Descubre los model IDs reales disponibles en GitHub Models API."""
-        try:
-            req = urllib.request.Request(
-                f"{GITHUB_MODELS_BASE}/models",
-                headers={"Authorization": f"Bearer {token}"},
-                method="GET",
-            )
-            with urllib.request.urlopen(req, timeout=30) as r:
-                data = json.loads(r.read().decode("utf-8"))
-            # La respuesta puede ser una lista directa o {"data": [...]}
-            items = data if isinstance(data, list) else data.get("data", [])
-            claude_ids = [
-                m.get("id", m) if isinstance(m, dict) else str(m)
-                for m in items
-                if "claude" in str(m.get("id", m) if isinstance(m, dict) else m).lower()
-            ]
-            # Ordenar: opus primero, luego sonnet alto (4.6+), luego sonnet, haiku último
-            def _priority(mid: str) -> int:
-                m = mid.lower()
-                if "opus" in m:
-                    return 0
-                if "sonnet" in m and ("4-6" in m or "4.6" in m):
-                    return 1
-                if "sonnet" in m:
-                    return 2
-                if "haiku" in m:
-                    return 3
-                return 4
-            claude_ids.sort(key=_priority)
-            if claude_ids:
-                log(f"[claude] modelos descubiertos: {claude_ids}")
-            return claude_ids
-        except Exception as exc:
-            log(f"[claude] discovery falló: {exc} — usando lista fallback")
-            return []
-
-    # Primero intentar descubrir los IDs reales, luego usar fallback
-    discovered = _discover_claude_models()
-    CLAUDE_MODELS = discovered if discovered else CLAUDE_MODELS_FALLBACK
 
     def _call(model_id: str) -> str | None:
         body = json.dumps({
@@ -440,10 +449,12 @@ def consult_claude_github_models(prompt: str, token: str, log) -> tuple[str | No
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2026-03-10",
             },
             method="POST",
         )
-        log(f"[claude] {model_id}…")
+        log(f"[gh-models] {model_id}…")
         try:
             with urllib.request.urlopen(req, timeout=120) as r:
                 resp_data = json.loads(r.read().decode("utf-8"))
@@ -451,24 +462,24 @@ def consult_claude_github_models(prompt: str, token: str, log) -> tuple[str | No
                 if choices:
                     text = choices[0].get("message", {}).get("content", "")
                     if text:
-                        log(f"[claude] ✓ {model_id} ({len(text)} chars)")
+                        log(f"[gh-models] ✓ {model_id} ({len(text):,} chars)")
                         return text
-                log(f"[claude]   {model_id}: respuesta vacía — {resp_data}")
+                log(f"[gh-models]   {model_id}: respuesta vacía — {resp_data}")
                 return None
         except urllib.error.HTTPError as exc:
             body_err = exc.read().decode("utf-8", errors="replace")[:300]
-            log(f"[claude]   {model_id}: HTTP {exc.code} — {body_err[:200]}")
+            log(f"[gh-models]   {model_id}: HTTP {exc.code} — {body_err[:200]}")
             return None
         except Exception as exc:
-            log(f"[claude]   {model_id}: {str(exc)[:200]}")
+            log(f"[gh-models]   {model_id}: {str(exc)[:200]}")
             return None
 
-    for model_id in CLAUDE_MODELS:
+    for model_id in MODELS:
         text = _call(model_id)
         if text:
             return text, model_id
 
-    log("[claude] ⚠️  todos los modelos Claude fallaron")
+    log("[gh-models] ⚠️  todos los modelos GitHub Models fallaron")
     return None, ""
 
 
@@ -488,7 +499,19 @@ def render_markdown_experto(
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     L: list[str] = []
 
-    provider = "Claude" if (model_used and "claude" in model_used.lower()) else ("Gemini" if model_used else "IA")
+    if model_used:
+        if "claude" in model_used.lower():
+            provider = "Claude"
+        elif "gpt" in model_used.lower() or "openai" in model_used.lower():
+            provider = "GPT-4.1"
+        elif "gemini" in model_used.lower():
+            provider = "Gemini"
+        elif "llama" in model_used.lower():
+            provider = "Llama"
+        else:
+            provider = model_used.split("/")[-1] if "/" in model_used else model_used
+    else:
+        provider = "IA"
     L.append(f"# 🧠 Análisis Experto Diario — PythiaxEngine + {provider}")
     L.append("")
     L.append(f"**Fecha:** {today}  |  **Generado:** {now_utc}")
@@ -523,12 +546,13 @@ def render_markdown_experto(
         L.append("---")
         L.append("")
 
-    L.append("## Análisis Gemini")
+    section_title = f"## Análisis {provider}"
+    L.append(section_title)
     L.append("")
     if ai_text:
         L.append(ai_text)
     else:
-        L.append("> ⚠️ La consulta a Gemini no estuvo disponible hoy.")
+        L.append("> ⚠️ La consulta a IA no estuvo disponible hoy.")
         L.append("> El análisis cuantitativo está en `logs/plan_diario/`.")
     L.append("")
     L.append("---")
@@ -723,7 +747,7 @@ def main() -> int:
         f"descartados: {sum(1 for c in candidates if c.decision=='DESCARTAR')}"
     )
 
-    # 6. Consultar IA — Claude primero (GITHUB_TOKEN automático en CI), Gemini como fallback
+    # 6. Consultar IA — Anthropic (Claude) si hay key → GitHub Models GPT-4.1 → Gemini
     ai_text: str | None = None
     model_used = ""
     if not args.no_ai:
@@ -732,22 +756,31 @@ def main() -> int:
         )
         log(f"prompt: {len(prompt):,} chars")
 
-        # Intento 1: Claude vía GitHub Models (GITHUB_TOKEN, sin secrets extra)
-        gh_token = os.environ.get("GITHUB_TOKEN")
-        if gh_token:
-            log("consultando Claude vía GitHub Models (GITHUB_TOKEN)…")
-            ai_text, model_used = consult_claude_github_models(prompt, gh_token, log)
+        # Intento 1: Claude directo vía Anthropic API (ANTHROPIC_API_KEY en secrets)
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+        if anthropic_key:
+            log("consultando Claude vía Anthropic API (ANTHROPIC_API_KEY)…")
+            ai_text, model_used = consult_anthropic(prompt, anthropic_key, log)
         else:
-            log("GITHUB_TOKEN ausente → skip Claude")
+            log("ANTHROPIC_API_KEY ausente → skip Claude directo")
 
-        # Intento 2: Gemini como fallback si Claude no respondió
+        # Intento 2: GitHub Models API (GPT-4.1, GITHUB_TOKEN automático en CI)
+        if not ai_text:
+            gh_token = os.environ.get("GITHUB_TOKEN")
+            if gh_token:
+                log("consultando GitHub Models (GITHUB_TOKEN) — GPT-4.1…")
+                ai_text, model_used = consult_claude_github_models(prompt, gh_token, log)
+            else:
+                log("GITHUB_TOKEN ausente → skip GitHub Models")
+
+        # Intento 3: Gemini como último fallback
         if not ai_text:
             api_key = os.environ.get("GEMINI_API_KEY")
             if api_key:
                 log("fallback → consultando Gemini…")
                 ai_text, model_used = consult_gemini(prompt, api_key, log)
-            elif not gh_token:
-                log("GITHUB_TOKEN y GEMINI_API_KEY ausentes → skip IA")
+            elif not anthropic_key:
+                log("ANTHROPIC_API_KEY, GITHUB_TOKEN y GEMINI_API_KEY ausentes → skip IA")
     else:
         log("--no-ai → skip IA")
 

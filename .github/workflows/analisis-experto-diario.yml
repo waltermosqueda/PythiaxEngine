@@ -91,6 +91,7 @@ jobs:
           CAPITAL: ${{ github.event.inputs.capital || '10000' }}
           MAX_CANDIDATES: ${{ github.event.inputs.max_candidates || '10' }}
           GITHUB_TOKEN: ${{ github.token }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
