@@ -51,7 +51,6 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError, OperationalError
 
-from infra.db.config import get_database_url, get_sqlite_fallback_path
 from infra.db.runtime import adapt_qmark_sql
 from infra.db.titandb_compat import create_titandb_compat_connection
 
@@ -143,9 +142,13 @@ class TitanDB:
             self.database_url = f"sqlite:///{self.db_path.replace(os.sep, '/')}"
             self.backend_name = "sqlite"
         else:
-            self.database_url = get_database_url()
-            self.backend_name = make_url(self.database_url).get_backend_name()
-            self.db_path = str(get_sqlite_fallback_path())
+            # TitanDB es siempre SQLite local — los precios viven en titan.db, no en cloud.
+            # Para conexiones cloud (predictions, outcomes, model_run_snapshots),
+            # usar connect_runtime_db() / RuntimeDB en infra/db/runtime.py.
+            # Este cambio elimina ~11.000 llamadas/día a SELECT * FROM prices en Supabase.
+            self.db_path = str(os.path.abspath(self.DEFAULT_DB_PATH))
+            self.database_url = f"sqlite:///{self.db_path.replace(os.sep, '/')}"
+            self.backend_name = "sqlite"
 
         force_sqlalchemy_compat = os.getenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "").strip().lower() in {
             "1",

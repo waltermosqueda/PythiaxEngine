@@ -98,10 +98,15 @@ def test_connect_sqlite_creates_parent_and_supports_row_factory(monkeypatch) -> 
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def test_titandb_uses_configured_sqlite_fallback(monkeypatch) -> None:
+def test_titandb_always_uses_default_sqlite_path(monkeypatch) -> None:
+    """TitanDB() sin db_path siempre usa DEFAULT_DB_PATH (local SQLite).
+    Ignora DATABASE_URL y SQLITE_FALLBACK_PATH — los precios son siempre locales.
+    """
     tmp_dir = make_workspace_tmp_dir()
     custom_path = tmp_dir / "db" / "titandb.db"
     try:
+        # Aunque DATABASE_URL y SQLITE_FALLBACK_PATH apunten a otro lugar,
+        # TitanDB() debe usar DEFAULT_DB_PATH (titan_system/data/titan.db)
         monkeypatch.setenv("DATABASE_URL", f"sqlite:///{custom_path.resolve().as_posix()}")
         monkeypatch.delenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", raising=False)
         monkeypatch.setenv("SQLITE_FALLBACK_PATH", str(custom_path))
@@ -115,8 +120,8 @@ def test_titandb_uses_configured_sqlite_fallback(monkeypatch) -> None:
                 ).fetchall()
             }
 
-        assert resolved_path == custom_path.resolve()
-        assert custom_path.exists()
+        expected_path = Path(TitanDB.DEFAULT_DB_PATH).resolve()
+        assert resolved_path == expected_path
         assert {"prices", "predictions", "outcomes"}.issubset(tables)
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -284,7 +289,7 @@ def test_titandb_sqlalchemy_compat_supports_legacy_queries_and_pandas(monkeypatc
         monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
         monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
 
-        with TitanDB() as db:
+        with TitanDB(db_path=str(db_path)) as db:
             assert db.using_sqlalchemy_compat is True
 
             raw_prices = pd.DataFrame(
@@ -369,7 +374,7 @@ def test_data_loader_refresh_recent_invalid_rows_redownloads_bad_latest_bar(monk
         monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
         monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
 
-        with TitanDB() as db:
+        with TitanDB(db_path=str(db_path)) as db:
             db.conn.execute(
                 """
                 INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
@@ -435,7 +440,7 @@ def test_data_loader_refresh_recent_invalid_rows_parallelizes_refetch_across_tic
         monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
         monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
 
-        with TitanDB() as db:
+        with TitanDB(db_path=str(db_path)) as db:
             db.conn.executemany(
                 """
                 INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
@@ -502,7 +507,7 @@ def test_data_loader_download_one_fails_fast_when_history_call_hangs(monkeypatch
         monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
         monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
 
-        with TitanDB() as db:
+        with TitanDB(db_path=str(db_path)) as db:
             loader = DataLoader(db, years_history=2, max_workers=1, max_retries=2, retry_sleep=0)
             timeout_values: list[float] = []
 
