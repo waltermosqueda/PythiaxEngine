@@ -1,0 +1,133 @@
+{
+  "date": "2026-05-25",
+  "generated_at_utc": "2026-05-25T18:47:10.666136+00:00",
+  "snapshot_meta": {
+    "generated_at": "2026-05-22T23:11:33",
+    "regime": "SEGURO",
+    "breadth_pct": 61.9
+  },
+  "model_used": "",
+  "ai_analysis_chars": 0,
+  "candidates_summary": [
+    {
+      "ticker": "CRM",
+      "decision": "DESCARTAR",
+      "prob_ajustada": 0.7678,
+      "composite_prob": 0.7478,
+      "rr_ratio": 9.94,
+      "days_to_target": 4
+    },
+    {
+      "ticker": "PBR",
+      "decision": "COMPRAR",
+      "prob_ajustada": 0.6949,
+      "composite_prob": 0.6649,
+      "rr_ratio": 8.06,
+      "days_to_target": 4
+    },
+    {
+      "ticker": "GOLD",
+      "decision": "MAYOR_RIESGO",
+      "prob_ajustada": 0.6824,
+      "composite_prob": 0.7324,
+      "rr_ratio": 9.84,
+      "days_to_target": 0
+    },
+    {
+      "ticker": "HAL",
+      "decision": "COMPRAR",
+      "prob_ajustada": 0.664,
+      "composite_prob": 0.664,
+      "rr_ratio": 6.61,
+      "days_to_target": 11
+    },
+    {
+      "ticker": "LAR",
+      "decision": "WATCH-COMPRAR",
+      "prob_ajustada": 0.6289,
+      "composite_prob": 0.6389,
+      "rr_ratio": 8.54,
+      "days_to_target": 2
+    },
+    {
+      "ticker": "PM",
+      "decision": "WATCH-COMPRAR",
+      "prob_ajustada": 0.6098,
+      "composite_prob": 0.6198,
+      "rr_ratio": 3.44,
+      "days_to_target": 11
+    },
+    {
+      "ticker": "PBI",
+      "decision": "MAYOR_RIESGO",
+      "prob_ajustada": 0.5671,
+      "composite_prob": 0.5471,
+      "rr_ratio": 9.31,
+      "days_to_target": 11
+    },
+    {
+      "ticker": "SPCE",
+      "decision": "DESCARTAR",
+      "prob_ajustada": 0.5547,
+      "composite_prob": 0.6247,
+      "rr_ratio": 5.06,
+      "days_to_target": 2
+    },
+    {
+      "ticker": "ASTS",
+      "decision": "MAYOR_RIESGO",
+      "prob_ajustada": 0.5378,
+      "composite_prob": 0.5278,
+      "rr_ratio": 4.15,
+      "days_to_target": 11
+    },
+    {
+      "ticker": "INTC",
+      "decision": "MAYOR_RIESGO",
+      "prob_ajustada": 0.5293,
+      "composite_prob": 0.5493,
+      "rr_ratio": 3.67,
+      "days_to_target": 2
+    },
+    {
+      "ticker": "UNH",
+      "decision": "WATCH",
+      "prob_ajustada": 0.5154,
+      "composite_prob": 0.5554,
+      "rr_ratio": 2.94,
+      "days_to_target": 11
+    },
+    {
+      "ticker": "ERIC",
+      "decision": "DESCARTAR",
+      "prob_ajustada": 0.4858,
+      "composite_prob": 0.5558,
+      "rr_ratio": 1.32,
+      "days_to_target": 11
+    },
+    {
+      "ticker": "GLW",
+      "decision": "DESCARTAR",
+      "prob_ajustada": 0.4602,
+      "composite_prob": 0.4602,
+      "rr_ratio": 2.0,
+      "days_to_target": 4
+    },
+    {
+      "ticker": "SBS",
+      "decision": "DESCARTAR",
+      "prob_ajustada": 0.4602,
+      "composite_prob": 0.4602,
+      "rr_ratio": 2.0,
+      "days_to_target": 4
+    },
+    {
+      "ticker": "MRNA",
+      "decision": "DESCARTAR",
+      "prob_ajustada": 0.4593,
+      "composite_prob": 0.4693,
+      "rr_ratio": 5.75,
+      "days_to_target": 2
+    }
+  ]
+}
