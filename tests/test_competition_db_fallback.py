@@ -81,8 +81,8 @@ def test_competition_snapshot_uses_db_fallback_when_snapshots_are_missing(monkey
             "prefix": "INVERTIR_V13",
         }
         monkeypatch.setattr(competition_topn, "monitored_entries", lambda: [custom_entry])
-        monkeypatch.setattr(competition_topn, "load_entry_snapshots", lambda con, entry: {})
-        monkeypatch.setattr(competition_topn, "load_entry_snapshot_rows", lambda con, entry: [])
+        monkeypatch.setattr(competition_topn, "load_entry_snapshots", lambda con, entry, **kwargs: {})
+        monkeypatch.setattr(competition_topn, "load_entry_snapshot_rows", lambda con, entry, **kwargs: [])
 
         engine = create_engine(sqlite_path_to_url(db_path), future=True)
         try:

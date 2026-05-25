@@ -122,7 +122,7 @@ def test_get_ultima_fecha_db_reads_active_runtime_backend(monkeypatch) -> None:
         monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.resolve().as_posix()}")
         monkeypatch.setenv("TITANDB_FORCE_SQLALCHEMY_COMPAT", "1")
 
-        with TitanDB() as db:
+        with TitanDB(db_path=str(db_path)) as db:
             db.conn.execute(
                 """
                 INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
@@ -131,6 +131,14 @@ def test_get_ultima_fecha_db_reads_active_runtime_backend(monkeypatch) -> None:
                 ("SPY", "2026-04-23", 500.0, 505.0, 499.0, 504.0, 1000000, 504.0),
             )
             db.conn.commit()
+
+        _temp_path = str(db_path)
+
+        class _TempTitanDB(TitanDB):
+            def __init__(self, db_path=None):
+                super().__init__(db_path=_temp_path)
+
+        monkeypatch.setattr(auto_actualizar, "TitanDB", _TempTitanDB)
 
         latest = auto_actualizar.get_ultima_fecha_db()
 
@@ -171,7 +179,7 @@ def test_build_model_snapshot_freshness_report_detects_missing_models(monkeypatc
             ],
         )
 
-        with TitanDB() as db:
+        with TitanDB(db_path=str(db_path)) as db:
             db.conn.execute(
                 """
                 INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
@@ -189,6 +197,14 @@ def test_build_model_snapshot_freshness_report_detects_missing_models(monkeypatc
                 role="activo",
                 snapshot_payload={"picks": [{"ticker": "AAPL"}]},
             )
+
+        _temp_path = str(db_path)
+
+        class _TempTitanDB(TitanDB):
+            def __init__(self, db_path=None):
+                super().__init__(db_path=_temp_path)
+
+        monkeypatch.setattr(auto_actualizar, "TitanDB", _TempTitanDB)
 
         report = auto_actualizar.build_model_snapshot_freshness_report(date(2026, 4, 24))
 
@@ -219,7 +235,7 @@ def test_build_model_snapshot_freshness_report_exposes_prediction_coverage_for_m
             ],
         )
 
-        with TitanDB() as db:
+        with TitanDB(db_path=str(db_path)) as db:
             db.conn.execute(
                 """
                 INSERT INTO prices (ticker, date, open, high, low, close, volume, adj_close)
@@ -239,6 +255,14 @@ def test_build_model_snapshot_freshness_report_exposes_prediction_coverage_for_m
                 regime="SEGURO",
                 sector="Tech",
             )
+
+        _temp_path = str(db_path)
+
+        class _TempTitanDB(TitanDB):
+            def __init__(self, db_path=None):
+                super().__init__(db_path=_temp_path)
+
+        monkeypatch.setattr(auto_actualizar, "TitanDB", _TempTitanDB)
 
         report = auto_actualizar.build_model_snapshot_freshness_report(date(2026, 4, 24))
 

@@ -344,8 +344,6 @@ def _row_latest_tickers(row: dict, limit: int = 10) -> list[str]:
     tickers = [str(ticker) for ticker in (row.get("latest_tickers") or []) if ticker]
     if tickers and cycle_active:
         return tickers[:limit]
-    if not cycle_active:
-        return []
     collected: list[str] = []
     for entry in reversed(_window_calendar(row.get("recent_30") or {})):
         recent_tickers = _entry_tickers(entry)
