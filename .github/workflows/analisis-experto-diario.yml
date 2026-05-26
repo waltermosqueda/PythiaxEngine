@@ -109,6 +109,19 @@ jobs:
             echo "Esperando proxy... intento $i/9"
           done
 
+      - name: Test Copilot Proxy (diagnóstico)
+        run: |
+          if curl -sf http://localhost:4141/v1/models > /dev/null 2>&1; then
+            echo "✓ /v1/models responde"
+            # Test rápido: llamar a claude-opus-4.7 con prompt mínimo
+            RESULT=$(curl -s -m 30 -X POST http://localhost:4141/v1/chat/completions \
+              -H 'Content-Type: application/json' \
+              -d '{"model":"claude-opus-4.7","messages":[{"role":"user","content":"di: OK"}],"max_tokens":5}')
+            echo "Response: $RESULT" | head -c 500
+          else
+            echo "⚠️ proxy no responde en /v1/models"
+          fi
+
       - name: Run análisis experto diario
         env:
           PYTHONIOENCODING: utf-8
