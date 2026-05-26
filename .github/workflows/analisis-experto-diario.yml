@@ -85,6 +85,30 @@ jobs:
 
           python -c "import json; s=json.load(open('$SNAP', encoding='utf-8-sig')); print('generated_at:', s.get('generated_at','?'))"
 
+      - name: Start Copilot Proxy (Claude via Copilot Pro)
+        env:
+          COPILOT_GH_TOKEN: ${{ secrets.COPILOT_GH_TOKEN }}
+        run: |
+          if [ -z "$COPILOT_GH_TOKEN" ]; then
+            echo "⚠️ COPILOT_GH_TOKEN no configurado — proxy skipped, usará GitHub Models"
+            exit 0
+          fi
+          docker pull ghcr.io/caozhiyuan/copilot-api:latest --quiet
+          docker run -d \
+            -p 4141:4141 \
+            --name copilot-proxy \
+            ghcr.io/caozhiyuan/copilot-api:latest \
+            start --github-token "$COPILOT_GH_TOKEN"
+          # Esperar hasta que el proxy esté listo (máx 45s)
+          for i in $(seq 1 9); do
+            sleep 5
+            if curl -sf http://localhost:4141/v1/models > /dev/null 2>&1; then
+              echo "✓ Copilot proxy listo — Claude disponible"
+              break
+            fi
+            echo "Esperando proxy... intento $i/9"
+          done
+
       - name: Run análisis experto diario
         env:
           PYTHONIOENCODING: utf-8
@@ -92,6 +116,7 @@ jobs:
           MAX_CANDIDATES: ${{ github.event.inputs.max_candidates || '10' }}
           GITHUB_TOKEN: ${{ github.token }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          COPILOT_PROXY_URL: "http://localhost:4141"
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
