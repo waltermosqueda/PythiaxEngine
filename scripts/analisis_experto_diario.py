@@ -373,12 +373,11 @@ def consult_anthropic(prompt: str, api_key: str, log) -> tuple[str | None, str]:
     ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
     ANTHROPIC_VERSION = "2023-06-01"
     # Modelos en orden de preferencia
-    # Claude más modernos primero
     MODELS = [
-        "claude-opus-4-5",           # Más capaz
-        "claude-sonnet-4-5",         # Balance capacidad/velocidad
-        "claude-3-5-sonnet-20241022", # Anterior Sonnet (fallback)
-        "claude-haiku-4-5",          # Rápido, último recurso
+        "claude-sonnet-4-6",          # Default: balance velocidad/calidad
+        "claude-opus-4-7",            # Más capaz (si sonnet no responde)
+        "claude-sonnet-4-5",          # Fallback anterior estable
+        "claude-haiku-4-5",           # Rápido, último recurso
     ]
 
     for model_id in MODELS:
@@ -442,9 +441,10 @@ def consult_copilot_proxy(prompt: str, proxy_url: str, proxy_token: str | None, 
 
     # Claude models disponibles via ambos proxies (Copilot Pro los incluye)
     MODELS = [
-        "claude-opus-4.7",            # Más capaz disponible via Copilot
-        "claude-sonnet-4.6",          # Balance velocidad/calidad
+        "claude-sonnet-4.6",          # Default: balance velocidad/calidad
+        "claude-opus-4.7",            # Más capaz (fallback)
         "claude-sonnet-4.5",          # Anterior Sonnet (fallback estable)
+        "claude-haiku-4.5",           # Rápido, último recurso
     ]
 
     headers: dict[str, str] = {"Content-Type": "application/json"}
@@ -863,15 +863,23 @@ def main() -> int:
         else:
             log("ANTHROPIC_API_KEY ausente → skip Claude directo")
 
-        # Intento 2: Copilot Proxy local — Claude via Copilot Pro (sin pagar Anthropic)
-        # Iniciar proxy: npx @jeffreycao/copilot-api@latest start
+        # Intento 2: Copilot Proxy — claude-sonnet-4.6 vía Copilot Pro (sin pagar Anthropic)
         if not ai_text:
             proxy_url = os.environ.get("COPILOT_PROXY_URL", "http://localhost:4141")
             proxy_token = os.environ.get("COPILOT_PROXY_TOKEN")
-            log(f"probando Copilot Proxy ({proxy_url}) — Claude vía Copilot Pro…")
+            log(f"probando Copilot Proxy ({proxy_url}) — claude-sonnet-4.6 vía Copilot Pro…")
             ai_text, model_used = consult_copilot_proxy(prompt, proxy_url, proxy_token, log)
 
-        # Intento 3: GitHub Models API (GPT-4.1, GITHUB_TOKEN automático en CI)
+        # Intento 3: Gemini (GEMINI_API_KEY)
+        if not ai_text:
+            gemini_key = os.environ.get("GEMINI_API_KEY")
+            if gemini_key:
+                log("consultando Gemini…")
+                ai_text, model_used = consult_gemini(prompt, gemini_key, log)
+            else:
+                log("GEMINI_API_KEY ausente → skip Gemini")
+
+        # Intento 4: GitHub Models API (GPT-4.1, GITHUB_TOKEN automático en CI)
         if not ai_text:
             gh_token = os.environ.get("GITHUB_TOKEN")
             if gh_token:
@@ -880,14 +888,8 @@ def main() -> int:
             else:
                 log("GITHUB_TOKEN ausente → skip GitHub Models")
 
-        # Intento 4: Gemini como último fallback
-        if not ai_text:
-            api_key = os.environ.get("GEMINI_API_KEY")
-            if api_key:
-                log("fallback → consultando Gemini…")
-                ai_text, model_used = consult_gemini(prompt, api_key, log)
-            elif not anthropic_key:
-                log("ANTHROPIC_API_KEY, GITHUB_TOKEN y GEMINI_API_KEY ausentes → skip IA")
+        if not ai_text and not anthropic_key:
+            log("todos los proveedores fallaron → sin análisis IA")
     else:
         log("--no-ai → skip IA")
 
