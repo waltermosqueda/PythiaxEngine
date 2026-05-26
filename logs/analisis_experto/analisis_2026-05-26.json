@@ -1,13 +1,13 @@
 {
   "date": "2026-05-26",
-  "generated_at_utc": "2026-05-26T00:23:45.204280+00:00",
+  "generated_at_utc": "2026-05-26T00:34:08.142832+00:00",
   "snapshot_meta": {
     "generated_at": "2026-05-22T23:11:33",
     "regime": "SEGURO",
     "breadth_pct": 61.9
   },
   "model_used": "openai/gpt-4.1",
-  "ai_analysis_chars": 2143,
+  "ai_analysis_chars": 2239,
   "candidates_summary": [
     {
       "ticker": "CRM",
