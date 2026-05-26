@@ -111,9 +111,13 @@ jobs:
 
       - name: Test Copilot Proxy (diagnóstico)
         run: |
+          echo "=== docker ps -a ==="
+          docker ps -a
+          echo "=== docker logs copilot-proxy ==="
+          docker logs copilot-proxy 2>&1 | tail -50 || echo "(container not found)"
+          echo "=== curl /v1/models ==="
           if curl -sf http://localhost:4141/v1/models > /dev/null 2>&1; then
             echo "✓ /v1/models responde"
-            # Test rápido: llamar a claude-opus-4.7 con prompt mínimo
             RESULT=$(curl -s -m 30 -X POST http://localhost:4141/v1/chat/completions \
               -H 'Content-Type: application/json' \
               -d '{"model":"claude-opus-4.7","messages":[{"role":"user","content":"di: OK"}],"max_tokens":5}')
