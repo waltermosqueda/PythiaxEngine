@@ -93,20 +93,21 @@ jobs:
             echo "⚠️ COPILOT_GH_TOKEN no configurado — proxy skipped, usará GitHub Models"
             exit 0
           fi
+          # El entrypoint lee GH_TOKEN como env var: exec bun run dist/main.js start -g "$GH_TOKEN"
           docker pull ghcr.io/caozhiyuan/copilot-api:latest --quiet
           docker run -d \
             -p 4141:4141 \
             --name copilot-proxy \
-            ghcr.io/caozhiyuan/copilot-api:latest \
-            start --github-token "$COPILOT_GH_TOKEN"
-          # Esperar hasta que el proxy esté listo (máx 45s)
-          for i in $(seq 1 9); do
+            -e GH_TOKEN="$COPILOT_GH_TOKEN" \
+            ghcr.io/caozhiyuan/copilot-api:latest
+          # Esperar hasta que el proxy esté listo (máx 60s)
+          for i in $(seq 1 12); do
             sleep 5
             if curl -sf http://localhost:4141/v1/models > /dev/null 2>&1; then
               echo "✓ Copilot proxy listo — Claude disponible"
               break
             fi
-            echo "Esperando proxy... intento $i/9"
+            echo "Esperando proxy... intento $i/12"
           done
 
       - name: Test Copilot Proxy (diagnóstico)
