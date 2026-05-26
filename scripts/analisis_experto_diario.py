@@ -42,6 +42,9 @@ import urllib.request
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
+import smtplib
+import ssl
+from email.message import EmailMessage
 
 # ── Importar lógica compartida de plan_inversion_diario ─────────────────────
 _SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -762,6 +765,89 @@ def send_telegram_experto(
         _send_raw_telegram(ai_text, "", token, chat_id, log)
 
 
+def send_email_experto(
+    meta: dict[str, Any],
+    macro: dict[str, Any],
+    candidates: list[Candidate],
+    md_content: str | None,
+    model_used: str,
+    today: str,
+    log,
+    md_path: Path | None = None,
+) -> None:
+    """Enviar el mismo análisis por email usando SMTP configurado vía env.
+
+    Requiere (GitHub Secrets → repo env): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
+    `SMTP_PASS`, `MAIL_FROM` (opcional) y `MAIL_TO` (opcional, por defecto la
+    dirección solicitada por el usuario: xeneize7786@gmail.com).
+    """
+    smtp_host = os.environ.get("SMTP_HOST")
+    if not smtp_host:
+        log("SMTP_HOST ausente → skip email")
+        return
+
+    try:
+        smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    except Exception:
+        smtp_port = 587
+
+    smtp_user = os.environ.get("SMTP_USER")
+    smtp_pass = os.environ.get("SMTP_PASS")
+    mail_from = os.environ.get("MAIL_FROM") or smtp_user or f"noreply@{smtp_host.split(':')[0]}"
+    mail_to = os.environ.get("MAIL_TO", "xeneize7786@gmail.com")
+    # permitir separadores , ; o espacios
+    recipients = [r.strip() for r in re.split(r"[;,\s]+", mail_to) if r.strip()]
+    if not recipients:
+        log("MAIL_TO inválido → skip email")
+        return
+
+    subject = f"ANÁLISIS EXPERTO — PythiaxEngine — {today}"
+    body = md_content or "No analysis available today."
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = mail_from
+    msg["To"] = ", ".join(recipients)
+    msg.set_content(body)
+
+    # Adjuntar archivo markdown si existe
+    try:
+        if md_path is not None:
+            p = Path(md_path)
+            if p.exists():
+                md_bytes = p.read_bytes()
+                msg.add_attachment(
+                    md_bytes,
+                    maintype="text",
+                    subtype="markdown",
+                    filename=p.name,
+                )
+    except Exception as exc:
+        log(f"Adjuntar MD fallo: {exc}")
+
+    try:
+        if smtp_port == 465:
+            ctx = ssl.create_default_context()
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx) as server:
+                if smtp_user:
+                    server.login(smtp_user, smtp_pass or "")
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=60) as server:
+                server.ehlo()
+                try:
+                    server.starttls(context=ssl.create_default_context())
+                    server.ehlo()
+                except Exception:
+                    pass
+                if smtp_user:
+                    server.login(smtp_user, smtp_pass or "")
+                server.send_message(msg)
+        log(f"✓ Email enviado a {', '.join(recipients)}")
+    except Exception as exc:
+        log(f"Email FAIL: {exc}")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
@@ -934,6 +1020,11 @@ def main() -> int:
         send_telegram_experto(
             meta, macro, candidates, ai_text, model_used, today_iso, log
         )
+        # Envío por email paralelo (si SMTP configurado en env/secrets)
+        try:
+            send_email_experto(meta, macro, candidates, md_content, model_used, today_iso, log, md_path=md_path)
+        except Exception as exc:
+            log(f"send_email_experto fallo: {exc}")
     else:
         log("--no-telegram → skip")
 
