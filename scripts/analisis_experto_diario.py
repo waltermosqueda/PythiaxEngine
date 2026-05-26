@@ -970,7 +970,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--no-email", action="store_true", help="Skip sending email")
     p.add_argument("--no-ai", action="store_true", help="Skip consulta Gemini")
     p.add_argument("--mail-to", type=str, default=None, help="Override email recipients (comma or semicolon separated)")
-    p.add_argument("--no-email", action="store_true", help="Skip sending email")
     p.add_argument("--quiet", action="store_true")
     return p.parse_args()
 
@@ -1128,7 +1127,17 @@ def main() -> int:
     # 9. Email (independiente de Telegram)
     if not args.no_email:
         try:
-            send_email_experto(meta, macro, candidates, md_content, model_used, today_iso, log, md_path=md_path)
+            send_email_experto(
+                meta,
+                macro,
+                candidates,
+                md_content,
+                model_used,
+                today_iso,
+                log,
+                md_path=md_path,
+                mail_to_override=args.mail_to,
+            )
         except Exception as exc:
             log(f"send_email_experto fallo: {exc}")
     else:
