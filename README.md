@@ -120,3 +120,4 @@ PythiaxEngine/
 - [Architecture Decision Records](docs/cloud/README.md)
 - [Bitácora de Sesión](bitacora/BITACORA.md)
 - [Estado Actual / Handoff](ESTADO_ACTUAL.md)
+# Update for Alembic migration fix
