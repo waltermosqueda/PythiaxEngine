@@ -934,9 +934,13 @@ def build_prediction_window_coverage(
 
 
 def dashboard_history_is_current(report: dict[str, Any], min_market_days: int = MIN_DASHBOARD_HISTORY_DAYS) -> bool:
+    # Fix: Solo retorna True si NO falta ningún snapshot requerido u opcional
     if not report.get("history_complete"):
         return False
     if int(report.get("window_days") or 0) < min_market_days:
+        return False
+    # Chequeo estricto: no debe faltar ningún snapshot, ni requerido ni opcional
+    if report.get("required_missing_snapshot_history") or report.get("optional_missing_snapshot_history"):
         return False
     window_coverage = report.get("window_coverage") or {}
     for domain in ("predictions", "outcomes", "regimes"):
@@ -1076,6 +1080,7 @@ def ensure_minimum_dashboard_history(
     # suficientes, aceptar como completo aunque outcome_days sea menor que window_days.
     # Los dias recientes sin outcomes son estructurales: el horizonte de prediccion
     # (D5/D10) no ha vencido aun para las predicciones mas recientes.
+    # Fix: No aceptar como completo si falta cualquier snapshot, ni siquiera opcional
     if (
         not refreshed_report.get("required_missing_snapshot_history")
         and not refreshed_report.get("optional_missing_snapshot_history")
@@ -1091,11 +1096,13 @@ def ensure_minimum_dashboard_history(
 
     emit_critical_alert(
         code="dashboard_history_incomplete",
-        summary="La cobertura historica minima del dashboard sigue incompleta tras el bootstrap.",
+        summary="La cobertura historica minima del dashboard sigue incompleta tras el bootstrap. FALTAN SNAPSHOTS de modelos requeridos u opcionales. El pipeline falla duro.",
         details={
             "fecha_base": fecha_base.isoformat(),
             "report_path": str(DASHBOARD_HISTORY_REPORT),
             "missing_snapshot_history": refreshed_report.get("missing_snapshot_history") or [],
+            "required_missing_snapshot_history": refreshed_report.get("required_missing_snapshot_history") or [],
+            "optional_missing_snapshot_history": refreshed_report.get("optional_missing_snapshot_history") or [],
             "predictions_recent": refreshed_report.get("predictions_recent"),
             "outcomes_recent": refreshed_report.get("outcomes_recent"),
             "regimes_recent": refreshed_report.get("regimes_recent"),
@@ -1106,6 +1113,7 @@ def ensure_minimum_dashboard_history(
         "  [ERROR] La cobertura historica minima del dashboard sigue incompleta tras el bootstrap. "
         f"Ver {DASHBOARD_HISTORY_REPORT}"
     )
+    # Fix: Falla duro, no solo warning
     return False
 
 
