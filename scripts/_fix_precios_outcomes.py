@@ -141,6 +141,7 @@ for t, d, o, c in price_rows:
 # ── 6. Recalcular outcomes ────────────────────────────────────────────────────
 print(SEP)
 print("PASO 5: Recalculando outcomes...")
+V97_MODELS = {"LEGACY_ML_V97_SURGE_D3"}
 
 outcomes_to_update: list[dict] = []
 skipped_reasons: list[str] = []
@@ -151,25 +152,48 @@ for outcome_id, pred_id, ticker, pred_date, target_date, model, direction in aff
         skipped_reasons.append(f"outcome={outcome_id} ticker={ticker}: no entry_date")
         continue
 
-    # Standard tradeable return for all models:
-    # return = (close(target_date) - open(entry_date)) / open(entry_date)
-    entry_row = corrected.get((ticker, entry_date))
-    target_row = corrected.get((ticker, target_date))
-    if entry_row is None:
-        skipped_reasons.append(f"outcome={outcome_id} {ticker}: sin precio entry {entry_date}")
-        continue
-    if target_row is None:
-        skipped_reasons.append(f"outcome={outcome_id} {ticker}: sin precio target {target_date}")
-        continue
-    entry_open = entry_row[0]
-    target_close = target_row[1]
-    if entry_open in (None, 0):
-        skipped_reasons.append(f"outcome={outcome_id} {ticker}: entry_open null/0")
-        continue
-    if target_close is None:
-        skipped_reasons.append(f"outcome={outcome_id} {ticker}: target_close null")
-        continue
-    actual_return = (target_close - entry_open) / entry_open
+    if model in V97_MODELS:
+        # window_max_close: return = (max_close[entry:target] - open(entry)) / open(entry)
+        entry_row = corrected.get((ticker, entry_date))
+        if entry_row is None:
+            skipped_reasons.append(f"outcome={outcome_id} {ticker}: sin precio entry {entry_date}")
+            continue
+        entry_open, entry_close = entry_row
+        if entry_open in (None, 0):
+            skipped_reasons.append(f"outcome={outcome_id} {ticker}: entry_open null/0")
+            continue
+
+        # Collect closes in window [entry_date, target_date]
+        window_closes = [
+            corrected[(ticker, d)][1]
+            for d in spy_dates
+            if entry_date <= d <= target_date and (ticker, d) in corrected
+        ]
+        if not window_closes:
+            skipped_reasons.append(f"outcome={outcome_id} {ticker}: sin closes en ventana")
+            continue
+        max_close = max(window_closes)
+        actual_return = (max_close - entry_open) / entry_open
+
+    else:
+        # Standard: return = (close(target_date) - open(entry_date)) / open(entry_date)
+        entry_row = corrected.get((ticker, entry_date))
+        target_row = corrected.get((ticker, target_date))
+        if entry_row is None:
+            skipped_reasons.append(f"outcome={outcome_id} {ticker}: sin precio entry {entry_date}")
+            continue
+        if target_row is None:
+            skipped_reasons.append(f"outcome={outcome_id} {ticker}: sin precio target {target_date}")
+            continue
+        entry_open = entry_row[0]
+        target_close = target_row[1]
+        if entry_open in (None, 0):
+            skipped_reasons.append(f"outcome={outcome_id} {ticker}: entry_open null/0")
+            continue
+        if target_close is None:
+            skipped_reasons.append(f"outcome={outcome_id} {ticker}: target_close null")
+            continue
+        actual_return = (target_close - entry_open) / entry_open
 
     actual_direction = "UP" if actual_return >= 0 else "DOWN"
     hit = 1 if str(direction).upper() == actual_direction else 0

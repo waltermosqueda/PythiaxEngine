@@ -100,17 +100,11 @@ def decide_cloud_refresh(*, database_url: str | None = None, force: bool = False
         snapshot_newer_than_publish = bool(latest_snapshot_created_at) and (
             last_publish_finished_at is None or latest_snapshot_created_at > last_publish_finished_at
         )
-        today_utc = datetime.now(tz=timezone.utc).date().isoformat()
-        already_published_today = last_publish_market_date == today_utc
         should_refresh = bool(force)
         if not should_refresh:
-            if already_published_today:
-                # If today's market date is already published, avoid redundant same-day refresh runs.
-                should_refresh = False
-            else:
-                should_refresh = bool(latest_prices_text) and latest_prices_text != last_publish_market_date
-                if not should_refresh and bool(latest_prices_text) and latest_prices_text == last_publish_market_date:
-                    should_refresh = snapshot_newer_than_publish
+            should_refresh = bool(latest_prices_text) and latest_prices_text != last_publish_market_date
+        if not should_refresh and latest_prices_text != last_publish_market_date:
+            should_refresh = snapshot_newer_than_publish
         stale_deploy = False
         if not should_refresh and max_stale_hours > 0:
             now_utc = datetime.now(tz=timezone.utc)
@@ -134,7 +128,6 @@ def decide_cloud_refresh(*, database_url: str | None = None, force: bool = False
             "last_publish_finished_at": last_publish_finished_text,
             "latest_snapshot_created_at": latest_snapshot_created_text,
             "snapshot_newer_than_publish": snapshot_newer_than_publish,
-            "already_published_today": already_published_today,
             "stale_deploy": stale_deploy,
             "should_refresh": should_refresh,
         }
