@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-05-28T08:10:27Z",
+  "generated_at": "2026-05-28T16:33:14Z",
   "build": {
     "generator": "analisis.generar_tablero_maquina_pensante",
     "build_source": "local",
     "db_backend": "postgresql",
     "commit_sha": null,
     "commit_short": null,
-    "run_id": "dashboard_build-local-20260528051027",
-    "pipeline_run_id": "dashboard_build-local-20260528051027",
+    "run_id": "dashboard_build-local-20260528133314",
+    "pipeline_run_id": "dashboard_build-local-20260528133314",
     "run_attempt": null,
     "workflow": null,
     "actor": null

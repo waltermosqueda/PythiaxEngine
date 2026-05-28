@@ -1,0 +1,40 @@
+{
+  "model_name": "INVERTIR_V11",
+  "model_version": "v11",
+  "analyzed_date": "2026-05-27",
+  "prediction_for": "2026-05-28",
+  "run_started": "2026-05-28T04:59:13",
+  "run_finished": "2026-05-28T04:59:13",
+  "db_last_write": null,
+  "freshness": "AL DIA",
+  "regime_label": "SEGURO",
+  "regime_info": {
+    "spy_price": 750.46,
+    "spy_sma50": 700.07,
+    "spy_dist": 7.2,
+    "spy_vol20d": 0.64,
+    "spy_roc20": 5.45,
+    "above_sma": true,
+    "low_vol": true,
+    "safe": true,
+    "is_panic": false
+  },
+  "breadth_pct": 59.4,
+  "quality_alerts": [],
+  "results_a": [],
+  "results_c5": [],
+  "blocked_extreme": [],
+  "runtime_context": {
+    "scanner_path": "SCANNER\\invertir_v11.py",
+    "latest_db_date": "2026-05-27",
+    "python_version": "3.14.3",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "critical_file_hashes": {
+      "scanner": "d50f9125b0febb304297ab238a132361dbfbaea265443698da6667d2bb9a182d",
+      "learning": "8716fcfbed740e488d8af46dae20d613b9636e88be6e7cf07d9f2949d095e444",
+      "validate_market_data": "4e3efdff492eb53e726df1c11b5eb8d2e0a47f7ba93e69eed47b5bab28d8cef3",
+      "auto_actualizar": "9e475075a73825c2ddb6f066083147f5c52a7bfd351fe2062c0c7044a4443b1a"
+    },
+    "runtime_fingerprint": "845f3fd3f13625ef9ece49ced3185b6848d0385cc985d5513e09bb31baba3d80"
+  }
+}

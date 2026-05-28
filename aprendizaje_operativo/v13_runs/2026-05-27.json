@@ -1,0 +1,91 @@
+{
+  "model_name": "INVERTIR_V13",
+  "model_version": "v13",
+  "analyzed_date": "2026-05-27",
+  "prediction_for": "2026-05-28",
+  "run_started": "2026-05-28T04:58:50",
+  "run_finished": "2026-05-28T04:58:50",
+  "db_last_write": null,
+  "freshness": "AL DIA",
+  "regime_label": "SEGURO",
+  "regime_info": {
+    "spy_price": 750.46,
+    "spy_sma50": 700.07,
+    "spy_dist": 7.2,
+    "spy_vol20d": 0.64,
+    "spy_roc20": 5.45,
+    "above_sma": true,
+    "low_vol": true,
+    "safe": true,
+    "is_panic": false
+  },
+  "breadth_pct": 59.4,
+  "quality_alerts": [],
+  "memory_context": [
+    "A / D7 en SEGURO: hit 48.5% | avg -0.162% | n=33",
+    "C5 / D7 en SEGURO: hit 45.8% | avg -0.910% | n=24",
+    "D / D10 global: hit 58.1% | avg +2.593% | n=931",
+    "E_HW / D15 global: hit 50.0% | avg +10.711% | n=2"
+  ],
+  "results_a": [],
+  "results_c5": [],
+  "results_d": [
+    {
+      "ticker": "DAL",
+      "signal": "D (Leadership)",
+      "price": 81.8,
+      "sector": "industrial",
+      "rsi": 73.1,
+      "dist_sma50": 18.0,
+      "roc10": null,
+      "roc20": 21.7,
+      "rel20": 16.2,
+      "vol_ratio": 1.59,
+      "stop": 76.48,
+      "target": 87.12,
+      "risk_pct": 6.5,
+      "score": 37.93235181322314,
+      "note": "hold 10d | liderazgo sin gate SPY",
+      "atr_pct": 3.25,
+      "priority_score": 59.5,
+      "priority_expected_return": 3.793235181322314,
+      "priority_source": "score_proxy"
+    },
+    {
+      "ticker": "ERIC",
+      "signal": "D (Leadership)",
+      "price": 13.04,
+      "sector": "tech",
+      "rsi": 59.7,
+      "dist_sma50": 9.5,
+      "roc10": null,
+      "roc20": 15.4,
+      "rel20": 10.0,
+      "vol_ratio": 1.15,
+      "stop": 12.27,
+      "target": 13.82,
+      "risk_pct": 5.9,
+      "score": 25.348856315409463,
+      "note": "hold 10d | liderazgo sin gate SPY",
+      "atr_pct": 2.95,
+      "priority_score": 56.3,
+      "priority_expected_return": 2.5348856315409463,
+      "priority_source": "score_proxy"
+    }
+  ],
+  "results_e": [],
+  "blocked_extreme": [],
+  "runtime_context": {
+    "scanner_path": "SCANNER\\invertir_v13.py",
+    "latest_db_date": "2026-05-27",
+    "python_version": "3.14.3",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "critical_file_hashes": {
+      "scanner": "e5ad007605b77559a8ac3c4b0c325ef377a13e69d1af53b625f361addaf71737",
+      "learning": "8716fcfbed740e488d8af46dae20d613b9636e88be6e7cf07d9f2949d095e444",
+      "validate_market_data": "4e3efdff492eb53e726df1c11b5eb8d2e0a47f7ba93e69eed47b5bab28d8cef3",
+      "auto_actualizar": "9e475075a73825c2ddb6f066083147f5c52a7bfd351fe2062c0c7044a4443b1a"
+    },
+    "runtime_fingerprint": "e5508f2701b31a8093a746a890f28dea05ed0ef2365b45609c265044ad545cf0"
+  }
+}
