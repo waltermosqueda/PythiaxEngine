@@ -52,7 +52,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError, OperationalError
 
 from infra.db.config import get_database_url, get_sqlite_fallback_path
-from infra.db.runtime import adapt_qmark_sql
+from infra.db.runtime import adapt_qmark_sql, connect_runtime_db, runtime_backend_name
 from infra.db.titandb_compat import create_titandb_compat_connection
 
 # ── Cache en proceso: evita re-fetchar los mismos precios/tickers N veces ──
@@ -1178,7 +1178,58 @@ class TitanDB:
             """,
             (model_key, analyzed_date),
         ).fetchone()
-        return int(row[0]) if row else 0
+        result_id = int(row[0]) if row else 0
+
+        # Mirror to runtime Postgres if TitanDB is using a local SQLite fallback
+        # but a cloud/runtime database is available. This is defensive: some
+        # entrypoints may still construct TitanDB against a local file while a
+        # runtime DATABASE_URL (Postgres) exists in the environment (CI). In
+        # that case we want snapshots to be present in the cloud DB so audits
+        # and other consumers see the latest runs.
+        try:
+            runtime_backend = runtime_backend_name()
+            if self.backend_name == "sqlite" and runtime_backend.startswith("postgres"):
+                try:
+                    with connect_runtime_db() as rdb:
+                        rdb.execute(
+                            """
+                            INSERT INTO model_run_snapshots
+                                (model_key, model_name, model_version, role, analyzed_date,
+                                 prediction_for, freshness, regime_label, breadth_pct,
+                                 signal_count, snapshot_json)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT (model_key, analyzed_date) DO UPDATE SET
+                                model_name = EXCLUDED.model_name,
+                                model_version = EXCLUDED.model_version,
+                                role = EXCLUDED.role,
+                                prediction_for = EXCLUDED.prediction_for,
+                                freshness = EXCLUDED.freshness,
+                                regime_label = EXCLUDED.regime_label,
+                                breadth_pct = EXCLUDED.breadth_pct,
+                                signal_count = EXCLUDED.signal_count,
+                                snapshot_json = EXCLUDED.snapshot_json
+                            """,
+                            (
+                                model_key,
+                                model_name,
+                                model_version,
+                                role,
+                                analyzed_date,
+                                prediction_for,
+                                freshness,
+                                regime_label,
+                                breadth_pct,
+                                int(signal_count or 0),
+                                snapshot_json,
+                            ),
+                        )
+                except Exception:
+                    # Best-effort: do not fail the caller if mirroring to runtime fails
+                    pass
+        except Exception:
+            pass
+
+        return result_id
 
     # ═══════════════════════════════════════════════════════════════════════════
     #  CONSULTAS DE ANÁLISIS (las más interesantes para aprender SQL)
