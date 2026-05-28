@@ -1,5 +1,5 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-28T23:03:41Z -->
+<!-- generated_at: 2026-05-28T23:15:21Z -->
 <!-- git_head: eebeee5 -->
 <!-- git_branch: main -->
 <!--
@@ -12,12 +12,12 @@
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
   Si el HEAD que ves en git ≠ eebeee5 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-28 20:03 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si la hora real AR difiere de 2026-05-28 20:15 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-28T23:03:41Z | `2026-05-28 20:03 AR (Jue)` | HEAD: `eebeee5`*
+*Auto-generado: 2026-05-28T23:15:21Z | `2026-05-28 20:15 AR (Jue)` | HEAD: `eebeee5`*
 
 ---
 
@@ -33,7 +33,7 @@
 > ```
 >
 > - **Si HEAD ≠ `eebeee5`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-28 20:03 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si hora AR ≠ `2026-05-28 20:15 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-28T23:03:41Z` |
-| Hora AR | `2026-05-28 20:03 AR (Jue)` |
+| Generado | `2026-05-28T23:15:21Z` |
+| Hora AR | `2026-05-28 20:15 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
