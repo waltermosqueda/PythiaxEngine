@@ -85,7 +85,12 @@ jobs:
 
       - name: Run cloud-native pipeline
         run: |
-          python herramientas/auto_actualizar.py
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual run detected → forcing full pipeline (--force-pipeline)"
+            python herramientas/auto_actualizar.py --force-pipeline
+          else
+            python herramientas/auto_actualizar.py
+          fi
 
       - name: Decide cloud refresh
         id: refresh
@@ -124,6 +129,14 @@ jobs:
             --sample-size 5 \
             --seed 130013 \
             --report-path docs/cloud/reports/dashboard_integrity_audit.json
+
+      - name: Upload audit reports (ALWAYS)
+        uses: actions/upload-artifact@v7
+        with:
+          name: pythiax-dashboard-reports-${{ github.run_id }}
+          path: |
+            docs/cloud/reports/dashboard_integrity_audit.json
+            docs/cloud/reports/model_snapshot_freshness.json
 
       - name: Validate staged site
         if: steps.refresh.outputs.should_refresh == 'true'
