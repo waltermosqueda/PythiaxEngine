@@ -62,7 +62,7 @@ jobs:
       - name: Run cloud-native pipeline
         continue-on-error: true
         run: |
-          python herramientas/auto_actualizar.py --skip-dashboard-refresh
+          python herramientas/auto_actualizar.py
 
       - name: Decide cloud refresh
         id: refresh
@@ -83,16 +83,16 @@ jobs:
             --max-open 30 \
             --max-closed 12
 
-      - name: Build dashboard bundle
-        if: steps.refresh.outputs.should_refresh == 'true'
+
+      # Always rebuild dashboard and snapshot artifacts before audit
+      - name: Build dashboard bundle (ALWAYS)
         run: python analisis/generar_tablero_maquina_pensante.py --variant all
 
-      - name: Stage GitHub Pages site
-        if: steps.refresh.outputs.should_refresh == 'true'
+
+      - name: Stage GitHub Pages site (ALWAYS)
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
 
-      - name: Audit DB vs dashboard vs site
-        if: steps.refresh.outputs.should_refresh == 'true'
+      - name: Audit DB vs dashboard vs site (ALWAYS)
         run: |
           python -m infra.cloud.audit_dashboard_integrity \
             --snapshot-path dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json \
