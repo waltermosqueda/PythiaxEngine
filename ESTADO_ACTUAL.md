@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-28T20:54:22Z -->
-<!-- git_head: 4af4e8e -->
+<!-- generated_at: 2026-05-28T21:10:20Z -->
+<!-- git_head: da290da -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 4af4e8e → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-28 17:54 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ da290da → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-28 18:10 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-28T20:54:22Z | `2026-05-28 17:54 AR (Jue)` | HEAD: `4af4e8e`*
+*Auto-generado: 2026-05-28T21:10:20Z | `2026-05-28 18:10 AR (Jue)` | HEAD: `da290da`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `4af4e8e`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-28 17:54 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `da290da`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-28 18:10 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-28T20:54:22Z` |
-| Hora AR | `2026-05-28 17:54 AR (Jue)` |
+| Generado | `2026-05-28T21:10:20Z` |
+| Hora AR | `2026-05-28 18:10 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,17 +64,24 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `4af4e8e` — chore(auto): update ESTADO_ACTUAL → d7b28a3f9a3224864cb6af8855103f6a811f77fb [skip ci]
-**Timestamp commit:** 2026-05-28 17:27:47 -0300
+**HEAD:** `da290da` — fix(workflow): use sqlalchemy.text for SELECT 1 in DB test step (avoids ObjectNotExecutableError)
+**Timestamp commit:** 2026-05-28 17:59:34 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-4af4e8e chore(auto): update ESTADO_ACTUAL → d7b28a3f9a3224864cb6af8855103f6a811f77fb [skip ci]
+da290da fix(workflow): use sqlalchemy.text for SELECT 1 in DB test step (avoids ObjectNotExecutableError)
 ```
 
 ### Working tree
-_Rama limpia — sin cambios sin commitear_
+```
+M analisis/preview_c1_pro.html
+ M dashboards/maquina_pensante/tablero_maquina_pensante.html
+ M dashboards/maquina_pensante/tablero_maquina_pensante_artifact_manifest.json
+ M dashboards/maquina_pensante/tablero_maquina_pensante_executive.html
+ M dashboards/maquina_pensante/tablero_maquina_pensante_lab.html
+ M dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
+```
 
 ---
 
