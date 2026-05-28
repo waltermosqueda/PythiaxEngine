@@ -754,8 +754,38 @@ def main() -> int:
     print(f" - checks_failed : {payload['checks_failed']}")
     print(f" - sampled       : {', '.join(payload['sampled_versions']) if payload['sampled_versions'] else '-'}")
     print(f" - report        : {args.report_path.resolve()}")
+
+    # Imprimir detalles de checks fallidos si existen
+    if payload['checks_failed']:
+        print("\nDetalles de checks fallidos:")
+        for idx, fail in enumerate(payload.get('failures', []), 1):
+            print(f"  {idx}. {fail}")
+        if not payload.get('failures'):
+            print("  [WARN] checks_failed > 0 pero no se encontró 'failures' en el payload.")
+
     return 0 if payload["checks_failed"] == 0 else 1
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import traceback
+    try:
+        raise SystemExit(main())
+    except Exception as exc:
+        # Siempre escribir el archivo de auditoría con el error y traceback
+        args = None
+        try:
+            args = parse_args()
+            report_path = args.report_path if args and hasattr(args, 'report_path') else DEFAULT_REPORT_PATH
+        except Exception:
+            report_path = DEFAULT_REPORT_PATH
+        error_payload = {
+            "generator": "infra.cloud.audit_dashboard_integrity",
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+        try:
+            write_json(Path(report_path).resolve(), error_payload)
+        except Exception as write_exc:
+            print("[FATAL] No se pudo escribir el archivo de error de auditoría:", write_exc, file=sys.stderr)
+        print("[ERROR] Auditoría abortada por excepción fatal. Detalles en dashboard_integrity_audit.json", file=sys.stderr)
+        raise SystemExit(2)
