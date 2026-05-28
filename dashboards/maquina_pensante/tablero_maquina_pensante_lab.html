@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Lab Board | Maquina Pensante</title>
+  <style>
+    :root{
+      --bg:#f4efe8;
+      --panel:#fffaf2;
+      --panel-strong:#f7efe0;
+      --ink:#1e2428;
+      --muted:#5f6a72;
+      --line:#dbcdb9;
+      --accent:#0b7fab;
+      --gold:#b7852b;
+      --rose:#b65b46;
+      --mint:#3f7f61;
+      --shadow:0 18px 40px rgba(72, 52, 22, 0.10);
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:"Aptos","Segoe UI",sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(11,127,171,0.10), transparent 24%),
+        radial-gradient(circle at left 20%, rgba(183,133,43,0.12), transparent 22%),
+        linear-gradient(180deg, #faf6ef 0%, var(--bg) 100%);
+    }
+    .page{width:min(1480px, calc(100vw - 40px));margin:28px auto 48px auto}
+    .hero{display:grid;grid-template-columns:1.35fr 0.95fr;gap:22px;margin-bottom:22px}
+    .hero-panel,.panel,.metric-card,.variant-card,.model-strip-card{
+      background:var(--panel);border:1px solid rgba(110,90,50,0.14);border-radius:var(--radius);box-shadow:var(--shadow)
+    }
+    .hero-panel{padding:28px 30px}
+    .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:var(--accent);font-weight:700}
+    h1{font-family:"Georgia","Times New Roman",serif;font-size:48px;line-height:1.02;margin:10px 0 12px 0;letter-spacing:-0.03em}
+    .hero-copy{font-size:17px;line-height:1.6;color:var(--muted);max-width:74ch}
+    .hero-grid,.metric-grid{display:grid;gap:14px}
+    .hero-grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:20px}
+    .metric-grid{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:22px}
+    .metric-card{padding:18px 18px 14px 18px;overflow:hidden;position:relative}
+    .tone-accent{background:linear-gradient(180deg, #fafdff 0%, #eef8fc 100%)}
+    .tone-gold{background:linear-gradient(180deg, #fffaf2 0%, #fbf0df 100%)}
+    .tone-rose{background:linear-gradient(180deg, #fff9f7 0%, #f8ebe5 100%)}
+    .tone-mint{background:linear-gradient(180deg, #fbfffc 0%, #edf6f0 100%)}
+    .metric-title{font-size:12px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);font-weight:700}
+    .metric-value{font-size:34px;font-weight:800;letter-spacing:-0.03em;margin-top:10px}
+    .metric-subtitle{font-size:13px;line-height:1.5;color:var(--muted);margin-top:6px}
+    .sparkline{display:block;width:100%;height:auto;margin-top:14px}
+    .panel{padding:22px 24px;margin-bottom:22px}
+    .section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;margin-bottom:18px}
+    .section-title{font-family:"Georgia","Times New Roman",serif;font-size:30px;letter-spacing:-0.03em;margin:0}
+    .section-copy{color:var(--muted);font-size:14px;line-height:1.5;max-width:76ch}
+    .two-col{display:grid;grid-template-columns:1.2fr 0.8fr;gap:18px}
+    .three-col{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+    .data-table{width:100%;border-collapse:collapse;font-size:14px}
+    .data-table th,.data-table td{padding:12px 10px;border-top:1px solid rgba(80,70,40,0.12);text-align:left;vertical-align:top}
+    .data-table thead th{border-top:none;font-size:12px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted)}
+    .data-table.compact th,.data-table.compact td{padding:9px 8px}
+    .mini{font-size:12px;color:var(--muted)}
+    .muted{color:var(--muted)}
+    .center{text-align:center}
+    .tight{max-width:280px}
+    .bar-track{width:100%;height:8px;border-radius:999px;background:rgba(11,127,171,0.12);overflow:hidden;margin-bottom:8px}
+    .bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg, #0b7fab 0%, #2aa17e 100%)}
+    .badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:11px;text-transform:uppercase;letter-spacing:0.09em;font-weight:800;background:rgba(60,70,80,0.08);color:var(--muted)}
+    .badge-active{background:#dff2fa;color:#0a678b}.badge-reference{background:#f2ebd6;color:#87611a}.badge-base{background:#ece7de;color:#5b564e}.badge-observed{background:#e7f1ea;color:#42725b}.badge-legacy{background:#efe5f5;color:#6b4c8e}.badge-fresh{background:#dff3e8;color:#2e6f51}.badge-warn{background:#fff0d8;color:#8f5e17}.badge-stale{background:#f7e3dc;color:#99513e}.badge-muted{background:#ece7e0;color:#6e655a}
+    .note-list{margin:0;padding-left:18px;color:var(--muted);line-height:1.6}.note-list li{margin-bottom:8px}
+    .panel-note{color:var(--muted);font-size:14px;line-height:1.6;padding:8px 0 2px 0}
+    .matrix-table{width:100%;border-collapse:separate;border-spacing:8px;table-layout:fixed}
+    .matrix-table th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;text-align:center}
+    .matrix-table td{text-align:center;padding:14px 8px;border-radius:14px;font-weight:800}
+    .model-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    .model-strip-card{padding:16px;min-height:160px}
+    .model-strip-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+    .model-strip-fresh{margin-bottom:12px}.model-strip-metrics{font-size:14px;font-weight:700;margin-bottom:12px}.model-strip-picks{color:var(--muted);font-size:13px;line-height:1.5}
+    .variant-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin-top:24px}
+    .variant-card{padding:26px}.variant-card h3{margin:0 0 10px 0;font-family:"Georgia","Times New Roman",serif;font-size:28px}
+    .variant-links a,.button-link{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:white;background:linear-gradient(135deg, #0b7fab 0%, #2b5364 100%);padding:12px 16px;border-radius:999px;font-weight:700;letter-spacing:0.02em;margin-right:10px;margin-top:8px}
+    .inline-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+    .kpi-line{display:flex;justify-content:space-between;gap:12px;border-top:1px solid rgba(80,70,40,0.12);padding:10px 0;font-size:14px}.kpi-line:first-child{border-top:none;padding-top:0}
+    .footer-note{margin-top:18px;color:var(--muted);font-size:13px;line-height:1.6}
+    @media (max-width: 1180px){.hero,.two-col,.three-col,.metric-grid,.model-strip,.variant-grid,.inline-grid{grid-template-columns:1fr}.page{width:min(100vw - 24px, 1480px)}}
+    
+    .sparkline[data-values]{cursor:crosshair}
+    .sparkline.is-previewable{cursor:zoom-in}
+    .sparkline-preview-wrap{display:flex;align-items:center;justify-content:flex-start;min-width:230px}
+    .league-spark-cell{min-width:230px;width:250px}
+    .league-spark-cell .sparkline{margin-top:0}
+    .chart-hover-tooltip{
+      position:fixed;z-index:96;max-width:280px;padding:10px 12px;border-radius:14px;
+      background:rgba(5,12,20,0.96);border:1px solid rgba(255,255,255,0.10);box-shadow:0 18px 40px rgba(0,0,0,0.35);
+      color:#edf4fb;font-size:12px;line-height:1.45;pointer-events:none;opacity:0;transform:translateY(6px);
+      transition:opacity .08s ease, transform .08s ease
+    }
+    .chart-hover-tooltip.show{opacity:1;transform:translateY(0)}
+    .chart-hover-tooltip strong{display:block;margin-bottom:4px}
+    .chart-hover-label{color:#8ea4b8;font-size:11px}
+    .chart-hover-value{margin-top:6px;font-size:14px;font-weight:800;color:#ffffff}
+    .chart-preview-panel{
+      position:fixed;right:18px;bottom:18px;z-index:95;width:min(520px, calc(100vw - 28px));
+      padding:14px 14px 12px 14px;border-radius:22px;background:linear-gradient(180deg, rgba(16,29,48,0.98) 0%, rgba(10,19,33,0.98) 100%);
+      border:1px solid rgba(255,255,255,0.10);box-shadow:0 26px 65px rgba(0,0,0,0.40);
+      opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .12s ease, transform .12s ease
+    }
+    .chart-preview-panel.show{opacity:1;transform:translateY(0)}
+    .chart-preview-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:10px}
+    .chart-preview-title{font-size:12px;text-transform:uppercase;letter-spacing:0.12em;color:#8ea4b8;font-weight:800}
+    .chart-preview-meta{font-size:18px;font-weight:800;color:#edf4fb;text-align:right}
+    .chart-preview-canvas{border-radius:16px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
+    .chart-preview-canvas svg{display:block;width:100%;height:auto;max-height:240px}
+    @media (max-width: 900px){
+      .chart-preview-panel{left:14px;right:14px;width:auto}
+      .league-spark-cell{min-width:190px;width:210px}
+    }
+    </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-panel">
+        <div class="eyebrow">Research Lab Board</div>
+        <h1>Densidad tecnica para medir si la maquina esta pensando o solo replicando</h1>
+        <div class="hero-copy">
+          Esta vista cruza competencia, sectores, continuidad y overlap. Sirve para auditar si la
+          DB esta viva, si el motor experimental evoluciona con memoria y si los challengers legacy son de verdad
+          modelos ortogonales o solo ruido con nombres nuevos.
+        </div>
+        <div class="footer-note">Build local | postgresql | run dashboard_build-local-20260528051027</div>
+        <div class="metric-grid" style="margin-top:24px">
+          <section class='metric-card tone-accent'><div class='metric-title'>Latest prediction</div><div class='metric-value'>2026-05-27</div><div class='metric-subtitle'>Ultima fecha escrita en predictions</div></section>
+          <section class='metric-card tone-gold'><div class='metric-title'>Latest outcome</div><div class='metric-value'>2026-05-27</div><div class='metric-subtitle'>Ultima fecha ya evaluada</div></section>
+          <section class='metric-card tone-mint'><div class='metric-title'>DB size</div><div class='metric-value'>- MB</div><div class='metric-subtitle'>Tamano actual de titan.db</div></section>
+          <section class='metric-card tone-rose'><div class='metric-title'>Prediction models</div><div class='metric-value'>39</div><div class='metric-subtitle'>Modelos distintos con registros en DB</div></section>
+        </div>
+      </div>
+      <div class="hero-panel">
+        <div class="eyebrow">Matriz de lectura</div>
+        <h2 class="section-title">Hechos clave del sistema</h2>
+        <div class="kpi-line"><span>Motor Experimental actual</span><strong>V13</strong></div>
+        <div class="kpi-line"><span>Referencia inmediata</span><strong>V12</strong></div>
+        <div class="kpi-line"><span>Fechas iguales V12/V13</span><strong>103</strong></div>
+        <div class="kpi-line"><span>Fechas distintas V12/V13</span><strong>2</strong></div>
+        <div class="kpi-line"><span>Sleeve E evaluado</span><strong>2 casos</strong></div>
+        <div class="kpi-line"><span>Mercado del ultimo snapshot</span><strong>SEGURO | breadth 59.4%</strong></div>
+        <div class="kpi-line"><span>Target operativo</span><strong>2026-05-28</strong></div>
+        <div class="footer-note">Un sistema honesto no oculta cuando dos versiones son muy parecidas. Lo muestra, y deja que la diversidad verdadera aparezca en las familias legacy o en sleeves nuevos.</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head"><div><h2 class="section-title">Competencia reciente y frescura</h2><div class="section-copy">Modelos con mejores estadisticos evaluados en la liga monitoreada.</div></div></div>
+      <div class="model-strip"><article class='model-strip-card'><div class='model-strip-head'><strong>ML_V97</strong><span class='badge badge-legacy'>legacy_ml</span></div><div class='model-strip-fresh'><span class='badge badge-fresh'>al dia</span></div><div class='model-strip-metrics'>WR 75.00% | Ret +3.883%</div><div class='model-strip-picks'>MRNA, INTC</div></article><article class='model-strip-card'><div class='model-strip-head'><strong>V11</strong><span class='badge badge-base'>base</span></div><div class='model-strip-fresh'><span class='badge badge-fresh'>al dia</span></div><div class='model-strip-metrics'>WR 60.00% | Ret +2.042%</div><div class='model-strip-picks'>-</div></article><article class='model-strip-card'><div class='model-strip-head'><strong>ML_BRAIN_V11</strong><span class='badge badge-legacy'>legacy_ml</span></div><div class='model-strip-fresh'><span class='badge badge-fresh'>al dia</span></div><div class='model-strip-metrics'>WR 58.50% | Ret +1.484%</div><div class='model-strip-picks'>PBR, PAAS</div></article><article class='model-strip-card'><div class='model-strip-head'><strong>ML_V94</strong><span class='badge badge-legacy'>legacy_ml</span></div><div class='model-strip-fresh'><span class='badge badge-fresh'>al dia</span></div><div class='model-strip-metrics'>WR 58.25% | Ret +1.771%</div><div class='model-strip-picks'>QCOM, GLW</div></article><article class='model-strip-card'><div class='model-strip-head'><strong>V13</strong><span class='badge badge-active'>activo</span></div><div class='model-strip-fresh'><span class='badge badge-fresh'>al dia</span></div><div class='model-strip-metrics'>WR 57.45% | Ret +4.662%</div><div class='model-strip-picks'>DAL, ERIC</div></article><article class='model-strip-card'><div class='model-strip-head'><strong>ML_V39</strong><span class='badge badge-legacy'>legacy_ml</span></div><div class='model-strip-fresh'><span class='badge badge-stale'>2 ruedas atras</span></div><div class='model-strip-metrics'>WR 54.25% | Ret +0.183%</div><div class='model-strip-picks'>QCOM, WMT</div></article></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head"><div><h2 class="section-title">Curvas de retorno medio por rueda</h2><div class="section-copy">Series de retorno promedio diario para los sleeves del motor experimental.</div></div></div>
+      <div class="two-col">
+        <div class="panel" style="margin:0">
+          <div class="section-head"><div><h3 class="section-title" style="font-size:24px">V13 D_D10</h3></div></div>
+          <svg viewBox='0 0 560 120' class='sparkline' data-values='[24.224853, 8.529537, 7.241059, 12.389512, 8.223518, 6.89876, 16.206552, 13.25997, 8.110342, 9.121026, 9.916321, 7.095684, -0.334314, -0.216022, -1.509265, -3.126101, -10.636767, -3.917523, -4.497542, -6.372557, -3.308464, 1.018448, 6.504039, 4.031276, 2.013844, 3.134873, 5.172527, 3.414705, 1.182905, 0.032757, 0.353116, 1.483572, 1.118914, -0.756478, -0.177638, -1.42133, -2.797742, -5.778953, -5.258519, -6.484669, -6.195768, -8.131416, -9.842333, -2.215058, 9.606126, 5.163237, 2.841657, 1.314758, 11.517625, 6.978074, 19.883381, 8.603747, 8.426839, -9.74912, 3.736546, 6.533179, 4.143393, 0.978096, 12.989845, 5.93345, -2.52665, -4.012475, -5.347717, 0.922705, -0.593351, 26.255048, 9.155681, 6.467963, 4.496782, 6.458503, -3.216156, 2.751601, -6.994041, 4.632471, -4.480086, 3.449168, 4.113092, 17.904875, 12.009723, 7.417925, 19.108681, 11.547917, 19.845671, 20.152505, 10.093566, -3.13059, -6.074166, -3.353004, -3.86526, 1.524029]' data-labels='[&quot;2026-01-05&quot;, &quot;2026-01-06&quot;, &quot;2026-01-07&quot;, &quot;2026-01-08&quot;, &quot;2026-01-09&quot;, &quot;2026-01-12&quot;, &quot;2026-01-13&quot;, &quot;2026-01-14&quot;, &quot;2026-01-16&quot;, &quot;2026-01-20&quot;, &quot;2026-01-21&quot;, &quot;2026-01-22&quot;, &quot;2026-01-23&quot;, &quot;2026-01-26&quot;, &quot;2026-01-27&quot;, &quot;2026-01-28&quot;, &quot;2026-01-29&quot;, &quot;2026-01-30&quot;, &quot;2026-02-02&quot;, &quot;2026-02-03&quot;, &quot;2026-02-04&quot;, &quot;2026-02-05&quot;, &quot;2026-02-06&quot;, &quot;2026-02-09&quot;, &quot;2026-02-10&quot;, &quot;2026-02-11&quot;, &quot;2026-02-12&quot;, &quot;2026-02-13&quot;, &quot;2026-02-17&quot;, &quot;2026-02-18&quot;, &quot;2026-02-19&quot;, &quot;2026-02-20&quot;, &quot;2026-02-23&quot;, &quot;2026-02-24&quot;, &quot;2026-02-25&quot;, &quot;2026-02-26&quot;, &quot;2026-02-27&quot;, &quot;2026-03-02&quot;, &quot;2026-03-03&quot;, &quot;2026-03-04&quot;, &quot;2026-03-05&quot;, &quot;2026-03-06&quot;, &quot;2026-03-09&quot;, &quot;2026-03-10&quot;, &quot;2026-03-11&quot;, &quot;2026-03-12&quot;, &quot;2026-03-13&quot;, &quot;2026-03-16&quot;, &quot;2026-03-17&quot;, &quot;2026-03-18&quot;, &quot;2026-03-19&quot;, &quot;2026-03-20&quot;, &quot;2026-03-23&quot;, &quot;2026-03-24&quot;, &quot;2026-03-25&quot;, &quot;2026-03-26&quot;, &quot;2026-03-27&quot;, &quot;2026-03-30&quot;, &quot;2026-03-31&quot;, &quot;2026-04-02&quot;, &quot;2026-04-06&quot;, &quot;2026-04-07&quot;, &quot;2026-04-08&quot;, &quot;2026-04-09&quot;, &quot;2026-04-10&quot;, &quot;2026-04-13&quot;, &quot;2026-04-14&quot;, &quot;2026-04-15&quot;, &quot;2026-04-16&quot;, &quot;2026-04-17&quot;, &quot;2026-04-20&quot;, &quot;2026-04-21&quot;, &quot;2026-04-22&quot;, &quot;2026-04-23&quot;, &quot;2026-04-24&quot;, &quot;2026-04-27&quot;, &quot;2026-04-28&quot;, &quot;2026-04-29&quot;, &quot;2026-04-30&quot;, &quot;2026-05-01&quot;, &quot;2026-05-04&quot;, &quot;2026-05-05&quot;, &quot;2026-05-06&quot;, &quot;2026-05-07&quot;, &quot;2026-05-08&quot;, &quot;2026-05-11&quot;, &quot;2026-05-12&quot;, &quot;2026-05-13&quot;, &quot;2026-05-14&quot;, &quot;2026-05-15&quot;]' data-title='V13 D_D10 | retorno medio por rueda' data-format='pct' data-previewable='0'><polyline points='0,116 560,116' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,116 4.00,13.72 10.20,57.97 16.40,61.60 22.61,47.09 28.81,58.83 35.01,62.57 41.21,36.33 47.42,44.63 53.62,59.15 59.82,56.30 66.02,54.06 72.22,62.01 78.43,82.96 84.63,82.62 90.83,86.27 97.03,90.83 103.24,112.00 109.44,93.06 115.64,94.69 121.84,99.98 128.04,91.34 134.25,79.14 140.45,63.68 146.65,70.65 152.85,76.34 159.06,73.18 165.26,67.43 171.46,72.39 177.66,78.68 183.87,81.92 190.07,81.02 196.27,77.83 202.47,78.86 208.67,84.15 214.88,82.52 221.08,86.02 227.28,89.90 233.48,98.31 239.69,96.84 245.89,100.30 252.09,99.48 258.29,104.94 264.49,109.76 270.70,88.26 276.90,54.93 283.10,67.46 289.30,74.00 295.51,78.31 301.71,49.55 307.91,62.34 314.11,25.96 320.31,57.76 326.52,58.26 332.72,109.50 338.92,71.48 345.12,63.60 351.33,70.33 357.53,79.26 363.73,45.40 369.93,65.29 376.13,89.14 382.34,93.33 388.54,97.09 394.74,79.41 400.94,83.69 407.15,8.00 413.35,56.20 419.55,63.78 425.75,69.34 431.96,63.81 438.16,91.08 444.36,74.26 450.56,101.73 456.76,68.96 462.97,94.64 469.17,72.29 475.37,70.42 481.57,31.54 487.78,48.16 493.98,61.10 500.18,28.15 506.38,49.46 512.58,26.07 518.79,25.20 524.99,53.56 531.19,90.84 537.39,99.14 543.60,91.47 549.80,92.91 556.00,77.72 556,116' fill='#0b7fab' opacity='0.18' /><polyline points='4.00,13.72 10.20,57.97 16.40,61.60 22.61,47.09 28.81,58.83 35.01,62.57 41.21,36.33 47.42,44.63 53.62,59.15 59.82,56.30 66.02,54.06 72.22,62.01 78.43,82.96 84.63,82.62 90.83,86.27 97.03,90.83 103.24,112.00 109.44,93.06 115.64,94.69 121.84,99.98 128.04,91.34 134.25,79.14 140.45,63.68 146.65,70.65 152.85,76.34 159.06,73.18 165.26,67.43 171.46,72.39 177.66,78.68 183.87,81.92 190.07,81.02 196.27,77.83 202.47,78.86 208.67,84.15 214.88,82.52 221.08,86.02 227.28,89.90 233.48,98.31 239.69,96.84 245.89,100.30 252.09,99.48 258.29,104.94 264.49,109.76 270.70,88.26 276.90,54.93 283.10,67.46 289.30,74.00 295.51,78.31 301.71,49.55 307.91,62.34 314.11,25.96 320.31,57.76 326.52,58.26 332.72,109.50 338.92,71.48 345.12,63.60 351.33,70.33 357.53,79.26 363.73,45.40 369.93,65.29 376.13,89.14 382.34,93.33 388.54,97.09 394.74,79.41 400.94,83.69 407.15,8.00 413.35,56.20 419.55,63.78 425.75,69.34 431.96,63.81 438.16,91.08 444.36,74.26 450.56,101.73 456.76,68.96 462.97,94.64 469.17,72.29 475.37,70.42 481.57,31.54 487.78,48.16 493.98,61.10 500.18,28.15 506.38,49.46 512.58,26.07 518.79,25.20 524.99,53.56 531.19,90.84 537.39,99.14 543.60,91.47 549.80,92.91 556.00,77.72' fill='none' stroke='#0b7fab' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='556.00' cy='77.72' r='3.5' fill='#0b7fab' /></svg>
+          <div class="kpi-line"><span>WR</span><strong>58.00%</strong></div>
+          <div class="kpi-line"><span>Ret medio</span><strong>+2.574%</strong></div>
+          <div class="kpi-line"><span>Conf media</span><strong>72.60%</strong></div>
+        </div>
+        <div class="panel" style="margin:0">
+          <div class="section-head"><div><h3 class="section-title" style="font-size:24px">V13 E_D15</h3></div></div>
+          <svg viewBox='0 0 560 120' class='sparkline' data-values='[24.373399, -2.951091]' data-labels='[&quot;2026-01-14&quot;, &quot;2026-04-07&quot;]' data-title='V13 E_D15 | retorno medio por rueda' data-format='pct' data-previewable='0'><polyline points='0,116 560,116' fill='none' stroke='rgba(0,0,0,0.08)' stroke-width='1' /><polygon points='4,116 4.00,8.00 556.00,112.00 556,116' fill='#b7852b' opacity='0.18' /><polyline points='4.00,8.00 556.00,112.00' fill='none' stroke='#b7852b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' /><circle cx='556.00' cy='112.00' r='3.5' fill='#b7852b' /></svg>
+          <div class="kpi-line"><span>WR</span><strong>50.00%</strong></div>
+          <div class="kpi-line"><span>Ret medio</span><strong>+10.711%</strong></div>
+          <div class="kpi-line"><span>Conf media</span><strong>59.42%</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head"><div><h2 class="section-title">Overlap matrix</h2><div class="section-copy">Promedio de coincidencia por rueda en la ventana reciente.</div></div></div>
+      <table class='matrix-table'><thead><tr><th></th><th>V13</th><th>V11</th><th>ML_V97</th><th>ML_V39</th><th>ML_V39FULL</th><th>ML_BRAIN_V11</th><th>ML_BRAIN_V11_OPT</th><th>ML_V37</th><th>ML_BRAIN_V10</th><th>ML_V94</th></tr></thead><tbody><tr><th>V13</th><td style='background:rgba(62, 175, 94, 0.95)' title='Jaccard medio 100.0 | dias comunes 29'>1.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 3'>0.000</td><td style='background:rgba(240, 234, 223, 0.95)' title='Jaccard medio 0.6 | dias comunes 28'>0.006</td><td style='background:rgba(237, 233, 220, 0.95)' title='Jaccard medio 2.6 | dias comunes 28'>0.026</td><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 1.9 | dias comunes 28'>0.019</td><td style='background:rgba(237, 233, 220, 0.95)' title='Jaccard medio 2.4 | dias comunes 28'>0.024</td><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 1.8 | dias comunes 28'>0.018</td><td style='background:rgba(239, 234, 222, 0.95)' title='Jaccard medio 1.5 | dias comunes 28'>0.015</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 28'>0.000</td><td style='background:rgba(241, 234, 223, 0.95)' title='Jaccard medio 0.4 | dias comunes 28'>0.004</td></tr><tr><th>V11</th><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 3'>0.000</td><td style='background:rgba(62, 175, 94, 0.95)' title='Jaccard medio 100.0 | dias comunes 3'>1.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 3'>0.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 3'>0.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 3'>0.000</td><td style='background:rgba(182, 215, 180, 0.95)' title='Jaccard medio 33.3 | dias comunes 3'>0.333</td><td style='background:rgba(182, 215, 180, 0.95)' title='Jaccard medio 33.3 | dias comunes 3'>0.333</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 3'>0.000</td><td style='background:rgba(182, 215, 180, 0.95)' title='Jaccard medio 33.3 | dias comunes 3'>0.333</td><td style='background:rgba(211, 224, 202, 0.95)' title='Jaccard medio 16.7 | dias comunes 3'>0.167</td></tr><tr><th>ML_V97</th><td style='background:rgba(240, 234, 223, 0.95)' title='Jaccard medio 0.6 | dias comunes 28'>0.006</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 3'>0.000</td><td style='background:rgba(62, 175, 94, 0.95)' title='Jaccard medio 100.0 | dias comunes 30'>1.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 2.2 | dias comunes 30'>0.022</td><td style='background:rgba(231, 231, 216, 0.95)' title='Jaccard medio 5.6 | dias comunes 30'>0.056</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(239, 234, 222, 0.95)' title='Jaccard medio 1.5 | dias comunes 30'>0.015</td></tr><tr><th>ML_V39</th><td style='background:rgba(237, 233, 220, 0.95)' title='Jaccard medio 2.6 | dias comunes 28'>0.026</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 3'>0.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(62, 175, 94, 0.95)' title='Jaccard medio 100.0 | dias comunes 30'>1.000</td><td style='background:rgba(225, 229, 212, 0.95)' title='Jaccard medio 9.1 | dias comunes 30'>0.091</td><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 2.2 | dias comunes 30'>0.022</td><td style='background:rgba(234, 232, 218, 0.95)' title='Jaccard medio 4.4 | dias comunes 30'>0.044</td><td style='background:rgba(237, 233, 220, 0.95)' title='Jaccard medio 2.7 | dias comunes 30'>0.027</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(231, 231, 216, 0.95)' title='Jaccard medio 5.9 | dias comunes 30'>0.059</td></tr><tr><th>ML_V39FULL</th><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 1.9 | dias comunes 28'>0.019</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 3'>0.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(225, 229, 212, 0.95)' title='Jaccard medio 9.1 | dias comunes 30'>0.091</td><td style='background:rgba(62, 175, 94, 0.95)' title='Jaccard medio 100.0 | dias comunes 30'>1.000</td><td style='background:rgba(236, 233, 220, 0.95)' title='Jaccard medio 2.8 | dias comunes 30'>0.028</td><td style='background:rgba(234, 232, 218, 0.95)' title='Jaccard medio 4.4 | dias comunes 30'>0.044</td><td style='background:rgba(229, 230, 215, 0.95)' title='Jaccard medio 6.7 | dias comunes 30'>0.067</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(233, 232, 217, 0.95)' title='Jaccard medio 4.8 | dias comunes 30'>0.048</td></tr><tr><th>ML_BRAIN_V11</th><td style='background:rgba(237, 233, 220, 0.95)' title='Jaccard medio 2.4 | dias comunes 28'>0.024</td><td style='background:rgba(182, 215, 180, 0.95)' title='Jaccard medio 33.3 | dias comunes 3'>0.333</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 2.2 | dias comunes 30'>0.022</td><td style='background:rgba(236, 233, 220, 0.95)' title='Jaccard medio 2.8 | dias comunes 30'>0.028</td><td style='background:rgba(62, 175, 94, 0.95)' title='Jaccard medio 100.0 | dias comunes 30'>1.000</td><td style='background:rgba(207, 223, 198, 0.95)' title='Jaccard medio 19.4 | dias comunes 30'>0.194</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(236, 233, 219, 0.95)' title='Jaccard medio 3.3 | dias comunes 30'>0.033</td><td style='background:rgba(234, 232, 218, 0.95)' title='Jaccard medio 4.4 | dias comunes 30'>0.044</td></tr><tr><th>ML_BRAIN_V11_OPT</th><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 1.8 | dias comunes 28'>0.018</td><td style='background:rgba(182, 215, 180, 0.95)' title='Jaccard medio 33.3 | dias comunes 3'>0.333</td><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 2.2 | dias comunes 30'>0.022</td><td style='background:rgba(234, 232, 218, 0.95)' title='Jaccard medio 4.4 | dias comunes 30'>0.044</td><td style='background:rgba(234, 232, 218, 0.95)' title='Jaccard medio 4.4 | dias comunes 30'>0.044</td><td style='background:rgba(207, 223, 198, 0.95)' title='Jaccard medio 19.4 | dias comunes 30'>0.194</td><td style='background:rgba(62, 175, 94, 0.95)' title='Jaccard medio 100.0 | dias comunes 30'>1.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 2.2 | dias comunes 30'>0.022</td><td style='background:rgba(231, 231, 216, 0.95)' title='Jaccard medio 5.6 | dias comunes 30'>0.056</td></tr><tr><th>ML_V37</th><td style='background:rgba(239, 234, 222, 0.95)' title='Jaccard medio 1.5 | dias comunes 28'>0.015</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 3'>0.000</td><td style='background:rgba(231, 231, 216, 0.95)' title='Jaccard medio 5.6 | dias comunes 30'>0.056</td><td style='background:rgba(237, 233, 220, 0.95)' title='Jaccard medio 2.7 | dias comunes 30'>0.027</td><td style='background:rgba(229, 230, 215, 0.95)' title='Jaccard medio 6.7 | dias comunes 30'>0.067</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(62, 175, 94, 0.95)' title='Jaccard medio 100.0 | dias comunes 30'>1.000</td><td style='background:rgba(240, 234, 222, 0.95)' title='Jaccard medio 1.1 | dias comunes 30'>0.011</td><td style='background:rgba(233, 232, 217, 0.95)' title='Jaccard medio 4.9 | dias comunes 30'>0.049</td></tr><tr><th>ML_BRAIN_V10</th><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 28'>0.000</td><td style='background:rgba(182, 215, 180, 0.95)' title='Jaccard medio 33.3 | dias comunes 3'>0.333</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(242, 235, 224, 0.95)' title='Jaccard medio 0.0 | dias comunes 30'>0.000</td><td style='background:rgba(236, 233, 219, 0.95)' title='Jaccard medio 3.3 | dias comunes 30'>0.033</td><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 2.2 | dias comunes 30'>0.022</td><td style='background:rgba(240, 234, 222, 0.95)' title='Jaccard medio 1.1 | dias comunes 30'>0.011</td><td style='background:rgba(62, 175, 94, 0.95)' title='Jaccard medio 100.0 | dias comunes 30'>1.000</td><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 2.2 | dias comunes 30'>0.022</td></tr><tr><th>ML_V94</th><td style='background:rgba(241, 234, 223, 0.95)' title='Jaccard medio 0.4 | dias comunes 28'>0.004</td><td style='background:rgba(211, 224, 202, 0.95)' title='Jaccard medio 16.7 | dias comunes 3'>0.167</td><td style='background:rgba(239, 234, 222, 0.95)' title='Jaccard medio 1.5 | dias comunes 30'>0.015</td><td style='background:rgba(231, 231, 216, 0.95)' title='Jaccard medio 5.9 | dias comunes 30'>0.059</td><td style='background:rgba(233, 232, 217, 0.95)' title='Jaccard medio 4.8 | dias comunes 30'>0.048</td><td style='background:rgba(234, 232, 218, 0.95)' title='Jaccard medio 4.4 | dias comunes 30'>0.044</td><td style='background:rgba(231, 231, 216, 0.95)' title='Jaccard medio 5.6 | dias comunes 30'>0.056</td><td style='background:rgba(233, 232, 217, 0.95)' title='Jaccard medio 4.9 | dias comunes 30'>0.049</td><td style='background:rgba(238, 233, 221, 0.95)' title='Jaccard medio 2.2 | dias comunes 30'>0.022</td><td style='background:rgba(62, 175, 94, 0.95)' title='Jaccard medio 100.0 | dias comunes 30'>1.000</td></tr></tbody></table>
+    </section>
+
+    <section class="panel">
+      <div class="section-head"><div><h2 class="section-title">Sectores fuertes</h2><div class="section-copy">Donde el motor experimental y dos challengers destacados estan acertando mas segun la DB evaluada.</div></div></div>
+      <div class="three-col">
+        <div class="panel" style="margin:0"><div class="section-head"><div><h3 class="section-title" style="font-size:24px">V13 D_D10</h3></div></div><table class='data-table compact'><thead><tr><th>Sector</th><th>N</th><th>WR</th><th>Ret</th></tr></thead><tbody><tr><td>energy</td><td>98</td><td>79.59%</td><td>+3.833%</td></tr><tr><td>finance</td><td>52</td><td>75.00%</td><td>+3.180%</td></tr><tr><td>semis</td><td>140</td><td>66.43%</td><td>+6.821%</td></tr><tr><td>mining</td><td>178</td><td>56.74%</td><td>+1.987%</td></tr><tr><td>other</td><td>209</td><td>55.02%</td><td>+2.099%</td></tr><tr><td>tech</td><td>38</td><td>50.00%</td><td>+2.642%</td></tr></tbody></table></div>
+        <div class="panel" style="margin:0"><div class="section-head"><div><h3 class="section-title" style="font-size:24px">ML_V97</h3></div></div><table class='data-table compact'><thead><tr><th>Sector</th><th>N</th><th>WR</th><th>Ret</th></tr></thead><tbody><tr><td>semis</td><td>12</td><td>91.67%</td><td>+7.312%</td></tr><tr><td>latam</td><td>22</td><td>81.82%</td><td>+4.034%</td></tr><tr><td>other</td><td>76</td><td>80.26%</td><td>+4.735%</td></tr><tr><td>tech</td><td>22</td><td>72.73%</td><td>+1.880%</td></tr><tr><td>industrial</td><td>14</td><td>71.43%</td><td>+4.605%</td></tr><tr><td>health</td><td>7</td><td>71.43%</td><td>+4.876%</td></tr></tbody></table></div>
+        <div class="panel" style="margin:0"><div class="section-head"><div><h3 class="section-title" style="font-size:24px">ML_V39</h3></div></div><table class='data-table compact'><thead><tr><th>Sector</th><th>N</th><th>WR</th><th>Ret</th></tr></thead><tbody><tr><td>energy</td><td>10</td><td>80.00%</td><td>+1.126%</td></tr><tr><td>finance</td><td>23</td><td>69.57%</td><td>+0.457%</td></tr><tr><td>health</td><td>28</td><td>57.14%</td><td>+0.186%</td></tr><tr><td>semis</td><td>46</td><td>56.52%</td><td>+0.184%</td></tr><tr><td>tech</td><td>50</td><td>50.00%</td><td>-0.098%</td></tr><tr><td>other</td><td>30</td><td>46.67%</td><td>+0.387%</td></tr></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head"><div><h2 class="section-title">Diferencias reales entre V12 y V13</h2><div class="section-copy">Ejemplos historicos donde el agregado de V13 no fue igual al de V12.</div></div></div>
+      <table class="data-table compact">
+        <thead><tr><th>Fecha</th><th>Solo V13</th><th>Solo V12</th></tr></thead>
+        <tbody><tr><td>2026-03-16</td><td>ERIC</td><td>-</td></tr><tr><td>2025-12-22</td><td>RKLB</td><td>-</td></tr></tbody>
+      </table>
+    </section>
+  </main>
+  <script>
+(function(){
+  function parseList(raw){
+    try {
+      const data = JSON.parse(raw || "[]");
+      return Array.isArray(data) ? data : [];
+    } catch (_) {
+      return [];
+    }
+  }
+  function clamp(value, min, max){
+    return Math.min(max, Math.max(min, value));
+  }
+  function ensureTooltip(){
+    let tooltip = document.getElementById("chartHoverTooltip");
+    if (!tooltip) {
+      tooltip = document.createElement("div");
+      tooltip.id = "chartHoverTooltip";
+      tooltip.className = "chart-hover-tooltip";
+      document.body.appendChild(tooltip);
+    }
+    return tooltip;
+  }
+  function ensurePreview(){
+    let preview = document.getElementById("chartPreviewPanel");
+    if (!preview) {
+      preview = document.createElement("div");
+      preview.id = "chartPreviewPanel";
+      preview.className = "chart-preview-panel";
+      preview.innerHTML =
+        "<div class='chart-preview-head'>"
+        + "<div class='chart-preview-title'></div>"
+        + "<div class='chart-preview-meta'></div>"
+        + "</div>"
+        + "<div class='chart-preview-canvas'></div>";
+      document.body.appendChild(preview);
+    }
+    return preview;
+  }
+  function formatValue(value, format){
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "—";
+    if (format === "int") return Math.round(num).toLocaleString("es-AR");
+    if (format === "float") return num.toFixed(2);
+    return (num >= 0 ? "+" : "") + num.toFixed(2) + "%";
+  }
+  function viewBoxSize(svg){
+    const raw = (svg.getAttribute("viewBox") || "").trim().split(/\s+/).map(Number);
+    if (raw.length === 4 && raw.every(Number.isFinite)) {
+      return { width: raw[2], height: raw[3] };
+    }
+    return { width: 240, height: 72 };
+  }
+  function ensureMarker(svg){
+    if (svg._sparkHoverMarker) return svg._sparkHoverMarker;
+    const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    marker.setAttribute("r", "5");
+    marker.setAttribute("fill", "#ffffff");
+    marker.setAttribute("stroke", svg.dataset.markerStroke || "#21c7c4");
+    marker.setAttribute("stroke-width", "2");
+    marker.setAttribute("opacity", "0");
+    marker.setAttribute("pointer-events", "none");
+    svg.appendChild(marker);
+    svg._sparkHoverMarker = marker;
+    return marker;
+  }
+  function moveMarker(svg, values, index){
+    const marker = ensureMarker(svg);
+    const box = viewBoxSize(svg);
+    const width = box.width;
+    const height = box.height;
+    const lo = Math.min.apply(null, values);
+    const hi = Math.max.apply(null, values);
+    const span = (hi - lo) || 1;
+    const x = index * (width - 8) / Math.max(values.length - 1, 1) + 4;
+    const y = height - 8 - ((values[index] - lo) / span) * (height - 16);
+    marker.setAttribute("cx", x.toFixed(2));
+    marker.setAttribute("cy", y.toFixed(2));
+    marker.setAttribute("opacity", "1");
+  }
+  function hideMarker(svg){
+    const marker = svg._sparkHoverMarker;
+    if (marker) marker.setAttribute("opacity", "0");
+  }
+  function nearestIndex(svg, event, values){
+    const rect = svg.getBoundingClientRect();
+    const ratio = clamp((event.clientX - rect.left) / Math.max(rect.width, 1), 0, 1);
+    return Math.round(ratio * Math.max(values.length - 1, 0));
+  }
+  function positionTooltip(tooltip, event){
+    tooltip.style.left = Math.min(window.innerWidth - tooltip.offsetWidth - 16, event.clientX + 16) + "px";
+    tooltip.style.top = Math.min(window.innerHeight - tooltip.offsetHeight - 16, event.clientY + 16) + "px";
+  }
+  function updatePreview(svg, label, valueText){
+    if (svg.dataset.previewable !== "1") return;
+    const preview = ensurePreview();
+    preview.querySelector(".chart-preview-title").textContent = svg.dataset.title || "Preview";
+    preview.querySelector(".chart-preview-meta").textContent = label + " · " + valueText;
+    preview.querySelector(".chart-preview-canvas").innerHTML = svg.outerHTML;
+    preview.classList.add("show");
+    svg.classList.add("is-previewable");
+  }
+  function hidePreview(svg){
+    if (svg) svg.classList.remove("is-previewable");
+    const preview = document.getElementById("chartPreviewPanel");
+    if (preview) preview.classList.remove("show");
+  }
+  function bindSpark(svg){
+    if (svg.dataset.hoverBound === "1") return;
+    svg.dataset.hoverBound = "1";
+    const values = parseList(svg.dataset.values);
+    const labels = parseList(svg.dataset.labels);
+    if (!values.length) return;
+    const tooltip = ensureTooltip();
+    svg.dataset.markerStroke = svg.querySelector("polyline[stroke]")?.getAttribute("stroke") || "#21c7c4";
+    function update(event){
+      const idx = nearestIndex(svg, event, values);
+      const label = String(labels[idx] || ("Punto " + (idx + 1)));
+      const valueText = formatValue(values[idx], svg.dataset.format || "pct");
+      tooltip.innerHTML =
+        "<strong>" + (svg.dataset.title || "Serie") + "</strong>"
+        + "<div class='chart-hover-label'>" + label + "</div>"
+        + "<div class='chart-hover-value'>" + valueText + "</div>";
+      tooltip.classList.add("show");
+      positionTooltip(tooltip, event);
+      moveMarker(svg, values.map(Number), idx);
+      updatePreview(svg, label, valueText);
+    }
+    function leave(){
+      tooltip.classList.remove("show");
+      hideMarker(svg);
+      hidePreview(svg);
+    }
+    svg.addEventListener("mouseenter", update);
+    svg.addEventListener("mousemove", update);
+    svg.addEventListener("mouseleave", leave);
+  }
+  function init(){
+    document.querySelectorAll("svg.sparkline[data-values]").forEach(bindSpark);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
+})();
+</script>
+  <script>
+  (function() {
+    function updateFreshness() {
+      var pill = document.getElementById('generated-at-pill');
+      var kpiVal = document.getElementById('kpi-fresh-value');
+      var kpiSub = document.getElementById('kpi-fresh-sub');
+      var kpiCard = document.getElementById('kpi-actualizacion');
+      var ts = pill ? pill.dataset.ts : (kpiSub ? kpiSub.textContent.trim() : null);
+      if (!ts) return;
+      var gen = new Date(ts);
+      var now = new Date();
+      var diffMin = Math.round((now - gen) / 60000);
+      var label, dot, accent;
+      if (diffMin < 240) {
+        dot = '🟢'; accent = 'accent-green';
+        label = diffMin < 60 ? diffMin + 'm' : Math.floor(diffMin/60) + 'h' + (diffMin%60 > 0 ? (diffMin%60) + 'm' : '');
+      } else if (diffMin < 1380) {
+        dot = '🟡'; accent = 'accent-gold';
+        var h = Math.floor(diffMin/60), m = diffMin%60;
+        label = h + 'h' + (m > 0 ? m + 'm' : '');
+      } else {
+        dot = '🔴'; accent = 'accent-rose';
+        label = Math.floor(diffMin/60) + 'h';
+      }
+      var friendly = dot + ' hace ' + label;
+      if (pill) pill.textContent = dot + ' Generado ' + ts.replace('T',' ').substring(0,16) + ' (' + label + ')';
+      if (kpiVal) kpiVal.textContent = friendly;
+      if (kpiSub) kpiSub.textContent = 'gen. ' + ts.replace('T',' ').substring(0,16);
+      if (kpiCard) {
+        kpiCard.classList.remove('accent-green','accent-gold','accent-rose');
+        kpiCard.classList.add(accent);
+      }
+    }
+    updateFreshness();
+    setInterval(updateFreshness, 60000);
+  })();
+  </script>
+</body>
+</html>
