@@ -59,7 +59,7 @@ jobs:
       - name: Test DB connection (temporal)
         run: |
           echo "Testing DATABASE_URL connection..."
-          python -c "from sqlalchemy import create_engine; import sys; url = sys.argv[1]; engine = create_engine(url); with engine.connect() as conn: print('[DB OK]', conn.execute('SELECT 1').scalar())" "$DATABASE_URL"
+          python -c "from sqlalchemy import create_engine; import os; url = os.environ['DATABASE_URL']; engine = create_engine(url); conn = engine.connect(); print('[DB OK]', conn.execute('SELECT 1').scalar()); conn.close()"
           echo "If you see [DB OK] 1 above, the connection is valid."
 
       - name: Apply schema with Alembic
