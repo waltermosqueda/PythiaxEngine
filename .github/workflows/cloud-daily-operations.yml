@@ -121,7 +121,11 @@ jobs:
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
 
       - name: Audit DB vs dashboard vs site (ALWAYS)
+        id: audit
         run: |
+          set +e
+          mkdir -p docs/cloud/reports
+          echo "Running dashboard audit..."
           python -m infra.cloud.audit_dashboard_integrity \
             --snapshot-path dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json \
             --dashboard-dir dashboards/maquina_pensante \
@@ -129,14 +133,31 @@ jobs:
             --sample-size 5 \
             --seed 130013 \
             --report-path docs/cloud/reports/dashboard_integrity_audit.json
+          audit_exit=$?
+          set -e
+          echo "AUDIT_EXIT=$audit_exit" >> $GITHUB_ENV
+          if [ "$audit_exit" -ne 0 ]; then
+            echo "::warning::Audit failed with exit code $audit_exit — continuing to upload artifacts for debugging."
+            if [ ! -f docs/cloud/reports/dashboard_integrity_audit.json ]; then
+              echo '{"error":"audit_failed","exit_code":'"$audit_exit"'}' > docs/cloud/reports/dashboard_integrity_audit.json
+            fi
+          fi
 
       - name: Upload audit reports (ALWAYS)
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: pythiax-dashboard-reports-${{ github.run_id }}
           path: |
             docs/cloud/reports/dashboard_integrity_audit.json
             docs/cloud/reports/model_snapshot_freshness.json
+          if-no-files-found: warn
+
+      - name: Fail if audit failed
+        if: ${{ env.AUDIT_EXIT != '0' }}
+        run: |
+          echo "Audit exit code: $AUDIT_EXIT"
+          exit $AUDIT_EXIT
 
       - name: Validate staged site
         if: steps.refresh.outputs.should_refresh == 'true'
