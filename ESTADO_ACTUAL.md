@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-28T18:38:55Z -->
-<!-- git_head: 90ab2ae -->
+<!-- generated_at: 2026-05-28T19:14:33Z -->
+<!-- git_head: f480b4c -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 90ab2ae → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-28 15:38 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ f480b4c → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-28 16:14 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-28T18:38:55Z | `2026-05-28 15:38 AR (Jue)` | HEAD: `90ab2ae`*
+*Auto-generado: 2026-05-28T19:14:33Z | `2026-05-28 16:14 AR (Jue)` | HEAD: `f480b4c`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `90ab2ae`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-28 15:38 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `f480b4c`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-28 16:14 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-28T18:38:55Z` |
-| Hora AR | `2026-05-28 15:38 AR (Jue)` |
+| Generado | `2026-05-28T19:14:33Z` |
+| Hora AR | `2026-05-28 16:14 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,13 +64,13 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `90ab2ae` — feat(dashboard): actualizar tablero maquina pensante y snapshot al 2026-05-27
-**Timestamp commit:** 2026-05-28 14:34:59 -0300
+**HEAD:** `f480b4c` — fix(pipeline): fuerza recomputo de snapshots para TODOS los modelos (incluyendo legacy/observed); falla duro si falta alguno. Solo considera 'al día' si no falta ningún snapshot. [cloud-daily integrity fix]
+**Timestamp commit:** 2026-05-28 16:11:24 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-90ab2ae feat(dashboard): actualizar tablero maquina pensante y snapshot al 2026-05-27
+f480b4c fix(pipeline): fuerza recomputo de snapshots para TODOS los modelos (incluyendo legacy/observed); falla duro si falta alguno. Solo considera 'al día' si no falta ningún snapshot. [cloud-daily integrity fix]
 ```
 
 ### Working tree
