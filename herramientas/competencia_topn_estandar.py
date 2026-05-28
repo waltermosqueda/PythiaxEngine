@@ -238,9 +238,9 @@ def _build_dashboard_scanner_visibility(
     return visible_labels, hidden_rows
 
 
-def load_entry_snapshots(con: RuntimeDB, entry: dict[str, Any], market_dates: list[str] | None = None) -> dict[str, dict[str, Any]]:
+def load_entry_snapshots(con: RuntimeDB, entry: dict[str, Any]) -> dict[str, dict[str, Any]]:
     snapshots: dict[str, dict[str, Any]] = {}
-    for row in load_entry_snapshot_rows(con, entry, market_dates=market_dates):
+    for row in load_entry_snapshot_rows(con, entry):
         analyzed_date = str(row.get("analyzed_date") or "")
         payload = row.get("snapshot") or {}
         if analyzed_date and isinstance(payload, dict):
@@ -248,9 +248,8 @@ def load_entry_snapshots(con: RuntimeDB, entry: dict[str, Any], market_dates: li
     return snapshots
 
 
-def load_entry_snapshot_rows(con: RuntimeDB, entry: dict[str, Any], market_dates: list[str] | None = None) -> list[dict[str, Any]]:
-    cutoff = market_dates[-120] if market_dates and len(market_dates) > 120 else None
-    return fetch_model_run_snapshots(con, model_keys=[str(entry["label"])], analyzed_date_from=cutoff)
+def load_entry_snapshot_rows(con: RuntimeDB, entry: dict[str, Any]) -> list[dict[str, Any]]:
+    return fetch_model_run_snapshots(con, model_keys=[str(entry["label"])])
 
 
 def extract_ranked_snapshot_picks(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
@@ -369,11 +368,9 @@ def _build_ranked_picks_by_date(
 def _load_operational_row_map(
     con: RuntimeDB,
     entry: dict[str, Any],
-    market_dates: list[str] | None = None,
 ) -> dict[tuple[str, str], dict[str, Any]]:
     prefix = str(entry["prefix"])
     exact = bool(entry.get("exact_model_name", False))
-    cutoff = market_dates[-120] if market_dates and len(market_dates) > 120 else None
     params: tuple[Any, ...]
     # MTM (mark-to-market) provisional return for open/pending picks:
     # computed as (latest_close - entry_close) / entry_close
@@ -444,10 +441,6 @@ def _load_operational_row_map(
             WHERE p.model_name LIKE ?
         """
         params = (f"{prefix}_%",)
-
-    if cutoff is not None:
-        sql += " AND p.prediction_date >= ?"
-        params = (*params, cutoff)
 
     grouped: dict[tuple[str, str], dict[str, Any]] = {}
     for raw_row in con.execute(sql, params).fetchall():
@@ -707,9 +700,9 @@ def _build_entry_state(
     market_dates: list[str],
     top_n: int,
 ) -> dict[str, Any]:
-    snapshot_rows = load_entry_snapshot_rows(con, entry, market_dates=market_dates)
-    snapshots = load_entry_snapshots(con, entry, market_dates=market_dates)
-    row_map = _load_operational_row_map(con, entry, market_dates=market_dates)
+    snapshot_rows = load_entry_snapshot_rows(con, entry)
+    snapshots = load_entry_snapshots(con, entry)
+    row_map = _load_operational_row_map(con, entry)
     ranked_picks_by_date, source_by_date, selection_source = _build_ranked_picks_by_date(
         snapshots,
         row_map,
