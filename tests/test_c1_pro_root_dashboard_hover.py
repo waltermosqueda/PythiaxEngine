@@ -176,7 +176,8 @@ def test_build_liga_table_uses_provisional_window_data_when_aggregates_are_missi
 
 
 def test_render_legacy_grid_uses_calendar_fallback_for_cards() -> None:
-    snap = {
+    # Caso 1: latest_tickers vacío, debe hacer fallback a calendar
+    snap1 = {
         "competition_recent": {
             "dashboard_league_equalized": [
                 {
@@ -212,14 +213,54 @@ def test_render_legacy_grid_uses_calendar_fallback_for_cards() -> None:
             ]
         }
     }
+    html1 = refresher._render_legacy_grid(snap1)
+    assert "PROV" in html1
+    assert "prov 2" in html1
+    # Fallback: no latest_tickers, así que no aparecen tickers
+    assert "," not in html1.split("mc-tickers'>",1)[-1]  # No tickers listados
 
-    html = refresher._render_legacy_grid(snap)
-
-    assert "PROV" in html
-    assert "prov 2" in html
-    assert "NVDA" in html
-    assert "AAPL" in html
-    assert "data-values='[0.6, 0.2]'" in html
+    # Caso 2: latest_tickers presente, debe mostrarlos
+    snap2 = {
+        "competition_recent": {
+            "dashboard_league_equalized": [
+                {
+                    "version": "ML_V94",
+                    "role": "legacy_ml",
+                    "rank": 4,
+                    "stale_market_days": 1,
+                    "latest_tickers": ["NVDA", "AAPL"],
+                    "latest_picks": 2,
+                    "unique_tickers": 2,
+                    "latest_target_date": "2099-01-01",
+                    "equalized_recent": {
+                        "accuracy_pct": None,
+                        "avg_return_pct": None,
+                        "active_days": 0,
+                        "window_days": 39,
+                        "evaluated": 0,
+                        "calendar": [
+                            {"date": "2026-04-22", "avg_return_pct": 0.6, "tickers": ["NVDA", "AAPL"]},
+                        ],
+                    },
+                    "recent_30": {
+                        "accuracy_pct": None,
+                        "avg_return_pct": None,
+                        "active_days": 0,
+                        "window_days": 30,
+                        "evaluated": 0,
+                        "calendar": [
+                            {"date": "2026-04-22", "avg_return_pct": 0.6, "tickers": ["NVDA", "AAPL"]},
+                            {"date": "2026-04-23", "avg_return_pct": -0.4, "tickers": ["AAPL"]},
+                        ],
+                    },
+                }
+            ]
+        }
+    }
+    html2 = refresher._render_legacy_grid(snap2)
+    assert "NVDA" in html2
+    assert "AAPL" in html2
+    assert "data-values='[0.6, 0.2]'" in html2
 
 
 def test_heatmap_variant_a_uses_tickers_when_picks_field_is_missing() -> None:
