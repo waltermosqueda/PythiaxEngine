@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 AuditorÃ­a de integridad de precios y datos del dashboard.
 
@@ -795,4 +796,4 @@ def main() -> int:
 if __name__ == "__main__":
     raise SystemExit(main())
 
-# ci-trigger: semaforo 97% — 2026-05-06
+# ci-trigger: semaforo 97% ï¿½ 2026-05-06
