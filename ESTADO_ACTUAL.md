@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-28T21:26:27Z -->
-<!-- git_head: 65e6375 -->
+<!-- generated_at: 2026-05-28T21:48:25Z -->
+<!-- git_head: 4741e11 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 65e6375 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-28 18:26 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 4741e11 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-28 18:48 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-28T21:26:27Z | `2026-05-28 18:26 AR (Jue)` | HEAD: `65e6375`*
+*Auto-generado: 2026-05-28T21:48:25Z | `2026-05-28 18:48 AR (Jue)` | HEAD: `4741e11`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `65e6375`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-28 18:26 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `4741e11`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-28 18:48 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-28T21:26:27Z` |
-| Hora AR | `2026-05-28 18:26 AR (Jue)` |
+| Generado | `2026-05-28T21:48:25Z` |
+| Hora AR | `2026-05-28 18:48 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,13 +64,13 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `65e6375` — fix(workflow): robust DB test, clearer secret message, stop swallowing pipeline errors
-**Timestamp commit:** 2026-05-28 18:19:31 -0300
+**HEAD:** `4741e11` — chore(auto): update ESTADO_ACTUAL → 65e6375e0c818ac8f15300b402b5c15d2bc1d2aa [skip ci]
+**Timestamp commit:** 2026-05-28 18:26:27 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-65e6375 fix(workflow): robust DB test, clearer secret message, stop swallowing pipeline errors
+4741e11 chore(auto): update ESTADO_ACTUAL → 65e6375e0c818ac8f15300b402b5c15d2bc1d2aa [skip ci]
 ```
 
 ### Working tree
