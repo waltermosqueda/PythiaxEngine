@@ -1,47 +1,26 @@
 #!/usr/bin/env python3
-"""Apply all 3 integrity fixes to the staging dashboard _staging_h7t3b.html.
-Run once, then re-run _tmp_render_staging.py to inject fresh snapshot data.
-"""
-import re
-from pathlib import Path
+"""Neutralized staging patcher (NO-OP).
 
-STAGING = Path("C:/repos/PythiaxEngine/analisis/_staging_h7t3b.html")
+This file was intentionally replaced with a safe no-op to prevent any
+automatic or ad-hoc mutations of generated HTML previews in the repo.
 
-html = STAGING.read_text(encoding="utf-8")
-changes = []
+If you need to re-apply the original mutator for a controlled, manual
+run, restore `_patch_staging_fixes.py.orig` to `_patch_staging_fixes.py`
+and run it locally while reviewing changes before committing.
 
-# ── Fix #3: add id="overlap" to the overlap section ─────────────────────────
-OLD_OVERLAP = '<section class="panel editable-block" data-bid="overlap-panel" data-blabel="Overlap matrix">'
-NEW_OVERLAP = '<section class="panel editable-block" data-bid="overlap-panel" data-blabel="Overlap matrix" id="overlap">'
-if OLD_OVERLAP in html:
-    html = html.replace(OLD_OVERLAP, NEW_OVERLAP, 1)
-    changes.append("✅ Fix #3: id=overlap added to overlap section")
-else:
-    changes.append("⚠️  Fix #3: overlap section not found — already patched?")
+Safe usage:
+  - To inspect the original script: open `_patch_staging_fixes.py.orig`.
+  - Do NOT run this file in CI or automated builders.
 
-# ── Fix h7-strip: breadth (59.4% → 61.9%) ───────────────────────────────────
-OLD_BREADTH = '<div class="h7-cs">breadth 59.4%</div>'
-NEW_BREADTH = '<div class="h7-cs">breadth 61.9%</div>'
-if OLD_BREADTH in html:
-    html = html.replace(OLD_BREADTH, NEW_BREADTH, 1)
-    changes.append("✅ h7-strip breadth: 59.4% → 61.9%")
-else:
-    changes.append("⚠️  h7-strip breadth: not found (already patched?)")
-
-# ── Fix h7-strip: champion WR (76.1% → 76.36%) ──────────────────────────────
-#!/usr/bin/env python3
-"""Neutralized staging patcher.
-
-This file was disabled on 2026-05-29 to prevent manual HTML mutations of
-the staging/preview pages. Restoration is possible from
-`_patch_staging_fixes.py.orig` if needed for a controlled run.
+The neutralized script prints a notice and exits with code 0.
 """
 import sys
 
 def main():
-    print("Neutralized _patch_staging_fixes.py — no automatic HTML patches will run.")
-    print("To restore behavior: copy _patch_staging_fixes.py.orig -> _patch_staging_fixes.py")
+    print("_patch_staging_fixes.py is neutralized: no automatic HTML patches will run.")
+    print("Original content is preserved in _patch_staging_fixes.py.orig")
     return 0
+
 
 if __name__ == '__main__':
     sys.exit(main())
