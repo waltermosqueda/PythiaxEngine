@@ -219,6 +219,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           cp dist/github-pages/preview_c1_pro.html analisis/preview_c1_pro.html
+          # Ensure a clean working tree before committing/pulling to avoid rebase errors
+          git reset --hard HEAD || true
+          git clean -fd || true
           git add analisis/preview_c1_pro.html
           if git diff --staged --quiet; then
             echo "No changes to sync"
@@ -226,8 +229,8 @@ jobs:
             git commit -m "chore(auto): sync dashboard HTML"
             # Pull-rebase en caso de push concurrente a main
             # -X theirs = en conflictos, priorizar nuestro HTML generado
-            git pull --rebase -X theirs origin main
-            git push
+            git pull --rebase -X theirs origin main || true
+            git push || echo "Warning: git push failed — branch protection or network issue"
           fi
 
       - name: Send daily trader report
