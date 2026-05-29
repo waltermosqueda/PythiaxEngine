@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -99,6 +100,19 @@ def read_json(path: Path) -> dict[str, Any]:
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+
+
+def _sanitize_traceback(tb: str) -> str:
+    """Sanitize traceback text to avoid leaking simple credentials (best-effort).
+
+    This performs a conservative replacement of URL credentials of the form
+    '://user:pass@' -> '://REDACTED@'. It's intentionally minimal so it won't
+    produce false negatives/positives for other text.
+    """
+    try:
+        return re.sub(r"://[^@\s]+@", "://REDACTED@", tb)
+    except Exception:
+        return tb
 
 
 def normalize_float(value: Any, digits: int = 6) -> float | None:
@@ -755,6 +769,10 @@ def audit_dashboard_integrity(
         "checks_failed": len(failures),
         "checks": checks,
         "failures": failures,
+        # Timestamps and traceability fields
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at_display": datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z"),
+        "tracebacks": [],
     }
     if report_path is not None:
         write_json(report_path.resolve(), payload)
@@ -802,10 +820,19 @@ if __name__ == "__main__":
             report_path = args.report_path if args and hasattr(args, 'report_path') else DEFAULT_REPORT_PATH
         except Exception:
             report_path = DEFAULT_REPORT_PATH
+        now = datetime.now(timezone.utc)
+        raw_tb = traceback.format_exc()
+        sanitized_tb = _sanitize_traceback(raw_tb)
+
         error_payload = {
             "generator": "infra.cloud.audit_dashboard_integrity",
             "error": str(exc),
-            "traceback": traceback.format_exc(),
+            # Backwards-compatible single-string 'traceback'
+            "traceback": sanitized_tb,
+            # New field: list of tracebacks (best-effort, sanitized)
+            "tracebacks": [sanitized_tb],
+            "generated_at": now.isoformat(),
+            "generated_at_display": now.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z"),
         }
         # If local `checks`/`failures` were created before the exception, include
         # them in the error payload to aid post-mortem analysis. Use a best-effort
