@@ -807,6 +807,19 @@ if __name__ == "__main__":
             "error": str(exc),
             "traceback": traceback.format_exc(),
         }
+        # If local `checks`/`failures` were created before the exception, include
+        # them in the error payload to aid post-mortem analysis. Use a best-effort
+        # approach so adding these fields never raises a new exception.
+        try:
+            _checks = locals().get('checks', None)
+            if isinstance(_checks, list):
+                error_payload['checks'] = _checks
+            _failures = locals().get('failures', None)
+            if isinstance(_failures, list):
+                error_payload['failures'] = _failures
+        except Exception:
+            # Best-effort: do not mask original exception
+            pass
         try:
             write_json(Path(report_path).resolve(), error_payload)
         except Exception as write_exc:
