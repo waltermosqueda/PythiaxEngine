@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-29T00:45:03Z -->
-<!-- git_head: eebeee5 -->
+<!-- generated_at: 2026-05-29T01:57:48Z -->
+<!-- git_head: a096e03 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ eebeee5 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-28 21:45 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ a096e03 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-28 22:57 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-29T00:45:03Z | `2026-05-28 21:45 AR (Jue)` | HEAD: `eebeee5`*
+*Auto-generado: 2026-05-29T01:57:48Z | `2026-05-28 22:57 AR (Jue)` | HEAD: `a096e03`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `eebeee5`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-28 21:45 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `a096e03`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-28 22:57 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-29T00:45:03Z` |
-| Hora AR | `2026-05-28 21:45 AR (Jue)` |
+| Generado | `2026-05-29T01:57:48Z` |
+| Hora AR | `2026-05-28 22:57 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -58,26 +58,29 @@
   20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
 ```
 
-**Pipeline diario** (19:30 AR = 22:30 UTC): `✅ PASADO`
+**Pipeline diario** (19:30 AR = 22:30 UTC): `⏳ PENDIENTE`
 
 ---
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `eebeee5` — chore(auto): update ESTADO_ACTUAL → 4741e11674122c51392c87f85df81435877a9c8c [skip ci]
-**Timestamp commit:** 2026-05-28 18:48:25 -0300
+**HEAD:** `a096e03` — chore(auto): sync dashboard HTML
+**Timestamp commit:** 2026-05-28 22:57:48 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-eebeee5 chore(auto): update ESTADO_ACTUAL → 4741e11674122c51392c87f85df81435877a9c8c [skip ci]
+a096e03 chore(auto): sync dashboard HTML
+f38d8a3 ci(auto): relax optional snapshot requirement in dashboard history check
 ```
 
 ### Working tree
 ```
-M aprendizaje_operativo/v11_runs/2026-05-27.json
- M aprendizaje_operativo/v12_runs/2026-05-27.json
- M aprendizaje_operativo/v13_runs/2026-05-27.json
+M dashboards/maquina_pensante/tablero_maquina_pensante.html
+ M dashboards/maquina_pensante/tablero_maquina_pensante_artifact_manifest.json
+ M dashboards/maquina_pensante/tablero_maquina_pensante_executive.html
+ M dashboards/maquina_pensante/tablero_maquina_pensante_lab.html
+ M dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
 ```
 
 ---
