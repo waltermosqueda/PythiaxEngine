@@ -692,6 +692,10 @@ def audit_dashboard_integrity(
     staged_site_dir = site_dir.resolve() if site_dir is not None else None
     snapshot = read_json(snapshot_path)
 
+    # Initialize recording lists early so pre-DB checks can append results
+    checks: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+
     # Check snapshot generated_at freshness (fail if too old)
     gen = snapshot.get("generated_at")
     if gen:
@@ -720,8 +724,7 @@ def audit_dashboard_integrity(
     finally:
         engine.dispose()
 
-    checks: list[dict[str, Any]] = []
-    failures: list[dict[str, Any]] = []
+    # `checks` and `failures` were initialized earlier so we must not reassign them here.
     compare_integrity(snapshot, expected_payload, checks, failures)
     compare_active(snapshot, expected_active, checks, failures)
     verify_active_run_invariants(snapshot, checks, failures)
