@@ -934,13 +934,14 @@ def build_prediction_window_coverage(
 
 
 def dashboard_history_is_current(report: dict[str, Any], min_market_days: int = MIN_DASHBOARD_HISTORY_DAYS) -> bool:
-    # Fix: Solo retorna True si NO falta ningún snapshot requerido u opcional
+    # Return True when the minimal history is available for required snapshots
+    # Optional missing snapshots should not block the pipeline from proceeding.
     if not report.get("history_complete"):
         return False
     if int(report.get("window_days") or 0) < min_market_days:
         return False
-    # Chequeo estricto: no debe faltar ningún snapshot, ni requerido ni opcional
-    if report.get("required_missing_snapshot_history") or report.get("optional_missing_snapshot_history"):
+    # Only required snapshots are mandatory; optional missing snapshots are acceptable.
+    if report.get("required_missing_snapshot_history"):
         return False
     window_coverage = report.get("window_coverage") or {}
     for domain in ("predictions", "outcomes", "regimes"):
