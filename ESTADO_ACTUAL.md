@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-29T01:57:48Z -->
-<!-- git_head: a096e03 -->
+<!-- generated_at: 2026-05-29T02:20:14Z -->
+<!-- git_head: 033cdfc -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ a096e03 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-28 22:57 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 033cdfc → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-28 23:20 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-29T01:57:48Z | `2026-05-28 22:57 AR (Jue)` | HEAD: `a096e03`*
+*Auto-generado: 2026-05-29T02:20:14Z | `2026-05-28 23:20 AR (Jue)` | HEAD: `033cdfc`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `a096e03`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-28 22:57 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `033cdfc`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-28 23:20 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-29T01:57:48Z` |
-| Hora AR | `2026-05-28 22:57 AR (Jue)` |
+| Generado | `2026-05-29T02:20:14Z` |
+| Hora AR | `2026-05-28 23:20 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,24 +64,17 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `a096e03` — chore(auto): sync dashboard HTML
-**Timestamp commit:** 2026-05-28 22:57:48 -0300
+**HEAD:** `033cdfc` — ci(workflow): clean working tree before syncing dashboard HTML to avoid rebase errors
+**Timestamp commit:** 2026-05-28 23:13:48 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-a096e03 chore(auto): sync dashboard HTML
-f38d8a3 ci(auto): relax optional snapshot requirement in dashboard history check
+033cdfc ci(workflow): clean working tree before syncing dashboard HTML to avoid rebase errors
 ```
 
 ### Working tree
-```
-M dashboards/maquina_pensante/tablero_maquina_pensante.html
- M dashboards/maquina_pensante/tablero_maquina_pensante_artifact_manifest.json
- M dashboards/maquina_pensante/tablero_maquina_pensante_executive.html
- M dashboards/maquina_pensante/tablero_maquina_pensante_lab.html
- M dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
-```
+_Rama limpia — sin cambios sin commitear_
 
 ---
 
