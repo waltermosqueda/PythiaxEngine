@@ -1624,7 +1624,11 @@ def build_dashboard_payload(
     pipeline_run_id: str | None = None,
     database_url: str | None = None,
 ) -> dict[str, Any]:
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    ar_tz = timezone(timedelta(hours=-3))
+    now_ar = now_dt.astimezone(ar_tz)
+    generated_at_display = f"{now_dt.strftime('%Y-%m-%d %H:%M')} UTC · {now_ar.strftime('%H:%M')} AR"
     operational = resolve_operational_scanner_context()
     engine = create_db_engine(database_url=database_url) if database_url else None
     with (RuntimeDB(engine) if engine is not None else connect_runtime_db()) as db:
@@ -1639,6 +1643,7 @@ def build_dashboard_payload(
         competition_rows = standardized_competition["rows"]
         payload = {
             "generated_at": now,
+            "generated_at_display": generated_at_display,
             "build": build_dashboard_metadata(db.backend.name, pipeline_run_id=pipeline_run_id),
             "operational_context": {
                 "active_version": operational.active_version,
@@ -3582,7 +3587,7 @@ def render_index(payload: dict[str, Any]) -> str:
           <div class="eyebrow">Dashboard operativo</div>
           <h1>Liga de modelos · Motor Experimental y performance</h1>
           <div class="header-meta">
-            <span class="pill" id="generated-at-pill" data-ts="{safe(payload['generated_at'])}">Generado {safe(payload["generated_at"])}</span>
+            <span class="pill" id="generated-at-pill" data-ts="{safe(payload['generated_at'])}">Generado {safe(payload['generated_at_display'])}</span>
             <span class="pill">Build {safe(build_status_label(payload))}</span>
             <span class="pill">Mercado {fmt_date(integrity["latest_market_date"])}</span>
             <span class="pill">Muestra igualada {fmt_int(equalized_days)} ruedas</span>
@@ -3603,7 +3608,7 @@ def render_index(payload: dict[str, Any]) -> str:
         <div class="stat-card accent-gold editable-block" data-block-id="kpi-picks" data-block-label="KPI Picks vivos"><div class="stat-label">Picks {safe(champion_label)} · {safe(active_run.get('regime_label', '-'))}</div><div class="stat-value">{fmt_int(len(live_results))} picks</div><div class="stat-subtitle">{safe(_champion_picks_str)} · target {fmt_date(active_run.get('prediction_for'))}</div></div>
         <div class="stat-card accent-rose editable-block" data-block-id="kpi-db" data-block-label="KPI Mercado"><div class="stat-label">Mercado</div><div class="stat-value">{fmt_date(integrity['latest_market_date'])}</div><div class="stat-subtitle">{fmt_int(integrity['outcomes_count'])} outcomes · {fmt_int(integrity['predictions_count'])} pred · {fmt_int(integrity['regimes_count'])} regimes</div></div>
         <div class="stat-card accent-cyan editable-block" data-block-id="kpi-mtm" data-block-label="KPI MTM abiertos"><div class="stat-label">MTM abiertos</div><div class="stat-value">{fmt_int(_total_open)} tickers</div><div class="stat-subtitle">en {fmt_int(_models_with_picks)} modelos · scanner + legacy</div></div>
-        <div class="stat-card editable-block" id="kpi-actualizacion" data-block-id="kpi-actualizacion" data-block-label="KPI Actualizacion"><div class="stat-label">Actualización</div><div class="stat-value" id="kpi-fresh-value">—</div><div class="stat-subtitle" id="kpi-fresh-sub">{safe(payload['generated_at'])}</div></div>
+        <div class="stat-card editable-block" id="kpi-actualizacion" data-block-id="kpi-actualizacion" data-block-label="KPI Actualizacion"><div class="stat-label">Actualización</div><div class="stat-value" id="kpi-fresh-value">—</div><div class="stat-subtitle" id="kpi-fresh-sub">{safe(payload['generated_at_display'])}</div></div>
       </section>
 
       <section class="prime-grid" data-container-id="champion-league-grid" id="champion">
