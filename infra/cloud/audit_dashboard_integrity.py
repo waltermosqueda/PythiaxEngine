@@ -34,6 +34,7 @@ from infra.db.migrate_sqlite_to_postgres import redact_url
 from infra.db.runtime import RuntimeDB
 from infra.db.session import create_db_engine
 from infra.publish.dashboard_site import ENTRYPOINT_NAME, SITE_MANIFEST_NAME
+from datetime import datetime, timezone
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -690,6 +691,26 @@ def audit_dashboard_integrity(
     dashboard_root = (dashboard_dir.resolve() if dashboard_dir else snapshot_path.parent.resolve())
     staged_site_dir = site_dir.resolve() if site_dir is not None else None
     snapshot = read_json(snapshot_path)
+
+    # Check snapshot generated_at freshness (fail if too old)
+    gen = snapshot.get("generated_at")
+    if gen:
+        try:
+            # normalize trailing Z
+            gen_norm = gen if not str(gen).endswith("Z") else str(gen).replace("Z", "+00:00")
+            gen_dt = datetime.fromisoformat(gen_norm)
+            age_secs = (datetime.now(timezone.utc) - gen_dt.astimezone(timezone.utc)).total_seconds()
+            # fail if older than 60 minutes
+            if age_secs > 3600:
+                failures.append({
+                    "label": "snapshot.generated_at_freshness",
+                    "actual": gen,
+                    "expected": "age <= 3600s",
+                })
+            else:
+                checks.append({"label": "snapshot.generated_at_freshness", "ok": True})
+        except Exception as exc:
+            failures.append({"label": "snapshot.generated_at_parse", "actual": gen, "expected": str(exc)})
 
     expected_payload = build_dashboard_payload(database_url=database_url)
     engine = create_db_engine(database_url=database_url)
