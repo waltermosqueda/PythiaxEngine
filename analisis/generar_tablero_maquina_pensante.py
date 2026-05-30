@@ -520,7 +520,11 @@ _FRESHNESS_SCRIPT = """<script id="c1pro-freshness-updater">
     var kpiSub  = document.getElementById('kpi-fresh-sub');
     var ts = kpiCard ? kpiCard.dataset.ts : null;
     if (!ts) return;
-    var gen = new Date(ts);
+    var tsIso = ts;
+    if (!(/[Zz]|[+\-]\d{2}:\d{2}$/.test(tsIso))) {
+      tsIso = tsIso + 'Z';
+    }
+    var gen = new Date(tsIso);
     var now = new Date();
     var diffMin = Math.round((now - gen) / 60000);
     if (diffMin < 0) diffMin = 0;
