@@ -1381,6 +1381,31 @@ def _apply_snapshot_sections(html: str, snap: dict) -> str:
         r"(gen\. )[^<]+",
         rf"\g<1>{gen_ts} · {source_label}",
     )
+    # ── h7-strip: Mercado chip breadth ──────────────────────────────────────
+    _active_run_h7 = (snap.get("active") or {}).get("active_run") or {}
+    _breadth_h7 = _active_run_h7.get("breadth_pct")
+    if _breadth_h7 is not None:
+        html = _replace_once(
+            html,
+            r'(<div class="h7-cs">)breadth [0-9.]+%',
+            rf"\g<1>breadth {float(_breadth_h7):.1f}%",
+        )
+    # ── h7-chip Actualiz.: data-ts + kpi-fresh-sub ──────────────────────────
+    _gen_ts_h7 = snap.get("generated_at") or ""
+    _gen_display_h7 = snap.get("generated_at_display") or ""
+    if _gen_ts_h7:
+        _ts_z_h7 = _gen_ts_h7 if _gen_ts_h7.endswith("Z") else _gen_ts_h7 + "Z"
+        html = _replace_once(
+            html,
+            r'(<div class="h7-chip"[^>]*id="kpi-actualizacion"[^>]*data-bid="kpi-sistema"[^>]*data-ts=")[^"]*(")',
+            rf"\g<1>{_ts_z_h7}\g<2>",
+        )
+    if _gen_display_h7:
+        html = _replace_once(
+            html,
+            r'(<div class="h7-cs" id="kpi-fresh-sub">)[^<]+(</div>)',
+            rf"\g<1>{_gen_display_h7}\g<2>",
+        )
     return html
 
 
