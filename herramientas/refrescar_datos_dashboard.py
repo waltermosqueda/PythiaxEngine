@@ -1631,12 +1631,53 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                         f"<div class='hm-meta'>{tks_str}</div>"
                         "</td>"
                     )
+                elif lt_tgt and lt_tgt >= today_iso:
+                    # Model had no new picks this run but still has open positions
+                    # from prior signal dates (e.g. V13 with 14-day windows).
+                    # Scan recent_30 calendar for non-expired active entries.
+                    cal_r = (r.get("recent_30") or {}).get("calendar") or []
+                    open_tks_r: list[str] = []
+                    seen_tks_r: set[str] = set()
+                    for e_r in sorted(cal_r, key=lambda x: x.get("date", ""), reverse=True):
+                        e_r_tgt = e_r.get("latest_target_date") or ""
+                        if e_r_tgt and e_r_tgt < today_iso:
+                            continue
+                        is_prov_r = e_r.get("is_provisional") is True
+                        is_pend_r = (not is_prov_r) and (e_r.get("avg_return_pct") is None) and bool(e_r.get("tickers"))
+                        if is_prov_r or is_pend_r:
+                            for t_r in (e_r.get("tickers") or []):
+                                if t_r not in seen_tks_r:
+                                    seen_tks_r.add(t_r)
+                                    open_tks_r.append(t_r)
+                    if open_tks_r:
+                        n_open_r = len(open_tks_r)
+                        tks_str_r = _esc(", ".join(open_tks_r[:6]))
+                        tip_next = _esc(
+                            f"{ver} {pd} | {n_open_r} picks abiertos (se\u00f1ales anteriores)"
+                            f" | {', '.join(open_tks_r[:6])}"
+                            + (f" | hasta {lt_tgt}" if lt_tgt else "")
+                            + " | MTM en curso"
+                        )
+                        cells += (
+                            f"<td class='hm-today' data-tip='{tip_next}'>"
+                            f"<div class='hm-ret'>{n_open_r}\u25b8</div>"
+                            f"<div class='hm-meta'>{tks_str_r}</div>"
+                            "</td>"
+                        )
+                    else:
+                        tip_next = _esc(f"{ver} {pd} | sin picks activos | sin posiciones abiertas")
+                        cells += (
+                            f"<td class='hm-today hm-today-empty hm-no-signal' data-tip='{tip_next}'>"
+                            "<div class='hm-ret'>0\u25b8</div>"
+                            "<div class='hm-meta'>sin posici\u00f3n</div>"
+                            "</td>"
+                        )
                 else:
                     tip_next = _esc(f"{ver} {pd} | sin picks activos | sin posiciones abiertas")
                     cells += (
                         f"<td class='hm-today hm-today-empty hm-no-signal' data-tip='{tip_next}'>"
-                        "<div class='hm-ret'>0▸</div>"
-                        "<div class='hm-meta'>sin posición</div>"
+                        "<div class='hm-ret'>0\u25b8</div>"
+                        "<div class='hm-meta'>sin posici\u00f3n</div>"
                         "</td>"
                     )
             else:
@@ -2732,7 +2773,7 @@ def _build_h7_chip_signals(snap: dict) -> str:
         "<div class='vd-chip-inner'>"
         "<div class='vd-icon'>\u26a1</div>"
         "<div class='vd-body'>"
-        f"<div class='h7-cl'>Se\u00f1ales nuevas \u00b7 {count_s} abiertas</div>"
+        f"<div class='h7-cl'>Se\u00f1ales \u00b7 {count_s} abiertas</div>"
         "<div style='font-size:8px;color:rgba(120,165,215,.38);margin-top:1px;line-height:1.4'>posiciones activas \u00b7 % = MTM desde apertura</div>"
         f"<div class='vd-picks'>{picks_html}</div>"
         "</div>"
