@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-06-01T00:55:16Z -->
-<!-- git_head: cd5b484 -->
+<!-- generated_at: 2026-06-01T01:43:06Z -->
+<!-- git_head: 5205300 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ cd5b484 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-31 21:55 AR (Dom) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 5205300 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-31 22:43 AR (Dom) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-06-01T00:55:16Z | `2026-05-31 21:55 AR (Dom)` | HEAD: `cd5b484`*
+*Auto-generado: 2026-06-01T01:43:06Z | `2026-05-31 22:43 AR (Dom)` | HEAD: `5205300`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `cd5b484`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-31 21:55 AR (Dom)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `5205300`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-31 22:43 AR (Dom)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-06-01T00:55:16Z` |
-| Hora AR | `2026-05-31 21:55 AR (Dom)` |
+| Generado | `2026-06-01T01:43:06Z` |
+| Hora AR | `2026-05-31 22:43 AR (Dom)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,28 +64,33 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `cd5b484` — fix(dashboard): add h7-champ/chip/ticker markers; fix Mercado+Actualiz chips; regenerate with Jun01 close data
-**Timestamp commit:** 2026-05-31 21:54:40 -0300
+**HEAD:** `5205300` — fix(dashboard): heatmap today column for prior-signal models + label fix
+**Timestamp commit:** 2026-05-31 22:42:51 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
+5205300 fix(dashboard): heatmap today column for prior-signal models + label fix
+6456b0c fix(heatmap): show open picks in today column for multi-day window models
+22976ee fix(dashboard): restore missing closing div for h7-chip-signals
+3bc2ac1 chore(auto): update ESTADO_ACTUAL â†’ cd5b484 [skip ci]
 cd5b484 fix(dashboard): add h7-champ/chip/ticker markers; fix Mercado+Actualiz chips; regenerate with Jun01 close data
 f217174 Merge pull request #1 from waltermosqueda/fix/freshness-client-utc
 7edbb19 Merge fix/freshness-client-utc -> main (agent)
 037621e fix(freshness): treat naive data-ts as UTC in client freshness updater (update submodule pointer)
 9b0d6f3 infra(cloud): add generated_at and tracebacks to audit payload\n\nAdd generated_at/generated_at_display and sanitized tracebacks in audit payload and error handler.
 ca45068 infra(cloud): include checks/failures in audit error payload for robust diagnostics
-423abd9 ci: force Pages rebuild after dashboard regeneration
-54e0b89 ci: force Pages rebuild for timestamp update
-e029746 fix(freshness): treat naive data-ts as UTC in client freshness updater (submodule)
-5485fc2 fix(freshness): treat naive data-ts as UTC in client freshness updater (update submodule pointer)
 ```
 
 ### Working tree
 ```
 ?? _audit_db_query.py
+?? _audit_full.py
 ?? _audit_snapshot.py
+?? _q1.py
+?? _q2.py
+?? _q3.py
+?? _q4.py
 ```
 
 ---
