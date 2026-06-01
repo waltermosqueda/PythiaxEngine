@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-05-29T23:27:35Z -->
-<!-- git_head: abf4bb4 -->
+<!-- generated_at: 2026-06-01T00:55:16Z -->
+<!-- git_head: cd5b484 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ abf4bb4 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-05-29 20:27 AR (Vie) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ cd5b484 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-05-31 21:55 AR (Dom) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-05-29T23:27:35Z | `2026-05-29 20:27 AR (Vie)` | HEAD: `abf4bb4`*
+*Auto-generado: 2026-06-01T00:55:16Z | `2026-05-31 21:55 AR (Dom)` | HEAD: `cd5b484`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `abf4bb4`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-05-29 20:27 AR (Vie)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `cd5b484`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-05-31 21:55 AR (Dom)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,40 +41,52 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-05-29T23:27:35Z` |
-| Hora AR | `2026-05-29 20:27 AR (Vie)` |
+| Generado | `2026-06-01T00:55:16Z` |
+| Hora AR | `2026-05-31 21:55 AR (Dom)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
 ### Estado crons intraday al momento de generación
 ```
-  13:30 UTC = 10:30 AR  [✅ PASADO]
-  14:30 UTC = 11:30 AR  [✅ PASADO]
-  15:30 UTC = 12:30 AR  [✅ PASADO]
-  16:30 UTC = 13:30 AR  [✅ PASADO]
-  17:30 UTC = 14:30 AR  [✅ PASADO]
-  18:30 UTC = 15:30 AR  [✅ PASADO]
-  19:30 UTC = 16:30 AR  [✅ PASADO]
-  20:30 UTC = 17:30 AR  [✅ PASADO]
+  13:30 UTC = 10:30 AR  [⏳ PENDIENTE]
+  14:30 UTC = 11:30 AR  [⏳ PENDIENTE]
+  15:30 UTC = 12:30 AR  [⏳ PENDIENTE]
+  16:30 UTC = 13:30 AR  [⏳ PENDIENTE]
+  17:30 UTC = 14:30 AR  [⏳ PENDIENTE]
+  18:30 UTC = 15:30 AR  [⏳ PENDIENTE]
+  19:30 UTC = 16:30 AR  [⏳ PENDIENTE]
+  20:30 UTC = 17:30 AR  [⏳ PENDIENTE]
 ```
 
-**Pipeline diario** (19:30 AR = 22:30 UTC): `✅ PASADO`
+**Pipeline diario** (19:30 AR = 22:30 UTC): `⏳ PENDIENTE`
 
 ---
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `abf4bb4` — fix(audit): initialize checks/failures to avoid UnboundLocalError
-**Timestamp commit:** 2026-05-29 02:49:55 -0300
+**HEAD:** `cd5b484` — fix(dashboard): add h7-champ/chip/ticker markers; fix Mercado+Actualiz chips; regenerate with Jun01 close data
+**Timestamp commit:** 2026-05-31 21:54:40 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-abf4bb4 fix(audit): initialize checks/failures to avoid UnboundLocalError
+cd5b484 fix(dashboard): add h7-champ/chip/ticker markers; fix Mercado+Actualiz chips; regenerate with Jun01 close data
+f217174 Merge pull request #1 from waltermosqueda/fix/freshness-client-utc
+7edbb19 Merge fix/freshness-client-utc -> main (agent)
+037621e fix(freshness): treat naive data-ts as UTC in client freshness updater (update submodule pointer)
+9b0d6f3 infra(cloud): add generated_at and tracebacks to audit payload\n\nAdd generated_at/generated_at_display and sanitized tracebacks in audit payload and error handler.
+ca45068 infra(cloud): include checks/failures in audit error payload for robust diagnostics
+423abd9 ci: force Pages rebuild after dashboard regeneration
+54e0b89 ci: force Pages rebuild for timestamp update
+e029746 fix(freshness): treat naive data-ts as UTC in client freshness updater (submodule)
+5485fc2 fix(freshness): treat naive data-ts as UTC in client freshness updater (update submodule pointer)
 ```
 
 ### Working tree
-_Rama limpia — sin cambios sin commitear_
+```
+?? _audit_db_query.py
+?? _audit_snapshot.py
+```
 
 ---
 
