@@ -3511,26 +3511,52 @@ document.querySelectorAll('.sn-link').forEach(function(link){
     cell.addEventListener('mouseenter', function(){
       var raw = (cell.getAttribute('data-tip')||'').trim();
       if(!raw){ return; }
-      var parts = raw.split(' | ');
-      var head  = parts[0] || raw;
-      var hsp   = head.split(' ');
-      var model = hsp[0]; var date  = hsp.slice(1).join(' ');
-      var html  = '<div class="htt-title">' + model +
-                  '<span style="font-weight:400;font-size:10px;color:var(--muted);margin-left:6px">'+date+'</span></div>';
-      for(var i=1;i<parts.length;i++){
-        var p = parts[i].trim();
-        var retM  = p.match(/^ret\s+(.+)$/i);
-        var wrM   = p.match(/^WR\s+(.+)$/i);
-        var pickM = p.match(/^(\d+)\s+picks?$/i);
-        if(retM){
-          var cls = retM[1].indexOf('-')===0 ? 'style="color:var(--rose,#f07080)"' : 'style="color:var(--green)"';
-          html += '<div class="htt-row"><span>Retorno</span><strong '+cls+'>'+retM[1]+'</strong></div>';
-        } else if(wrM){
-          html += '<div class="htt-row"><span>Win Rate</span><strong>'+wrM[1]+'</strong></div>';
-        } else if(pickM){
-          html += '<div class="htt-row"><span>Picks</span><strong>'+pickM[1]+'</strong></div>';
-        } else {
-          html += '<div class="htt-row"><span>Activos</span><strong>'+p+'</strong></div>';
+      var html;
+      if(raw.indexOf('\n') >= 0){
+        /* ── CLOSED rich format: \n-separated lines ── */
+        var lines = raw.split('\n');
+        html = '<div class="htt-title" style="font-size:10.5px;font-weight:600;white-space:normal;line-height:1.35;margin-bottom:5px">' + lines[0].trim() + '</div>';
+        for(var i=1;i<lines.length;i++){
+          var line = lines[i].trim();
+          if(!line) continue;
+          if(line.indexOf('|') >= 0){
+            /* last line: "Promedio: +X%  |  WR: X%" */
+            var sub = line.split('|');
+            for(var j=0;j<sub.length;j++){
+              var sv = sub[j].trim(); if(!sv) continue;
+              html += '<div class="htt-row"><strong style="color:var(--muted-2,#9aa)">' + sv + '</strong></div>';
+            }
+          } else if(line.charAt(0) === '\u2713'){  /* ✓ */
+            html += '<div class="htt-row"><strong style="color:var(--green)">' + line + '</strong></div>';
+          } else if(line.charAt(0) === '\u2717'){  /* ✗ */
+            html += '<div class="htt-row"><strong style="color:var(--rose,#f07080)">' + line + '</strong></div>';
+          } else {
+            html += '<div class="htt-row"><strong>' + line + '</strong></div>';
+          }
+        }
+      } else {
+        /* ── PROVISIONAL / simple format: |-separated parts ── */
+        var parts = raw.split(' | ');
+        var head  = parts[0] || raw;
+        var hsp   = head.split(' \u00b7 ');
+        var model = hsp[0]; var date = hsp.slice(1).join(' \u00b7 ');
+        html = '<div class="htt-title">' + model +
+               '<span style="font-weight:400;font-size:10px;color:var(--muted);margin-left:6px">' + date + '</span></div>';
+        for(var i=1;i<parts.length;i++){
+          var p = parts[i].trim();
+          var retM  = p.match(/^ret\s+(.+)$/i);
+          var wrM   = p.match(/^WR\s+(.+)$/i);
+          var pickM = p.match(/^(\d+)\s+picks?$/i);
+          if(retM){
+            var cls = retM[1].indexOf('-')===0 ? 'style="color:var(--rose,#f07080)"' : 'style="color:var(--green)"';
+            html += '<div class="htt-row"><span>Retorno</span><strong '+cls+'>'+retM[1]+'</strong></div>';
+          } else if(wrM){
+            html += '<div class="htt-row"><span>Win Rate</span><strong>'+wrM[1]+'</strong></div>';
+          } else if(pickM){
+            html += '<div class="htt-row"><span>Picks</span><strong>'+pickM[1]+'</strong></div>';
+          } else {
+            html += '<div class="htt-row"><span>Activos</span><strong>'+p+'</strong></div>';
+          }
         }
       }
       tt.innerHTML = html;
