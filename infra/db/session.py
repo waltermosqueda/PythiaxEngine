@@ -26,7 +26,16 @@ def build_engine_kwargs(database_url: str) -> dict[str, object]:
             "connect_timeout": 15,
             # Fijar timezone en la conexion evita que SQLAlchemy/psycopg2
             # ejecute SELECT name FROM pg_timezone_names al conectar.
-            "options": "-c TimeZone=UTC",
+            # idle_in_transaction_session_timeout=0: Supabase por defecto mata
+            # sesiones que llevan >30s idle dentro de una transaccion. Durante
+            # precompute_indicators (~60-90s de CPU puro) la conexion queda idle
+            # in transaction y Supabase la elimina; la siguiente query cuelga
+            # infinitamente porque TCP sigue vivo pero la sesion PG esta muerta.
+            # Poner 0 desactiva ese timeout para nuestras sesiones.
+            # statement_timeout=120000: si alguna query individual se cuelga,
+            # falla en 120s con error (en vez de colgar hasta el timeout del
+            # proceso de 600s). El error dispara el reconect en _read_sql_query.
+            "options": "-c TimeZone=UTC -c idle_in_transaction_session_timeout=0 -c statement_timeout=120000",
             # Deshabilitar prepared statements: PgBouncer (Supabase pooler)
             # no soporta prepared statements en modo transaction pooling.
             # Sin esto: DuplicatePreparedStatement "_pg3_0" al reutilizar conexion.

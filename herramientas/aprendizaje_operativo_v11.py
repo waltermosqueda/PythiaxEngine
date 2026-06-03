@@ -85,6 +85,12 @@ class OperationalLearningV11:
     def __init__(self, db: TitanDB):
         self.db = db
         self.universe_data, self.missing = v11.load_universe_data(db, v11.UNIVERSE)
+        # Commit la transaccion de lectura antes de precompute_indicators.
+        # precompute_indicators puede tardar 30-90s de CPU puro; con la
+        # transaccion abierta Supabase mata la sesion por
+        # idle_in_transaction_session_timeout. El commit evita ese idle.
+        if db.using_sqlalchemy_compat:
+            db.conn.commit()
         self.prepared = v11.precompute_indicators(self.universe_data)
         if "SPY" not in self.prepared:
             raise RuntimeError("SPY no esta disponible en titan.db")

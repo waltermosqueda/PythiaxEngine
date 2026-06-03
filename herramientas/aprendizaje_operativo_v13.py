@@ -59,6 +59,13 @@ class OperationalLearningV13(base.OperationalLearningV11):
     def __init__(self, db: TitanDB):
         self.db = db
         self.universe_data, self.missing = v13.load_universe_data(db, v13.UNIVERSE)
+        # Commit la transaccion de lectura antes de precompute_indicators.
+        # precompute_indicators de V13 (~176 tickers) puede tardar >30s de CPU
+        # puro; con la transaccion abierta Supabase mata la sesion por
+        # idle_in_transaction_session_timeout (30s default). El commit evita ese
+        # idle dejando la conexion en estado limpio antes del trabajo CPU.
+        if db.using_sqlalchemy_compat:
+            db.conn.commit()
         self.prepared = v13.precompute_indicators(self.universe_data)
         if "SPY" not in self.prepared:
             raise RuntimeError("SPY no esta disponible en titan.db")
@@ -508,9 +515,14 @@ def run_report(db: TitanDB) -> None:
 
 
 def run_daily_summary(db: TitanDB, requested_date: str | None) -> None:
+    print("[V13-DAILY] Inicializando engine...", flush=True)
     engine = OperationalLearningV13(db)
+    n_tickers = len(engine.prepared)
+    print(f"[V13-DAILY] Engine listo ({n_tickers} tickers). Actualizando metricas...", flush=True)
     engine.refresh_model_metrics()
+    print("[V13-DAILY] Metricas actualizadas. Construyendo snapshot...", flush=True)
     snapshot, _ = engine.build_snapshot(requested_date)
+    print(f"[V13-DAILY] Snapshot {snapshot.analyzed_date}. Escribiendo resumen...", flush=True)
     path = engine.write_daily_summary(snapshot)
     print(engine.daily_summary_text(snapshot))
     print("-" * 110)
