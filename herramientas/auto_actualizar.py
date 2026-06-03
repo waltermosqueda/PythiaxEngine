@@ -1038,9 +1038,23 @@ def ensure_minimum_dashboard_history(
         print("  [ERROR] No se pudo resolver la ventana historica minima del dashboard.")
         return False
 
+    # Use the earliest missing coverage day (if any) to narrow the backfill window.
+    # Avoids reprocessing the entire 90-day history when only a few recent days are missing.
+    all_missing_coverage_days: list[str] = []
+    for domain in ("predictions", "outcomes", "regimes"):
+        cov = window_coverage.get(domain) or {}
+        all_missing_coverage_days.extend(str(d) for d in (cov.get("missing_days") or []))
+    backfill_from = min(all_missing_coverage_days) if all_missing_coverage_days else start_date
+    if backfill_from != start_date:
+        log.info(
+            "[PIPELINE] Backfill optimizado: desde %s (ventana completa desde %s).",
+            backfill_from,
+            start_date,
+        )
+
     summary = (
         "Cobertura historica insuficiente en cloud; se ejecuta bootstrap de dashboard "
-        f"desde {start_date} hasta {fecha_base.isoformat()}."
+        f"desde {backfill_from} hasta {fecha_base.isoformat()}."
     )
     log.warning(
         "[PIPELINE] %s Faltan snapshots requeridos: %s | opcionales: %s",
@@ -1050,7 +1064,7 @@ def ensure_minimum_dashboard_history(
     )
     print(f"  [WARN] {summary}")
 
-    if not backfill_required_history(start_date, fecha_base):
+    if not backfill_required_history(backfill_from, fecha_base):
         return False
 
     if not recompute_required_outcomes(fecha_base):
@@ -1061,7 +1075,7 @@ def ensure_minimum_dashboard_history(
     if dashboard_history_is_current(refreshed_report, min_market_days=min_market_days):
         return True
 
-    backfill_optional_observed_history(start_date, fecha_base)
+    backfill_optional_observed_history(backfill_from, fecha_base)
     recompute_optional_observed_outcomes(fecha_base)
 
     refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
@@ -1069,7 +1083,7 @@ def ensure_minimum_dashboard_history(
     if dashboard_history_is_current(refreshed_report, min_market_days=min_market_days):
         return True
 
-    backfill_optional_legacy_history(start_date, fecha_base)
+    backfill_optional_legacy_history(backfill_from, fecha_base)
     recompute_optional_legacy_outcomes(fecha_base)
 
     refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
