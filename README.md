@@ -1,5 +1,7 @@
 ﻿# PythiaxEngine
 
+hola
+
 **Motor de investigación cuantitativa de trading** — competencia live de forward-testing entre modelos de predicción basados en reglas y modelos ML sobre acciones del mercado estadounidense.
 
 **Dashboard en vivo:** https://waltermosqueda.github.io/PythiaxEngine/
