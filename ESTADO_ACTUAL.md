@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-06-03T06:37:41Z -->
-<!-- git_head: e5a115a -->
+<!-- generated_at: 2026-06-04T00:03:01Z -->
+<!-- git_head: ba5dfc5 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ e5a115a → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-06-03 03:37 AR (Mie) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ ba5dfc5 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-06-03 21:03 AR (Mie) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-06-03T06:37:41Z | `2026-06-03 03:37 AR (Mie)` | HEAD: `e5a115a`*
+*Auto-generado: 2026-06-04T00:03:01Z | `2026-06-03 21:03 AR (Mie)` | HEAD: `ba5dfc5`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `e5a115a`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-06-03 03:37 AR (Mie)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `ba5dfc5`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-06-03 21:03 AR (Mie)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-06-03T06:37:41Z` |
-| Hora AR | `2026-06-03 03:37 AR (Mie)` |
+| Generado | `2026-06-04T00:03:01Z` |
+| Hora AR | `2026-06-03 21:03 AR (Mie)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,13 +64,13 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `e5a115a` — perf: backfill narrowed to earliest missing day, not full 90-day window
-**Timestamp commit:** 2026-06-03 03:27:05 -0300
+**HEAD:** `ba5dfc5` — chore(auto): update ESTADO_ACTUAL → e5a115a7f5fc46d0d7d0d5a20bd7a148afcb8b08 [skip ci]
+**Timestamp commit:** 2026-06-03 03:37:42 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-e5a115a perf: backfill narrowed to earliest missing day, not full 90-day window
+ba5dfc5 chore(auto): update ESTADO_ACTUAL → e5a115a7f5fc46d0d7d0d5a20bd7a148afcb8b08 [skip ci]
 ```
 
 ### Working tree
