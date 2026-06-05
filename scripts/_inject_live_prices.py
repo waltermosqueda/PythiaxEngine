@@ -17,8 +17,8 @@ LIVE_PRICES_JS = r"""<script id="live-prices-v1">
    ────────────────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
-  var SB_URL = 'https://datdtnliztfzbmfbmobx.supabase.co';
-  var SB_KEY = 'sb_publishable_xDQ6rIZG5PjG45VTAbJnyg_c97mWXGx';
+  var SB_URL = 'https://jsrilieicneqotzcitoe.supabase.co';
+  var SB_KEY = 'sb_publishable_iEvL-I0V-7Pq0Q8eOoz3Mg_INlmH8zf';
 
   /* Recolecta tickers únicos del panel de señales (.svb-tk-name) */
   function collectTickers() {
