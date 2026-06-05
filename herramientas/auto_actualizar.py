@@ -368,7 +368,7 @@ def repair_recent_invalid_ohlcv_rows(fecha_base: date) -> int:
     from titan_system.core.data_loader import DataLoader
 
     with TitanDB() as db:
-        loader = DataLoader(db, years_history=2)
+        loader = DataLoader(db, years_history=2)  # Keep 2y for now: backtesting required before reducing
         refresh_stats = loader.refresh_recent_invalid_rows(end_date=fecha_base.isoformat())
 
     invalid_rows = int(refresh_stats.get("invalid_rows", 0) or 0)
@@ -1923,7 +1923,7 @@ def main() -> int:
                 print(f"\n  Reintento post-cierre {attempt}/{max_attempts}...\n")
 
             with TitanDB() as db:
-                loader = DataLoader(db, years_history=2, max_workers=10)
+                loader = DataLoader(db, years_history=2, max_workers=10)  # Keep 2y: backtesting required before reducing
                 results = loader.update_daily(end_date=target_date.isoformat())
                 refresh_stats = loader.refresh_recent_invalid_rows(end_date=target_date.isoformat())
                 repair_start = (target_date - timedelta(days=45)).isoformat()

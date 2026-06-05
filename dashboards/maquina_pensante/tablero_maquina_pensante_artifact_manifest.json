@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-06-01T05:26:52Z",
+  "generated_at": "2026-06-03T23:25:22Z",
   "build": {
     "generator": "analisis.generar_tablero_maquina_pensante",
     "build_source": "local",
     "db_backend": "postgresql",
     "commit_sha": null,
     "commit_short": null,
-    "run_id": "dashboard_build-local-20260601022647",
-    "pipeline_run_id": "dashboard_build-local-20260601022647",
+    "run_id": "dashboard_build-local-20260603202522",
+    "pipeline_run_id": "dashboard_build-local-20260603202522",
     "run_attempt": null,
     "workflow": null,
     "actor": null
@@ -17,32 +17,32 @@
     {
       "name": "tablero_maquina_pensante_snapshot.json",
       "relative_path": "dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json",
-      "size_bytes": 17015975,
-      "sha256": "af14653c99a0e99eee10b611c840294a308cc61e5a911deeacd109466e2aa5a8"
+      "size_bytes": 17724150,
+      "sha256": "be2818221517dc7e7192d316cb87bade7be033a5ed0434db9afa3d8e9183dfd2"
     },
     {
       "name": "tablero_maquina_pensante.html",
       "relative_path": "dashboards/maquina_pensante/tablero_maquina_pensante.html",
-      "size_bytes": 204079,
-      "sha256": "7ea2daf956c85fdbe9913fef8fd9f5730e5dfc4bc41afaa10c5433118586201e"
+      "size_bytes": 209623,
+      "sha256": "96ba01cdb1d0d6ecdb9044ed5be1bf6ea4cfb79bdea52cc11dc3619c0117e010"
     },
     {
       "name": "tablero_maquina_pensante_executive.html",
       "relative_path": "dashboards/maquina_pensante/tablero_maquina_pensante_executive.html",
-      "size_bytes": 76683,
-      "sha256": "d42d5ed60f5f2ddc372eb8720601d7b2eb134e9d13eddb6f28e375f297f3cec7"
+      "size_bytes": 77059,
+      "sha256": "eff50d86e20d42fcb4efe13d5cd5b157ed1e7b71002f356ac91254f730f1954c"
     },
     {
       "name": "tablero_maquina_pensante_lab.html",
       "relative_path": "dashboards/maquina_pensante/tablero_maquina_pensante_lab.html",
-      "size_bytes": 42987,
-      "sha256": "0590941b8b8b17d33dcb7a42fd815be21c3affd0050b249d9d3453214c9be793"
+      "size_bytes": 42995,
+      "sha256": "349516ca72b93f3534a96130028cda7738f69b205b2fc04202df454cc62816ac"
     },
     {
       "name": "preview_c1_pro.html",
       "relative_path": "dashboards/maquina_pensante/preview_c1_pro.html",
-      "size_bytes": 502986,
-      "sha256": "f49d40b90fe72c95247cca28855de6baed2717087b08be9b3aab41b5e94f872e"
+      "size_bytes": 528069,
+      "sha256": "87e75be0ea1b86667edc10ba840b6b7c4a3196ee8b2c7d9794feac0b42f59471"
     }
   ]
 }

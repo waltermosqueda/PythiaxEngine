@@ -429,110 +429,139 @@ class OperationalLearningV11:
             ]
 
         summary = {"evaluated": 0, "hits": 0, "misses": 0, "errors": 0, "dates": len(due_dates)}
-        for target_date in due_dates:
-            if recompute_existing:
-                pending = self.db.conn.execute(
+        
+        # === BATCH OPTIMIZATION (2026-06-05): Fetch ALL due predictions + needed prices in 2-3 queries instead of N+1 ===
+        # Fetch ALL pending predictions in ONE query (using IN with all target_dates)
+        if recompute_existing:
+            all_pending = self.db.conn.execute(
+                f"""
+                SELECT p.id, p.model_name, p.ticker, p.direction, p.prediction_date, p.target_date
+                FROM predictions p
+                WHERE p.model_name LIKE ? AND p.target_date IN ({','.join('?' * len(due_dates))})
+                ORDER BY p.target_date, p.ticker, p.prediction_date
+                """,
+                (f"{MODEL_PREFIX}_%", *due_dates),
+            ).fetchall()
+        else:
+            all_pending = self.db.conn.execute(
+                f"""
+                SELECT p.id, p.model_name, p.ticker, p.direction, p.prediction_date, p.target_date
+                FROM predictions p
+                LEFT JOIN outcomes o ON p.id = o.prediction_id
+                WHERE p.model_name LIKE ? AND p.target_date IN ({','.join('?' * len(due_dates))}) AND o.id IS NULL
+                ORDER BY p.target_date, p.ticker, p.prediction_date
+                """,
+                (f"{MODEL_PREFIX}_%", *due_dates),
+            ).fetchall()
+
+        # Pre-compute needed dates + metadata for all predictions
+        needed_dates_set = set()
+        pred_meta = {}  # Map pred_id -> (model_name, ticker, pred_date, stored_target, dir, entry_date, actual_target, horizon)
+        
+        for pred_id, model_name, ticker, predicted_dir, pred_date, stored_target_date in all_pending:
+            pred_date_str = str(pred_date)
+            stored_target_date_str = str(stored_target_date)
+            horizon = self.extract_horizon(str(model_name))
+            
+            if horizon is None:
+                summary["errors"] += 1
+                continue
+            
+            entry_date = self.trading_day_offset(pred_date_str, 1)
+            actual_target_date = self.trading_day_offset(pred_date_str, horizon)
+            
+            if entry_date is None or actual_target_date is None:
+                summary["errors"] += 1
+                continue
+            if actual_target_date > max_target_date:
+                continue
+            
+            # Register needed price dates
+            needed_dates_set.add((ticker, entry_date))
+            needed_dates_set.add((ticker, actual_target_date))
+            pred_meta[pred_id] = (model_name, ticker, pred_date_str, stored_target_date_str, predicted_dir, entry_date, actual_target_date, horizon)
+
+        # Batch fetch ALL needed prices in ONE query
+        prices_map = {}  # Map (ticker, date) -> (open, close)
+        if needed_dates_set:
+            needed_list = list(needed_dates_set)
+            placeholders = ",".join(f"(?,?)" for _ in needed_list)
+            flat_params = [item for pair in needed_list for item in pair]
+            
+            query = f"""
+                SELECT ticker, date, open, close
+                FROM prices
+                WHERE (ticker, date) IN ({placeholders})
+            """
+            for ticker, date, open_price, close_price in self.db.conn.execute(query, flat_params).fetchall():
+                prices_map[(ticker, date)] = (open_price, close_price)
+
+        # Process all predictions with pre-fetched data (NO DB QUERIES IN LOOP)
+        outcomes_to_insert = []
+        for pred_id in list(pred_meta.keys()):
+            model_name, ticker, pred_date_str, stored_target_date_str, predicted_dir, entry_date, actual_target_date, horizon = pred_meta[pred_id]
+            
+            # Check if stored target_date needs update
+            if stored_target_date_str != actual_target_date:
+                existing_row = self.db.conn.execute(
                     """
-                    SELECT p.id, p.model_name, p.ticker, p.direction, p.prediction_date, p.target_date
-                    FROM predictions p
-                    WHERE p.model_name LIKE ? AND p.target_date = ?
+                    SELECT id
+                    FROM predictions
+                    WHERE model_name = ? AND ticker = ? AND prediction_date = ? AND target_date = ?
                     """,
-                    (f"{MODEL_PREFIX}_%", target_date),
-                ).fetchall()
-            else:
-                pending = self.db.conn.execute(
-                    """
-                    SELECT p.id, p.model_name, p.ticker, p.direction, p.prediction_date, p.target_date
-                    FROM predictions p
-                    LEFT JOIN outcomes o ON p.id = o.prediction_id
-                    WHERE p.model_name LIKE ? AND p.target_date = ? AND o.id IS NULL
-                    """,
-                    (f"{MODEL_PREFIX}_%", target_date),
-                ).fetchall()
-
-            for pred_id, model_name, ticker, predicted_dir, pred_date, stored_target_date in pending:
-                pred_date = str(pred_date)
-                stored_target_date = str(stored_target_date)
-                horizon = self.extract_horizon(str(model_name))
-                if horizon is None:
-                    summary["errors"] += 1
-                    continue
-
-                entry_date = self.trading_day_offset(str(pred_date), 1)
-                actual_target_date = self.trading_day_offset(str(pred_date), horizon)
-                if entry_date is None or actual_target_date is None:
-                    continue
-                if actual_target_date > max_target_date:
-                    continue
-
-                if stored_target_date != actual_target_date:
-                    existing_row = self.db.conn.execute(
-                        """
-                        SELECT id
-                        FROM predictions
-                        WHERE model_name = ? AND ticker = ? AND prediction_date = ? AND target_date = ?
-                        """,
-                        (model_name, ticker, pred_date, actual_target_date),
-                    ).fetchone()
-                    if existing_row and int(existing_row[0]) != int(pred_id):
-                        self.db.conn.execute("DELETE FROM predictions WHERE id = ?", (pred_id,))
-                        pred_id = int(existing_row[0])
-                    else:
-                        self.db.conn.execute(
-                            "UPDATE predictions SET target_date = ? WHERE id = ?",
-                            (actual_target_date, pred_id),
-                        )
-
-                entry_row = self.db.conn.execute(
-                    """
-                    SELECT open, close
-                    FROM prices
-                    WHERE ticker = ? AND date = ?
-                    """,
-                    (ticker, entry_date),
+                    (model_name, ticker, pred_date_str, actual_target_date),
                 ).fetchone()
-                target_row = self.db.conn.execute(
-                    """
-                    SELECT close
-                    FROM prices
-                    WHERE ticker = ? AND date = ?
-                    """,
-                    (ticker, actual_target_date),
-                ).fetchone()
-
-                if entry_row is None or target_row is None:
-                    summary["errors"] += 1
-                    continue
-
-                price_before = entry_row[0]
-                entry_close_chk = entry_row[1]
-                price_after = target_row[0]
-                if price_before in (None, 0) or price_after is None:
-                    summary["errors"] += 1
-                    continue
-                # Guard: open == close sugiere barra incompleta (datos pre-cierre o intraday).
-                if entry_close_chk is not None and abs(float(price_before) - float(entry_close_chk)) < 1e-6:
-                    summary["errors"] += 1
-                    continue
-
-                actual_return = (price_after - price_before) / price_before
-                actual_direction = "UP" if actual_return >= 0 else "DOWN"
-                hit = 1 if str(predicted_dir).upper() == actual_direction else 0
-
-                self.db.conn.execute(
-                    """
-                    INSERT OR REPLACE INTO outcomes
-                        (prediction_id, actual_direction, actual_return, hit)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (pred_id, actual_direction, actual_return, hit),
-                )
-                summary["evaluated"] += 1
-                if hit:
-                    summary["hits"] += 1
+                if existing_row and int(existing_row[0]) != int(pred_id):
+                    self.db.conn.execute("DELETE FROM predictions WHERE id = ?", (pred_id,))
+                    pred_id = int(existing_row[0])
                 else:
-                    summary["misses"] += 1
+                    self.db.conn.execute(
+                        "UPDATE predictions SET target_date = ? WHERE id = ?",
+                        (actual_target_date, pred_id),
+                    )
 
+            # Lookup pre-fetched prices (NO QUERY)
+            entry_row = prices_map.get((ticker, entry_date))
+            target_row = prices_map.get((ticker, actual_target_date))
+
+            if entry_row is None or target_row is None:
+                summary["errors"] += 1
+                continue
+
+            price_before = entry_row[0]
+            entry_close_chk = entry_row[1]
+            price_after = target_row[0]
+            
+            if price_before in (None, 0) or price_after is None:
+                summary["errors"] += 1
+                continue
+            # Guard: open == close sugiere barra incompleta (datos pre-cierre o intraday).
+            if entry_close_chk is not None and abs(float(price_before) - float(entry_close_chk)) < 1e-6:
+                summary["errors"] += 1
+                continue
+
+            actual_return = (price_after - price_before) / price_before
+            actual_direction = "UP" if actual_return >= 0 else "DOWN"
+            hit = 1 if str(predicted_dir).upper() == actual_direction else 0
+
+            outcomes_to_insert.append((pred_id, actual_direction, actual_return, hit))
+            summary["evaluated"] += 1
+            if hit:
+                summary["hits"] += 1
+            else:
+                summary["misses"] += 1
+
+        # Batch insert ALL outcomes in ONE operation
+        if outcomes_to_insert:
+            self.db.conn.executemany(
+                """
+                INSERT OR REPLACE INTO outcomes
+                    (prediction_id, actual_direction, actual_return, hit)
+                VALUES (?, ?, ?, ?)
+                """,
+                outcomes_to_insert,
+            )
+        
         self.db.conn.commit()
         return summary
 
