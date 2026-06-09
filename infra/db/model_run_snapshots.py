@@ -38,8 +38,10 @@ def fetch_model_run_snapshots(
     model_keys: Iterable[str] | None = None,
     analyzed_date_from: str | None = None,
     analyzed_date_to: str | None = None,
+    include_snapshot_json: bool = True,
 ) -> list[dict[str, Any]]:
-    query = """
+    _extra_col = "\n            snapshot_json," if include_snapshot_json else ""
+    query = f"""
         SELECT
             model_key,
             model_name,
@@ -50,8 +52,7 @@ def fetch_model_run_snapshots(
             freshness,
             regime_label,
             breadth_pct,
-            signal_count,
-            snapshot_json,
+            signal_count,{_extra_col}
             created_at
         FROM model_run_snapshots
         WHERE 1 = 1
@@ -75,7 +76,8 @@ def fetch_model_run_snapshots(
         row = dict(raw_row._mapping)
         row["analyzed_date"] = _coerce_date_text(row.get("analyzed_date"))
         row["prediction_for"] = _coerce_date_text(row.get("prediction_for"))
-        row["snapshot"] = deserialize_snapshot_payload(row.get("snapshot_json"))
+        if include_snapshot_json:
+            row["snapshot"] = deserialize_snapshot_payload(row.get("snapshot_json"))
         rows.append(row)
     return rows
 

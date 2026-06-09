@@ -729,11 +729,21 @@ def query_window_date_coverage(
     }
 
 
+# ── Run-level cache para build_dashboard_history_report (evita queries repetidas
+# al mismo fecha_base dentro del mismo run; se invalida explicitamente post-backfill)
+_DASHBOARD_HISTORY_CACHE: dict[tuple, dict[str, Any]] = {}
+
+
 def build_dashboard_history_report(
     fecha_base: date,
     *,
     min_market_days: int = MIN_DASHBOARD_HISTORY_DAYS,
+    _force_refresh: bool = False,
 ) -> dict[str, Any]:
+    _cache_key = (fecha_base, min_market_days)
+    if not _force_refresh and _cache_key in _DASHBOARD_HISTORY_CACHE:
+        log.debug("[PIPELINE] build_dashboard_history_report: cache hit para %s", fecha_base)
+        return _DASHBOARD_HISTORY_CACHE[_cache_key]
     window_dates = dashboard_history_window_dates(fecha_base, min_market_days=min_market_days)
     expected_entries = expected_monitored_snapshot_entries()
     expected_labels = [entry["label"] for entry in expected_entries]
@@ -748,7 +758,7 @@ def build_dashboard_history_report(
             entry["label"] for entry in expected_entries if not is_required_monitored_role(str(entry.get("role") or ""))
         ]
         empty_coverage = {"covered_days": 0, "expected_days": 0, "missing_days": []}
-        return {
+        _result = {
             "generated_at": datetime.now().isoformat(timespec="seconds"),
             "fecha_base": fecha_base.isoformat(),
             "required_window_days": min_market_days,
@@ -767,6 +777,8 @@ def build_dashboard_history_report(
             },
             "models": [],
         }
+        _DASHBOARD_HISTORY_CACHE[_cache_key] = _result
+        return _result
 
     with connect_runtime_db() as con:
         snapshot_rows = fetch_model_run_snapshots(
@@ -774,6 +786,7 @@ def build_dashboard_history_report(
             model_keys=expected_labels,
             analyzed_date_from=start_date,
             analyzed_date_to=end_date,
+            include_snapshot_json=False,
         )
         predictions_recent = int(
             con.scalar(
@@ -880,7 +893,7 @@ def build_dashboard_history_report(
         and coverage_complete
     )
 
-    return {
+    _result = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "fecha_base": fecha_base.isoformat(),
         "required_window_days": min_market_days,
@@ -898,6 +911,8 @@ def build_dashboard_history_report(
         "sparse_prediction_history": sparse_prediction_history,
         "models": models,
     }
+    _DASHBOARD_HISTORY_CACHE[_cache_key] = _result
+    return _result
 
 
 def build_prediction_window_coverage(
@@ -1070,7 +1085,7 @@ def ensure_minimum_dashboard_history(
     if not recompute_required_outcomes(fecha_base):
         return False
 
-    refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
+    refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days, _force_refresh=True)
     guardar_reporte_json(DASHBOARD_HISTORY_REPORT, refreshed_report)
     if dashboard_history_is_current(refreshed_report, min_market_days=min_market_days):
         return True
@@ -1078,7 +1093,7 @@ def ensure_minimum_dashboard_history(
     backfill_optional_observed_history(backfill_from, fecha_base)
     recompute_optional_observed_outcomes(fecha_base)
 
-    refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
+    refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days, _force_refresh=True)
     guardar_reporte_json(DASHBOARD_HISTORY_REPORT, refreshed_report)
     if dashboard_history_is_current(refreshed_report, min_market_days=min_market_days):
         return True
@@ -1086,7 +1101,7 @@ def ensure_minimum_dashboard_history(
     backfill_optional_legacy_history(backfill_from, fecha_base)
     recompute_optional_legacy_outcomes(fecha_base)
 
-    refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days)
+    refreshed_report = build_dashboard_history_report(fecha_base, min_market_days=min_market_days, _force_refresh=True)
     guardar_reporte_json(DASHBOARD_HISTORY_REPORT, refreshed_report)
     if dashboard_history_is_current(refreshed_report, min_market_days=min_market_days):
         return True
@@ -1241,6 +1256,7 @@ def build_model_snapshot_freshness_report(fecha_base: date) -> dict[str, object]
             model_keys=expected_labels,
             analyzed_date_from=fecha_base.isoformat(),
             analyzed_date_to=fecha_base.isoformat(),
+            include_snapshot_json=False,
         )
         latest_prices_date = con.scalar("SELECT MAX(date) FROM prices")
         latest_prediction_date = con.scalar("SELECT MAX(prediction_date) FROM predictions")
