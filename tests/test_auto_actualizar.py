@@ -361,7 +361,7 @@ def test_build_dashboard_history_report_ignores_optional_missing_snapshot_histor
     monkeypatch.setattr(
         auto_actualizar,
         "fetch_model_run_snapshots",
-        lambda con, model_keys, analyzed_date_from, analyzed_date_to: [{"model_key": "V13"} for _ in window_dates],
+        lambda con, model_keys, analyzed_date_from, analyzed_date_to, **_kw: [{"model_key": "V13"} for _ in window_dates],
     )
     monkeypatch.setattr(
         auto_actualizar,
@@ -432,7 +432,7 @@ def test_build_dashboard_history_report_rejects_missing_prediction_days(monkeypa
     monkeypatch.setattr(
         auto_actualizar,
         "fetch_model_run_snapshots",
-        lambda con, model_keys, analyzed_date_from, analyzed_date_to: [{"model_key": "V13"} for _ in window_dates],
+        lambda con, model_keys, analyzed_date_from, analyzed_date_to, **_kw: [{"model_key": "V13"} for _ in window_dates],
     )
     monkeypatch.setattr(
         auto_actualizar,
