@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-06-08T23:30:54Z -->
-<!-- git_head: a0551f7 -->
+<!-- generated_at: 2026-06-09T23:49:10Z -->
+<!-- git_head: a3f923d -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ a0551f7 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-06-08 20:30 AR (Lun) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ a3f923d → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-06-09 20:49 AR (Mar) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-06-08T23:30:54Z | `2026-06-08 20:30 AR (Lun)` | HEAD: `a0551f7`*
+*Auto-generado: 2026-06-09T23:49:10Z | `2026-06-09 20:49 AR (Mar)` | HEAD: `a3f923d`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `a0551f7`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-06-08 20:30 AR (Lun)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `a3f923d`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-06-09 20:49 AR (Mar)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-06-08T23:30:54Z` |
-| Hora AR | `2026-06-08 20:30 AR (Lun)` |
+| Generado | `2026-06-09T23:49:10Z` |
+| Hora AR | `2026-06-09 20:49 AR (Mar)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,13 +64,13 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `a0551f7` — chore(auto): update ESTADO_ACTUAL → 478e93ce3b49e621f7cbc87884ae1ebe3f64835e [skip ci]
-**Timestamp commit:** 2026-06-05 20:12:19 -0300
+**HEAD:** `a3f923d` — fix(dashboard): restore new Supabase URL in C1 Pro live-prices (lost in revert b54d898)
+**Timestamp commit:** 2026-06-09 18:35:57 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-a0551f7 chore(auto): update ESTADO_ACTUAL → 478e93ce3b49e621f7cbc87884ae1ebe3f64835e [skip ci]
+a3f923d fix(dashboard): restore new Supabase URL in C1 Pro live-prices (lost in revert b54d898)
 ```
 
 ### Working tree
