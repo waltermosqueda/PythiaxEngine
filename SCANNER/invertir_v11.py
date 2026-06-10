@@ -214,9 +214,12 @@ def load_universe_data(db: TitanDB, tickers: list[str]) -> tuple[dict[str, pd.Da
     if "SPY" not in present:
         present.append("SPY")
 
+    # Limit to 500 calendar days (~355 trading days) to reduce Supabase egress in CI.
+    # 355 bars >> SMA200 (200 bars) and all other indicators used by this scanner.
+    _cutoff = (date.today() - timedelta(days=500)).isoformat()
     data: dict[str, pd.DataFrame] = {}
     for ticker in present:
-        df = db.get_prices(ticker)
+        df = db.get_prices(ticker, start_date=_cutoff)
         if df.empty:
             continue
         df = df.rename(

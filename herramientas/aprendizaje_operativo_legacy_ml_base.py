@@ -308,9 +308,13 @@ class OperationalLearningLegacyML:
         return extract_universe_from_module(source)
 
     def _load_histories(self, requested_universe: list[str]) -> dict[str, pd.DataFrame]:
+        from datetime import date as _date, timedelta as _timedelta
+        # Limit to 500 calendar days (~355 trading days) to reduce Supabase egress in CI.
+        # 355 bars >> max lookback of any strategy (StrategyV22: min_rows=252).
+        _cutoff = (_date.today() - _timedelta(days=500)).isoformat()
         histories: dict[str, pd.DataFrame] = {}
         for ticker in requested_universe:
-            df = self.db.get_prices(ticker)
+            df = self.db.get_prices(ticker, start_date=_cutoff)
             if df.empty:
                 continue
             normalized = normalize_ohlcv(df)
