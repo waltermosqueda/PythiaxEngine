@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-06-10T23:10:24Z -->
-<!-- git_head: d1961d8 -->
+<!-- generated_at: 2026-06-11T23:08:00Z -->
+<!-- git_head: 516099e -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ d1961d8 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-06-10 20:10 AR (Mie) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 516099e → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-06-11 20:08 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-06-10T23:10:24Z | `2026-06-10 20:10 AR (Mie)` | HEAD: `d1961d8`*
+*Auto-generado: 2026-06-11T23:08:00Z | `2026-06-11 20:08 AR (Jue)` | HEAD: `516099e`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `d1961d8`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-06-10 20:10 AR (Mie)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `516099e`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-06-11 20:08 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-06-10T23:10:24Z` |
-| Hora AR | `2026-06-10 20:10 AR (Mie)` |
+| Generado | `2026-06-11T23:08:00Z` |
+| Hora AR | `2026-06-11 20:08 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,13 +64,13 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `d1961d8` — perf(egress): limit price history to 500 days in CI to reduce Supabase egress
-**Timestamp commit:** 2026-06-10 16:15:12 -0300
+**HEAD:** `516099e` — chore(auto): update ESTADO_ACTUAL → d1961d82490b677c19e98f09bd1b856599355fac [skip ci]
+**Timestamp commit:** 2026-06-10 20:10:24 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-d1961d8 perf(egress): limit price history to 500 days in CI to reduce Supabase egress
+516099e chore(auto): update ESTADO_ACTUAL → d1961d82490b677c19e98f09bd1b856599355fac [skip ci]
 ```
 
 ### Working tree
