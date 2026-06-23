@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-06-23T20:10:07Z -->
-<!-- git_head: 68398c3 -->
+<!-- generated_at: 2026-06-23T20:16:01Z -->
+<!-- git_head: 91b8e79 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 68398c3 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-06-23 17:10 AR (Mar) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 91b8e79 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-06-23 17:16 AR (Mar) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-06-23T20:10:07Z | `2026-06-23 17:10 AR (Mar)` | HEAD: `68398c3`*
+*Auto-generado: 2026-06-23T20:16:01Z | `2026-06-23 17:16 AR (Mar)` | HEAD: `91b8e79`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `68398c3`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-06-23 17:10 AR (Mar)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `91b8e79`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-06-23 17:16 AR (Mar)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-06-23T20:10:07Z` |
-| Hora AR | `2026-06-23 17:10 AR (Mar)` |
+| Generado | `2026-06-23T20:16:01Z` |
+| Hora AR | `2026-06-23 17:16 AR (Mar)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,24 +64,17 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `68398c3` — fix: increase dashboard_maquina timeout and add !cancelled() to deploy steps
-**Timestamp commit:** 2026-06-23 16:53:45 -0300
+**HEAD:** `91b8e79` — fix: add timeout-minutes to audit step, add !cancelled() to remaining steps
+**Timestamp commit:** 2026-06-23 17:13:21 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-68398c3 fix: increase dashboard_maquina timeout and add !cancelled() to deploy steps
+91b8e79 fix: add timeout-minutes to audit step, add !cancelled() to remaining steps
 ```
 
 ### Working tree
-```
-M analisis/preview_c1_pro.html
- M dashboards/maquina_pensante/tablero_maquina_pensante.html
- M dashboards/maquina_pensante/tablero_maquina_pensante_artifact_manifest.json
- M dashboards/maquina_pensante/tablero_maquina_pensante_executive.html
- M dashboards/maquina_pensante/tablero_maquina_pensante_lab.html
- M dashboards/maquina_pensante/tablero_maquina_pensante_snapshot.json
-```
+_Rama limpia — sin cambios sin commitear_
 
 ---
 
