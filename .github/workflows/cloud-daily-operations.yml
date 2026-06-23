@@ -103,7 +103,7 @@ jobs:
           python -m infra.cloud.decide_cloud_refresh --github-output "$GITHUB_OUTPUT" --max-stale-hours 20 $FORCE_ARGS
 
       - name: Audit prices live
-        if: steps.refresh.outputs.should_refresh == 'true'
+        if: "!cancelled() && steps.refresh.outputs.should_refresh == 'true'"
         continue-on-error: true
         run: |
           python herramientas/audit_precios_live.py \
@@ -125,6 +125,7 @@ jobs:
       - name: Audit DB vs dashboard vs site (ALWAYS)
         if: '!cancelled()'
         id: audit
+        timeout-minutes: 10
         run: |
           set +e
           mkdir -p docs/cloud/reports
@@ -237,7 +238,7 @@ jobs:
           fi
 
       - name: Send daily trader report
-        if: steps.refresh.outputs.should_refresh == 'true'
+        if: "!cancelled() && steps.refresh.outputs.should_refresh == 'true'"
         continue-on-error: true
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
