@@ -114,13 +114,16 @@ jobs:
 
       # Always rebuild dashboard and snapshot artifacts before audit
       - name: Build dashboard bundle (ALWAYS)
+        if: '!cancelled()'
         run: python analisis/generar_tablero_maquina_pensante.py --variant all
 
 
       - name: Stage GitHub Pages site (ALWAYS)
+        if: '!cancelled()'
         run: python -m infra.publish.dashboard_site --source-dir dashboards/maquina_pensante --output-dir dist/github-pages
 
       - name: Audit DB vs dashboard vs site (ALWAYS)
+        if: '!cancelled()'
         id: audit
         run: |
           set +e
@@ -154,13 +157,13 @@ jobs:
           if-no-files-found: warn
 
       - name: Fail if audit failed
-        if: ${{ env.AUDIT_EXIT != '0' }}
+        if: "!cancelled() && env.AUDIT_EXIT != '0'"
         run: |
           echo "Audit exit code: $AUDIT_EXIT"
           exit $AUDIT_EXIT
 
       - name: Validate staged site
-        if: steps.refresh.outputs.should_refresh == 'true'
+        if: "!cancelled() && steps.refresh.outputs.should_refresh == 'true'"
         run: |
           test -f dist/github-pages/index.html
           test -f dist/github-pages/preview_c1_pro.html
@@ -182,7 +185,7 @@ jobs:
           echo "snapshot_newer_than_publish=${{ steps.refresh.outputs.snapshot_newer_than_publish }}"
 
       - name: Upload cloud operations artifact
-        if: steps.refresh.outputs.should_refresh == 'true'
+        if: "!cancelled() && steps.refresh.outputs.should_refresh == 'true'"
         uses: actions/upload-artifact@v7
         with:
           name: pythiax-cloud-daily-${{ github.run_id }}
@@ -194,7 +197,7 @@ jobs:
             docs/cloud/reports/dashboard_integrity_audit.json
 
       - name: Upload Pages artifact
-        if: steps.refresh.outputs.should_refresh == 'true'
+        if: "!cancelled() && steps.refresh.outputs.should_refresh == 'true'"
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist/github-pages
@@ -202,15 +205,15 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
-        if: steps.refresh.outputs.should_refresh == 'true'
+        if: "!cancelled() && steps.refresh.outputs.should_refresh == 'true'"
         uses: actions/deploy-pages@v5
 
       - name: Record publish in pipeline ledger
-        if: steps.refresh.outputs.should_refresh == 'true'
+        if: "!cancelled() && steps.refresh.outputs.should_refresh == 'true'"
         run: python -m infra.publish.record_pages_publish --site-dir dist/github-pages --page-url "${{ steps.deployment.outputs.page_url }}"
 
       - name: Sync dashboard HTML back to repo (para Cloudflare Pages)
-        if: steps.refresh.outputs.should_refresh == 'true'
+        if: "!cancelled() && steps.refresh.outputs.should_refresh == 'true'"
         run: |
           if [ ! -f dist/github-pages/preview_c1_pro.html ]; then
             echo "No generated HTML found, skipping sync"

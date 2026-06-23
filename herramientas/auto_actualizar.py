@@ -421,7 +421,7 @@ def _timeout_seconds_for_step(step_name: str, optional: bool = False) -> int:
     if step_name.startswith("resumen_v"):
         return 10 * 60
     if step_name.startswith("dashboard_maquina"):
-        return 5 * 60
+        return 10 * 60
     if step_name == "auditoria_centinela":
         return 15 * 60
     if step_name.startswith("backfill_legacy_ml_"):
