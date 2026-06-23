@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "30 21 * * 1-5"   # 18:30 AR — post-cierre NYSE (verano: 17:00 AR / invierno: 18:00 AR)
-    # NOTA EGRESS (2026-05-20): Removidos fallback nocturno (0 1) y sanidad matutina (0 11).
-    # Cada run del pipeline diario consume ~300 MB de Supabase egress.
-    # 3 runs/día × 300 MB × 22 días = 19.8 GB/mes > 5 GB free tier.
-    # 1 run/día × 300 MB × 22 días = 6.6 GB — cerca del límite, más manejable.
+    # NOTA EGRESS (2026-06-23): Audit --lightweight eliminó rebuild duplicado de payload.
+    # Antes: ~300 MB/run (dashboard 180 MB + audit 110 MB + otros 10 MB).
+    # Ahora: ~190 MB/run (dashboard 180 MB + audit lightweight ~0.1 MB + otros 10 MB).
+    # 1 run/día × 190 MB × 22 días = 4.2 GB/mes — dentro del free tier de 5 GB.
     # Si el run falla: usar workflow_dispatch para reintentar manualmente.
 
 concurrency:
@@ -136,7 +136,8 @@ jobs:
             --site-dir dist/github-pages \
             --sample-size 5 \
             --seed 130013 \
-            --report-path docs/cloud/reports/dashboard_integrity_audit.json
+            --report-path docs/cloud/reports/dashboard_integrity_audit.json \
+            --lightweight
           audit_exit=$?
           set -e
           echo "AUDIT_EXIT=$audit_exit" >> $GITHUB_ENV

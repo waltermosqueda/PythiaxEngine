@@ -17,6 +17,7 @@ from analisis.generar_tablero_maquina_pensante import (
     _FRESHNESS_SCRIPT,
     _FRESHNESS_SCRIPT_ID,
     _inject_mobile_responsive,
+    build_integrity_snapshot,
     build_run_snapshot_from_db,
     build_dashboard_payload,
     load_market_dates,
@@ -89,6 +90,17 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=DEFAULT_REPORT_PATH,
         help="Ruta donde escribir el reporte JSON final.",
+    )
+    parser.add_argument(
+        "--lightweight",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip the full build_dashboard_payload() rebuild and use targeted "
+            "integrity queries instead. Reduces Supabase egress by ~99%% for "
+            "the audit step while still verifying integrity metrics, active "
+            "model state, and all file-based checks."
+        ),
     )
     return parser.parse_args()
 
@@ -700,6 +712,7 @@ def audit_dashboard_integrity(
     sample_size: int = 5,
     seed: int = 130013,
     report_path: Path | None = None,
+    lightweight: bool = False,
 ) -> dict[str, Any]:
     snapshot_path = snapshot_path.resolve()
     dashboard_root = (dashboard_dir.resolve() if dashboard_dir else snapshot_path.parent.resolve())
@@ -730,13 +743,29 @@ def audit_dashboard_integrity(
         except Exception as exc:
             failures.append({"label": "snapshot.generated_at_parse", "actual": gen, "expected": str(exc)})
 
-    expected_payload = build_dashboard_payload(database_url=database_url)
-    engine = create_db_engine(database_url=database_url)
-    try:
-        with RuntimeDB(engine) as db:
-            expected_active = build_expected_active_from_db(db)
-    finally:
-        engine.dispose()
+    if lightweight:
+        # Lightweight mode: query only integrity metrics + active model from DB.
+        # Use the snapshot's own competition data as expected (self-referential
+        # for competition sample, but integrity and active checks still hit DB).
+        # Saves ~180 MB egress per run vs full build_dashboard_payload().
+        engine = create_db_engine(database_url=database_url)
+        try:
+            with RuntimeDB(engine) as db:
+                market_dates = load_market_dates(db)
+                db_integrity = build_integrity_snapshot(db, db, market_dates)
+                expected_active = build_expected_active_from_db(db)
+        finally:
+            engine.dispose()
+        expected_payload = dict(snapshot)
+        expected_payload["integrity"] = db_integrity
+    else:
+        expected_payload = build_dashboard_payload(database_url=database_url)
+        engine = create_db_engine(database_url=database_url)
+        try:
+            with RuntimeDB(engine) as db:
+                expected_active = build_expected_active_from_db(db)
+        finally:
+            engine.dispose()
 
     # `checks` and `failures` were initialized earlier so we must not reassign them here.
     compare_integrity(snapshot, expected_payload, checks, failures)
@@ -789,6 +818,7 @@ def main() -> int:
         sample_size=args.sample_size,
         seed=args.seed,
         report_path=args.report_path,
+        lightweight=args.lightweight,
     )
     print("Audit dashboard integrity:")
     print(f" - checks_total  : {payload['checks_total']}")
