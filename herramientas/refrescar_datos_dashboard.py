@@ -1618,10 +1618,15 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                 lt_tgt = r.get("latest_target_date") or ""
                 if lt_n and lt_tks and lt_tgt >= today_iso:
                     tks_str   = _esc(", ".join(lt_tks[:6]))
+                    lt_sig = r.get("last_signal_date") or ""
+                    sig_fmt = f"{lt_sig[8:]}/{lt_sig[5:7]}" if len(lt_sig) == 10 else lt_sig
+                    tgt_fmt = f"{lt_tgt[8:]}/{lt_tgt[5:7]}" if len(lt_tgt) == 10 else lt_tgt
+                    is_fresh = lt_sig >= today_iso
                     tip_next  = _esc(
-                        f"{ver} {pd} | {lt_n} picks activos"
-                        f" | {', '.join(lt_tks[:6])}"
-                        + (f" | target {lt_tgt}" if lt_tgt else "")
+                        f"{ver} | {lt_n} picks activos"
+                        + (f" (pred. {sig_fmt})" if lt_sig and not is_fresh else "")
+                        + f" | {', '.join(lt_tks[:6])}"
+                        + (f" | target {tgt_fmt}" if lt_tgt else "")
                     )
                     cells += (
                         f"<td class='hm-today' data-tip='{tip_next}'>"
@@ -2721,6 +2726,7 @@ def _h7_ver_abbr(ver: str) -> str:
 
 def _build_h7_chip_signals(snap: dict) -> str:
     """Inner content of .h7-chip.h7-chip-signals — max 4 picks with signal→target dates."""
+    today_iso = datetime.date.today().isoformat()
     league = _dashboard_league(snap)
     all_picks: list[dict] = []
     total_open = 0
@@ -2757,12 +2763,18 @@ def _build_h7_chip_signals(snap: dict) -> str:
             f"<span style='font-size:8px;color:var(--muted,#6585a8);margin-left:3px'>{_esc(date_s)}</span>"
             if date_s else ""
         )
+        # Recency badge
+        badge_html = ""
+        if tgt and tgt <= today_iso:
+            badge_html = "<span style='font-size:7px;background:rgba(255,180,0,.25);color:#ffb400;padding:0 3px;border-radius:2px;margin-left:3px'>hoy</span>"
+        elif sig and sig >= today_iso:
+            badge_html = "<span style='font-size:7px;background:rgba(24,232,200,.18);color:#18e8c8;padding:0 3px;border-radius:2px;margin-left:3px'>nueva</span>"
         picks_html += (
             f"<div class='vd-pick {pct_css}'>"
             f"<span class='vd-sym'>{_esc(p['sym'])}</span>"
             f"<span class='vd-tag' style='background:rgba(128,128,128,.14);color:{color}'>{_esc(ver_abbr)}</span>"
             f"<span class='vd-pnl {pct_css}'>{_esc(pct_s)}</span>"
-            f"{date_html}"
+            f"{date_html}{badge_html}"
             f"</div>"
         )
 
@@ -2837,7 +2849,7 @@ def _build_h7_ticker(snap: dict) -> str:
     return (
         f"<div class='ticker-lbl'><div class='ticker-lbl-t'>SE\u00d1ALES</div>"
         f"<div class='ticker-lbl-n'>{total_open}</div>"
-        f"<div class='ticker-lbl-s'>NUEVAS</div>"
+        f"<div class='ticker-lbl-s'>ABIERTAS</div>"
         f"<div style='font-size:6px;color:rgba(120,165,215,.38);text-align:center;margin-top:2px;letter-spacing:.03em'>% MTM</div></div>"
         f"<div class='tw'><div class='tt'>"
         + pk_html
