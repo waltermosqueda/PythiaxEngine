@@ -2750,6 +2750,10 @@ def _build_h7_chip_signals(snap: dict) -> str:
 
     shown = all_picks[:4]  # hard cap: 4 picks max
     picks_html = ""
+    today_mmdd = datetime.date.today().strftime("%m%d")
+    def _to_mmdd(ddmm: str) -> str:
+        parts = ddmm.split("/")
+        return f"{parts[1]}{parts[0]}" if len(parts) == 2 else ""
     for p in shown:
         mtm = p["mtm"]
         pct_css = "pos" if (mtm is not None and mtm >= 0) else "neg"
@@ -2763,11 +2767,11 @@ def _build_h7_chip_signals(snap: dict) -> str:
             f"<span style='font-size:8px;color:var(--muted,#6585a8);margin-left:3px'>{_esc(date_s)}</span>"
             if date_s else ""
         )
-        # Recency badge
+        # Recency badge — sig/tgt are DD/MM, compare via MMDD
         badge_html = ""
-        if tgt and tgt <= today_iso:
+        if tgt and _to_mmdd(tgt) == today_mmdd:
             badge_html = "<span style='font-size:7px;background:rgba(255,180,0,.25);color:#ffb400;padding:0 3px;border-radius:2px;margin-left:3px'>hoy</span>"
-        elif sig and sig >= today_iso:
+        elif sig and _to_mmdd(sig) >= today_mmdd:
             badge_html = "<span style='font-size:7px;background:rgba(24,232,200,.18);color:#18e8c8;padding:0 3px;border-radius:2px;margin-left:3px'>nueva</span>"
         picks_html += (
             f"<div class='vd-pick {pct_css}'>"
