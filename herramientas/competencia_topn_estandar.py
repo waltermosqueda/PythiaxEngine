@@ -567,27 +567,6 @@ def build_window_metrics_from_records(
     if not window_dates:
         return base
 
-    # Build a forwarding map: target_date → record from previous prediction_date.
-    # This lets D1 picks (made on day T, targeting day T+1) show under T+1 in the
-    # calendar when T+1 has no direct picks of its own. Only forward when the record
-    # has avg_return_pct (provisional MTM) and latest_target_date matches the next
-    # window_date exactly.
-    _forward_map: dict[str, dict[str, Any]] = {}
-    window_dates_set = set(window_dates)
-    for d, rec in day_records.items():
-        tgt = rec.get("latest_target_date")
-        if (
-            tgt
-            and tgt != d  # target is a different (later) date
-            and tgt in window_dates_set
-            and rec.get("avg_return_pct") is not None  # has provisional data
-            and not day_records.get(tgt, {}).get("picks")  # target day has no own picks
-        ):
-            # Only forward if we don't already have a better candidate
-            existing = _forward_map.get(tgt)
-            if existing is None or str(d) > str(existing.get("date", "")):
-                _forward_map[tgt] = rec
-
     calendar: list[dict[str, Any]] = []
     spark: list[float] = []
     active_records: list[dict[str, Any]] = []
@@ -596,39 +575,16 @@ def build_window_metrics_from_records(
     for date_text in window_dates:
         record = day_records.get(date_text)
         if record is None or not record.get("picks"):
-            # No direct record — try forwarded D1 record from previous day
-            fwd = _forward_map.get(date_text) if (record is None or not record.get("picks")) else None
-            if fwd is not None:
-                # Show forwarded record under this target_date
-                calendar.append(
-                    {
-                        "date": date_text,
-                        "picks": _to_int(fwd.get("picks")),
-                        "accuracy_pct": _to_float(fwd.get("accuracy_pct")),
-                        "avg_return_pct": _to_float(fwd.get("avg_return_pct")),
-                        "is_provisional": bool(fwd.get("is_provisional", False)),
-                        "tickers": list(fwd.get("tickers") or []),
-                        "evaluated_assets": list(fwd.get("evaluated_assets") or []),
-                        "mtm_assets": list(fwd.get("mtm_assets") or []),
-                        "latest_target_date": fwd.get("latest_target_date"),
-                        "forwarded_from": str(fwd.get("date", "")),  
-                    }
-                )
-                spark.append(_to_float(fwd.get("avg_return_pct")) or 0.0)
-                if fwd.get("accuracy_pct") is not None and fwd.get("avg_return_pct") is not None:
-                    active_records.append(fwd)
-                    evaluated_assets.extend(fwd.get("evaluated_assets") or [])
-            else:
-                calendar.append(
-                    {
-                        "date": date_text,
-                        "picks": 0,
-                        "accuracy_pct": None,
-                        "avg_return_pct": None,
-                        "tickers": [],
-                    }
-                )
-                spark.append(0.0)
+            calendar.append(
+                {
+                    "date": date_text,
+                    "picks": 0,
+                    "accuracy_pct": None,
+                    "avg_return_pct": None,
+                    "tickers": [],
+                }
+            )
+            spark.append(0.0)
             continue
 
         calendar.append(

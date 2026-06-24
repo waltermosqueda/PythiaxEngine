@@ -1608,9 +1608,8 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                 + (f"<div class='hm-meta'>{meta}</div>" if meta else "")
                 + "</td>"
             )
-        # pending cells — the FIRST pending day (next trading day after last_date) always shows
-        # active picks so the user can see which signals are open going into the next session,
-        # regardless of whether today's data is already in the DB or not.
+        # pending cells — the FIRST pending day shows open positions from prior signals
+        # (NOT new predictions — those only exist after the next pipeline run).
         next_session = pending[0] if pending else None
         for pd in pending:
             if pd == next_session:
@@ -1620,15 +1619,15 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                 if lt_n and lt_tks and lt_tgt >= today_iso:
                     tks_str   = _esc(", ".join(lt_tks[:6]))
                     tip_next  = _esc(
-                        f"{ver} {pd} | {lt_n} picks activos en cartera"
+                        f"{ver} {pd} | \U0001f4cc {lt_n} posiciones abiertas (se\u00f1ales previas)"
                         f" | {', '.join(lt_tks[:6])}"
                         + (f" | target {lt_tgt}" if lt_tgt else "")
-                        + " | retorno se calcula al cierre"
+                        + " | no es predicci\u00f3n nueva \u2014 se eval\u00faa al cierre"
                     )
                     cells += (
                         f"<td class='hm-today' data-tip='{tip_next}'>"
-                        f"<div class='hm-ret'>{lt_n}\u25b8</div>"
-                        f"<div class='hm-meta'>{tks_str}</div>"
+                        f"<div class='hm-ret'>\U0001f4cc{lt_n}</div>"
+                        f"<div class='hm-meta'>pos. abiertas</div>"
                         "</td>"
                     )
                 elif lt_tgt and lt_tgt >= today_iso:
@@ -1653,15 +1652,15 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                         n_open_r = len(open_tks_r)
                         tks_str_r = _esc(", ".join(open_tks_r[:6]))
                         tip_next = _esc(
-                            f"{ver} {pd} | {n_open_r} picks abiertos (se\u00f1ales anteriores)"
+                            f"{ver} {pd} | \U0001f4cc {n_open_r} posiciones abiertas (se\u00f1ales previas)"
                             f" | {', '.join(open_tks_r[:6])}"
                             + (f" | hasta {lt_tgt}" if lt_tgt else "")
-                            + " | MTM en curso"
+                            + " | no es predicci\u00f3n nueva \u2014 MTM en curso"
                         )
                         cells += (
                             f"<td class='hm-today' data-tip='{tip_next}'>"
-                            f"<div class='hm-ret'>{n_open_r}\u25b8</div>"
-                            f"<div class='hm-meta'>{tks_str_r}</div>"
+                            f"<div class='hm-ret'>\U0001f4cc{n_open_r}</div>"
+                            f"<div class='hm-meta'>pos. abiertas</div>"
                             "</td>"
                         )
                     else:
