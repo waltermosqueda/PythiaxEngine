@@ -1608,8 +1608,8 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                 + (f"<div class='hm-meta'>{meta}</div>" if meta else "")
                 + "</td>"
             )
-        # pending cells — the FIRST pending day shows open positions from prior signals
-        # (NOT new predictions — those only exist after the next pipeline run).
+        # pending cells: Branch 1 = model has new picks -> show as predictions.
+        # Branch 2 = no new picks but open positions from prior signals -> show as pinned.
         next_session = pending[0] if pending else None
         for pd in pending:
             if pd == next_session:
@@ -1619,15 +1619,14 @@ def _build_variant_a(focus: list[dict], dates: list[str], pending: list[str], ra
                 if lt_n and lt_tks and lt_tgt >= today_iso:
                     tks_str   = _esc(", ".join(lt_tks[:6]))
                     tip_next  = _esc(
-                        f"{ver} {pd} | \U0001f4cc {lt_n} posiciones abiertas (se\u00f1ales previas)"
+                        f"{ver} {pd} | {lt_n} picks activos"
                         f" | {', '.join(lt_tks[:6])}"
                         + (f" | target {lt_tgt}" if lt_tgt else "")
-                        + " | no es predicci\u00f3n nueva \u2014 se eval\u00faa al cierre"
                     )
                     cells += (
                         f"<td class='hm-today' data-tip='{tip_next}'>"
-                        f"<div class='hm-ret'>\U0001f4cc{lt_n}</div>"
-                        f"<div class='hm-meta'>pos. abiertas</div>"
+                        f"<div class='hm-ret'>{lt_n}\u25b8</div>"
+                        f"<div class='hm-meta'>{tks_str}</div>"
                         "</td>"
                     )
                 elif lt_tgt and lt_tgt >= today_iso:
