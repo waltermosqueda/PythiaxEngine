@@ -164,6 +164,47 @@ def _check_supabase_egress() -> None:
         log.debug("[EGRESS-MONITOR] No disponible: %s", exc)
 
 
+_PRICES_CACHE_ENV = "PYTHIAX_PRICES_CACHE_PATH"
+
+
+def _create_prices_cache() -> str | None:
+    """Download prices table once to a local CSV so subprocesses skip Postgres reads."""
+    if runtime_backend_name() == "sqlite":
+        return None
+    try:
+        import tempfile
+        import pandas as pd
+        from infra.db.session import create_db_engine
+
+        engine = create_db_engine()
+        with engine.connect() as conn:
+            df = pd.read_sql(
+                "SELECT ticker, date, open, high, low, close, volume, adj_close FROM prices ORDER BY ticker, date",
+                conn,
+            )
+        engine.dispose()
+
+        cache_path = os.path.join(tempfile.gettempdir(), "pythiax_prices_cache.csv")
+        df.to_csv(cache_path, index=False)
+        size_mb = os.path.getsize(cache_path) / (1024 * 1024)
+        log.info("[PRICES-CACHE] Cached %s rows to %s (%.1f MB)", f"{len(df):,}", cache_path, size_mb)
+        print(f"  [PRICES-CACHE] {len(df):,} rows cached locally ({size_mb:.1f} MB) — subprocesses will skip DB reads")
+        return cache_path
+    except Exception as exc:
+        log.warning("[PRICES-CACHE] Failed to create cache: %s", exc)
+        return None
+
+
+def _cleanup_prices_cache() -> None:
+    """Remove the temp prices cache file."""
+    cache_path = os.environ.pop(_PRICES_CACHE_ENV, None)
+    if cache_path and os.path.isfile(cache_path):
+        try:
+            os.remove(cache_path)
+        except OSError:
+            pass
+
+
 def cloud_runtime_required() -> bool:
     return shared_cloud_runtime_required()
 
@@ -1513,6 +1554,10 @@ def ejecutar_publicacion_liviana(fecha_base: date) -> bool:
         fecha_base.isoformat(),
     )
 
+    cache_path = _create_prices_cache()
+    if cache_path:
+        os.environ[_PRICES_CACHE_ENV] = cache_path
+
     if not ensure_minimum_dashboard_history(fecha_base):
         return False
 
@@ -1563,6 +1608,10 @@ def ejecutar_pipeline_diario(
         f"[PIPELINE] Inicio pipeline diario para {fecha_base} ({ahora:%Y-%m-%d %H:%M}) | "
         f"scanner_activo={active_scanner_label}"
     )
+
+    cache_path = _create_prices_cache()
+    if cache_path:
+        os.environ[_PRICES_CACHE_ENV] = cache_path
 
     if operational.active_learning is None:
         emit_critical_alert(
@@ -2063,6 +2112,7 @@ def main() -> int:
         )
         return 1
     finally:
+        _cleanup_prices_cache()
         _check_supabase_egress()
 
 

@@ -61,13 +61,35 @@ _prices_cache: dict[tuple, pd.DataFrame] = {}
 _tickers_cache: list[str] | None = None
 _db_cache_lock = threading.Lock()
 
+_prices_bulk_df: pd.DataFrame | None = None
+_prices_bulk_loaded: bool = False
+
+
+def _load_prices_bulk_cache() -> pd.DataFrame | None:
+    """Load the local prices cache file if PYTHIAX_PRICES_CACHE_PATH is set."""
+    global _prices_bulk_df, _prices_bulk_loaded
+    if _prices_bulk_loaded:
+        return _prices_bulk_df
+    _prices_bulk_loaded = True
+    cache_path = os.environ.get("PYTHIAX_PRICES_CACHE_PATH", "")
+    if not cache_path or not os.path.isfile(cache_path):
+        return None
+    try:
+        df = pd.read_csv(cache_path, parse_dates=["date"])
+        _prices_bulk_df = df
+        return df
+    except Exception:
+        return None
+
 
 def clear_db_process_cache() -> None:
     """Limpia el cache en proceso. Útil para tests o runs en loop."""
-    global _tickers_cache
+    global _tickers_cache, _prices_bulk_df, _prices_bulk_loaded
     with _db_cache_lock:
         _prices_cache.clear()
         _tickers_cache = None
+    _prices_bulk_df = None
+    _prices_bulk_loaded = False
 
 
 class TitanDB:
@@ -693,6 +715,18 @@ class TitanDB:
         with _db_cache_lock:
             if cache_key in _prices_cache:
                 return _prices_cache[cache_key].copy()
+
+        bulk = _load_prices_bulk_cache()
+        if bulk is not None:
+            mask = bulk["ticker"] == ticker
+            if start_date:
+                mask &= bulk["date"] >= pd.Timestamp(start_date)
+            if end_date:
+                mask &= bulk["date"] <= pd.Timestamp(end_date)
+            df = bulk.loc[mask].copy().sort_values("date").set_index("date")
+            with _db_cache_lock:
+                _prices_cache[cache_key] = df.copy()
+            return df
 
         query = "SELECT * FROM prices WHERE ticker = ?"
         params: list = [ticker]

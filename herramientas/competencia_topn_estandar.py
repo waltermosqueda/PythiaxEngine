@@ -701,7 +701,12 @@ def _build_entry_state(
     top_n: int,
 ) -> dict[str, Any]:
     snapshot_rows = load_entry_snapshot_rows(con, entry)
-    snapshots = load_entry_snapshots(con, entry)
+    snapshots: dict[str, dict[str, Any]] = {}
+    for _row in snapshot_rows:
+        _ad = str(_row.get("analyzed_date") or "")
+        _sp = _row.get("snapshot") or {}
+        if _ad and isinstance(_sp, dict):
+            snapshots[_ad] = _sp
     row_map = _load_operational_row_map(con, entry)
     ranked_picks_by_date, source_by_date, selection_source = _build_ranked_picks_by_date(
         snapshots,
