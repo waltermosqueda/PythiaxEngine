@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-06-25T22:17:47Z -->
-<!-- git_head: 2264ee6 -->
+<!-- generated_at: 2026-06-25T23:59:16Z -->
+<!-- git_head: 82a0ea1 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 2264ee6 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-06-25 19:17 AR (Jue) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 82a0ea1 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-06-25 20:59 AR (Jue) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-06-25T22:17:47Z | `2026-06-25 19:17 AR (Jue)` | HEAD: `2264ee6`*
+*Auto-generado: 2026-06-25T23:59:16Z | `2026-06-25 20:59 AR (Jue)` | HEAD: `82a0ea1`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `2264ee6`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-06-25 19:17 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `82a0ea1`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-06-25 20:59 AR (Jue)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-06-25T22:17:47Z` |
-| Hora AR | `2026-06-25 19:17 AR (Jue)` |
+| Generado | `2026-06-25T23:59:16Z` |
+| Hora AR | `2026-06-25 20:59 AR (Jue)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -58,19 +58,19 @@
   20:30 UTC = 17:30 AR  [✅ PASADO]
 ```
 
-**Pipeline diario** (19:30 AR = 22:30 UTC): `⏳ PENDIENTE`
+**Pipeline diario** (19:30 AR = 22:30 UTC): `✅ PASADO`
 
 ---
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `2264ee6` — fix: exclude MTM and outcomes with |return| > 100% from snapshot
-**Timestamp commit:** 2026-06-25 15:04:12 -0300
+**HEAD:** `82a0ea1` — fix: repair 8 broken CI tests in test_auto_actualizar
+**Timestamp commit:** 2026-06-25 20:50:14 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-2264ee6 fix: exclude MTM and outcomes with |return| > 100% from snapshot
+82a0ea1 fix: repair 8 broken CI tests in test_auto_actualizar
 ```
 
 ### Working tree
