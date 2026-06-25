@@ -52,8 +52,15 @@ jobs:
         run: |
           python herramientas/auto_actualizar.py --skip-dashboard-refresh
 
+      - name: Cooldown before dashboard build
+        run: echo "Waiting 30s for Supabase connection pool recovery..." && sleep 30
+
       - name: Build dashboard bundle
-        run: python analisis/generar_tablero_maquina_pensante.py --variant all
+        timeout-minutes: 15
+        run: |
+          python analisis/generar_tablero_maquina_pensante.py --variant all || \
+          (echo "::warning::Build failed, retrying after 60s cooldown..." && sleep 60 && \
+           python analisis/generar_tablero_maquina_pensante.py --variant all)
 
       - name: Setup Pages
         uses: actions/configure-pages@v6
