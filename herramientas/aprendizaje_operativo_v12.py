@@ -103,6 +103,15 @@ class OperationalLearningV12(base.OperationalLearningV11):
                 """,
                 (f"{MODEL_PREFIX}_%", max_target_date),
             ).fetchall()
+            if all_pending:
+                pred_ids = [int(row[0]) for row in all_pending]
+                for i in range(0, len(pred_ids), 500):
+                    batch = pred_ids[i : i + 500]
+                    placeholders = ",".join("?" * len(batch))
+                    self.db.conn.execute(
+                        f"DELETE FROM outcomes WHERE prediction_id IN ({placeholders})",
+                        batch,
+                    )
         else:
             all_pending = self.db.conn.execute(
                 """
@@ -187,6 +196,16 @@ class OperationalLearningV12(base.OperationalLearningV11):
                 continue
 
             actual_return = (price_after - price_before) / price_before
+            if abs(actual_return) > 0.50:
+                try:
+                    window = df.loc[entry_date:actual_target_date]
+                    if not window.empty and "Open" in window.columns and "Close" in window.columns:
+                        day_rets = ((window["Close"] - window["Open"]) / window["Open"]).abs()
+                        if (day_rets > 0.50).any():
+                            summary["errors"] += 1
+                            continue
+                except Exception:
+                    pass
             actual_direction = "UP" if actual_return >= 0 else "DOWN"
             hit = 1 if str(predicted_dir).upper() == actual_direction else 0
             outcomes_batch.append((int(pred_id), actual_direction, float(actual_return), hit))

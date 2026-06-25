@@ -1094,6 +1094,42 @@ class OperationalLearningLegacyML:
             snapshot_payload=artifact,
         )
 
+    # Corporate action guard — mirrors SCANNER/invertir_v13.py thresholds.
+    # A return is suspect when the absolute magnitude exceeds 50% AND the
+    # daily bar that caused it has a tiny intraday range (typical of splits
+    # where open ≈ close after the price adjustment).
+    CORP_RETURN_ABS_THRESHOLD = 0.50  # 50%
+
+    def _is_suspect_corporate_action(
+        self,
+        ticker: str,
+        entry_date: str,
+        target_date: str,
+        raw_return: float,
+    ) -> bool:
+        if abs(raw_return) <= self.CORP_RETURN_ABS_THRESHOLD:
+            return False
+        rows = self.db.conn.execute(
+            """
+            SELECT date, open, high, low, close
+            FROM prices
+            WHERE ticker = ? AND date BETWEEN ? AND ?
+            ORDER BY date
+            """,
+            (ticker, entry_date, target_date),
+        ).fetchall()
+        if not rows:
+            return False
+        for row in rows:
+            d, o, h, l, c = row
+            if o is None or c is None or float(o) == 0:
+                continue
+            day_ret = abs(float(c) - float(o)) / float(o)
+            intraday_range = (float(h) - float(l)) / float(o) if h is not None and l is not None else 0
+            if day_ret > self.CORP_RETURN_ABS_THRESHOLD and intraday_range < 0.15:
+                return True
+        return False
+
     def _window_max_close_return(self, ticker: str, entry_date: str, target_date: str) -> float | None:
         window_df = normalize_ohlcv(self.db.get_prices(ticker, start_date=entry_date, end_date=target_date))
         if window_df.empty or "Close" not in window_df.columns:
@@ -1117,7 +1153,10 @@ class OperationalLearningLegacyML:
             return None
 
         max_close = float(window_df["Close"].max())
-        return (max_close - entry_open) / entry_open
+        raw_return = (max_close - entry_open) / entry_open
+        if self._is_suspect_corporate_action(ticker, entry_date, target_date, raw_return):
+            return None
+        return raw_return
 
     def evaluate_due_predictions(
         self,
@@ -1137,6 +1176,15 @@ class OperationalLearningLegacyML:
                 """,
                 (self.model_name, max_target_date),
             ).fetchall()
+            if pending:
+                pred_ids = [int(row[0]) for row in pending]
+                for i in range(0, len(pred_ids), 500):
+                    batch = pred_ids[i : i + 500]
+                    placeholders = ",".join("?" * len(batch))
+                    self.db.conn.execute(
+                        f"DELETE FROM outcomes WHERE prediction_id IN ({placeholders})",
+                        batch,
+                    )
         else:
             pending = self.db.conn.execute(
                 """
@@ -1252,6 +1300,9 @@ class OperationalLearningLegacyML:
                     continue
 
                 actual_return = (float(target_close) - float(entry_open)) / float(entry_open)
+                if self._is_suspect_corporate_action(ticker, entry_date, actual_target_date, actual_return):
+                    summary["errors"] += 1
+                    continue
                 actual_direction = "UP" if actual_return >= 0 else "DOWN"
                 hit = 1 if predicted_dir.upper() == actual_direction else 0
                 outcome_rows.append((pred_id, actual_direction, actual_return, hit))

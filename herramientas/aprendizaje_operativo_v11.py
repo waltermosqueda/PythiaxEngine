@@ -439,6 +439,13 @@ class OperationalLearningV11:
                     """,
                     (f"{MODEL_PREFIX}_%", target_date),
                 ).fetchall()
+                if pending:
+                    pred_ids = [int(row[0]) for row in pending]
+                    placeholders = ",".join("?" * len(pred_ids))
+                    self.db.conn.execute(
+                        f"DELETE FROM outcomes WHERE prediction_id IN ({placeholders})",
+                        pred_ids,
+                    )
             else:
                 pending = self.db.conn.execute(
                     """
@@ -516,6 +523,24 @@ class OperationalLearningV11:
                     continue
 
                 actual_return = (price_after - price_before) / price_before
+                if abs(actual_return) > 0.50:
+                    suspect_rows = self.db.conn.execute(
+                        """
+                        SELECT open, close
+                        FROM prices
+                        WHERE ticker = ? AND date BETWEEN ? AND ?
+                        ORDER BY date
+                        """,
+                        (ticker, entry_date, actual_target_date),
+                    ).fetchall()
+                    is_suspect = any(
+                        r[0] and r[1] and float(r[0]) != 0
+                        and abs(float(r[1]) - float(r[0])) / float(r[0]) > 0.50
+                        for r in suspect_rows
+                    )
+                    if is_suspect:
+                        summary["errors"] += 1
+                        continue
                 actual_direction = "UP" if actual_return >= 0 else "DOWN"
                 hit = 1 if str(predicted_dir).upper() == actual_direction else 0
 

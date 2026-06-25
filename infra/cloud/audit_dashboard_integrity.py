@@ -530,6 +530,113 @@ def compare_competition_sample(
     return sampled
 
 
+# ── Verification Committee checks ──────────────────────────────────────────
+# These checks form the automated "agent committee" that guards dashboard
+# quality before deploy.  They catch problems that pure DB-vs-snapshot
+# diffing cannot: implausible returns, regime contradictions, duplicates.
+
+RETURN_SPIKE_THRESHOLD = 30.0  # |daily avg return pct| above this is suspect
+CUMULATIVE_RETURN_ABS_MAX = 100.0  # |cumulative return pct| above this is suspect
+
+
+def verify_return_plausibility(
+    snapshot: dict[str, Any],
+    checks: list[dict[str, Any]],
+    failures: list[dict[str, Any]],
+) -> None:
+    """Flag any model whose sparkline contains implausible return spikes."""
+    rows = snapshot.get("competition") or []
+    for row in rows:
+        version = str(row.get("version") or "?")
+        spark = row.get("spark_cumulative_return_pct") or []
+        daily = row.get("spark_avg_return_pct") or []
+
+        bad_days = [
+            (i, float(v))
+            for i, v in enumerate(daily)
+            if v is not None and abs(float(v)) > RETURN_SPIKE_THRESHOLD
+        ]
+        if bad_days:
+            failures.append({
+                "label": f"committee.return_spike[{version}]",
+                "actual": f"{len(bad_days)} day(s) with |avg_return| > {RETURN_SPIKE_THRESHOLD}%: {bad_days[:3]}",
+                "expected": "no implausible daily return spikes (possible corporate action contamination)",
+            })
+        else:
+            checks.append({"label": f"committee.return_spike[{version}]", "ok": True})
+
+        if spark:
+            final_cum = float(spark[-1]) if spark[-1] is not None else 0.0
+            if abs(final_cum) > CUMULATIVE_RETURN_ABS_MAX:
+                failures.append({
+                    "label": f"committee.cumulative_extreme[{version}]",
+                    "actual": f"cumulative return = {final_cum:.2f}%",
+                    "expected": f"|cumulative| <= {CUMULATIVE_RETURN_ABS_MAX}%",
+                })
+            else:
+                checks.append({"label": f"committee.cumulative_extreme[{version}]", "ok": True})
+
+
+def verify_regime_consistency(
+    snapshot: dict[str, Any],
+    checks: list[dict[str, Any]],
+    failures: list[dict[str, Any]],
+) -> None:
+    """Ensure regime_label is consistent across all snapshot sections."""
+    active = snapshot.get("active") or {}
+    active_run = active.get("active_run") or {}
+    regime_active = active_run.get("regime_label")
+    regime_root = snapshot.get("regime_label")
+
+    sources: dict[str, str | None] = {
+        "active.active_run.regime_label": regime_active,
+        "root.regime_label": regime_root,
+    }
+
+    unique_regimes = {v for v in sources.values() if v is not None}
+    if len(unique_regimes) <= 1:
+        checks.append({"label": "committee.regime_consistency", "ok": True})
+    else:
+        failures.append({
+            "label": "committee.regime_consistency",
+            "actual": str(sources),
+            "expected": "all regime labels must agree",
+        })
+
+
+def verify_no_duplicate_models(
+    snapshot: dict[str, Any],
+    checks: list[dict[str, Any]],
+    failures: list[dict[str, Any]],
+) -> None:
+    """Detect models that occupy multiple competition slots with identical data."""
+    rows = snapshot.get("competition") or []
+    seen: dict[str, str] = {}
+    duplicates: list[tuple[str, str]] = []
+    for row in rows:
+        version = str(row.get("version") or "")
+        key_fields = (
+            str(row.get("total_preds")),
+            str(row.get("evaluated")),
+            str(row.get("accuracy_pct")),
+            str(row.get("avg_return_pct")),
+        )
+        fingerprint = "|".join(key_fields)
+        if fingerprint in seen and fingerprint != "0|0|None|None":
+            duplicates.append((seen[fingerprint], version))
+        else:
+            seen[fingerprint] = version
+
+    if duplicates:
+        failures.append({
+            "label": "committee.duplicate_models",
+            "actual": str(duplicates),
+            "expected": "no duplicate models in competition",
+        })
+    else:
+        checks.append({"label": "committee.duplicate_models", "ok": True})
+
+
 def verify_dashboard_html(
     dashboard_dir: Path,
     snapshot: dict[str, Any],
@@ -780,6 +887,11 @@ def audit_dashboard_integrity(
         checks=checks,
         failures=failures,
     )
+    # Verification committee checks (automated agent panel)
+    verify_return_plausibility(snapshot, checks, failures)
+    verify_regime_consistency(snapshot, checks, failures)
+    verify_no_duplicate_models(snapshot, checks, failures)
+
     verify_dashboard_html(dashboard_root, snapshot, checks, failures)
     if staged_site_dir is not None and staged_site_dir.exists():
         verify_site_bundle(dashboard_root, staged_site_dir, snapshot, checks, failures)
