@@ -1108,6 +1108,8 @@ class OperationalLearningLegacyML:
     ) -> bool:
         if abs(raw_return) <= self.CORP_RETURN_ABS_THRESHOLD:
             return False
+        if abs(raw_return) > 1.00:
+            return True
         rows = self.db.conn.execute(
             """
             SELECT close

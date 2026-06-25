@@ -196,6 +196,9 @@ class OperationalLearningV12(base.OperationalLearningV11):
                 continue
 
             actual_return = (price_after - price_before) / price_before
+            if abs(actual_return) > 1.00:
+                summary["errors"] += 1
+                continue
             if abs(actual_return) > 0.50:
                 try:
                     window = df.loc[entry_date:actual_target_date]

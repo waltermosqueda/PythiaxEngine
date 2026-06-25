@@ -72,6 +72,26 @@ jobs:
         run: |
           python herramientas/auto_actualizar.py --skip-dashboard-refresh
 
+      - name: Post-pipeline purge of corporate-action outcomes
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, text
+
+          url = os.environ["DATABASE_URL"]
+          engine = create_engine(url)
+          with engine.begin() as conn:
+              result = conn.execute(text("""
+                  DELETE FROM outcomes
+                  WHERE id IN (
+                      SELECT o.id FROM outcomes o
+                      WHERE ABS(o.actual_return) > 0.50
+                  )
+              """))
+              print(f"[CORP-ACTION-GUARD-POST] Purged {result.rowcount} outcome(s) with |return| > 50%")
+          engine.dispose()
+          PY
+
       - name: Cooldown before dashboard build
         run: echo "Waiting 60s for Supabase connection pool recovery..." && sleep 60
 
