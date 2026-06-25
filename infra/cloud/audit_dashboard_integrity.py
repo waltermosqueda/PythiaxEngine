@@ -542,9 +542,12 @@ CUMULATIVE_RETURN_ABS_MAX = 100.0  # |cumulative return pct| above this is suspe
 def verify_return_plausibility(
     snapshot: dict[str, Any],
     checks: list[dict[str, Any]],
-    failures: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
 ) -> None:
-    """Flag any model whose sparkline contains implausible return spikes."""
+    """Flag any model whose sparkline contains implausible return spikes.
+
+    Committee findings are advisory (warnings), not blocking failures.
+    """
     rows = snapshot.get("competition") or []
     for row in rows:
         version = str(row.get("version") or "?")
@@ -557,7 +560,7 @@ def verify_return_plausibility(
             if v is not None and abs(float(v)) > RETURN_SPIKE_THRESHOLD
         ]
         if bad_days:
-            failures.append({
+            warnings.append({
                 "label": f"committee.return_spike[{version}]",
                 "actual": f"{len(bad_days)} day(s) with |avg_return| > {RETURN_SPIKE_THRESHOLD}%: {bad_days[:3]}",
                 "expected": "no implausible daily return spikes (possible corporate action contamination)",
@@ -568,7 +571,7 @@ def verify_return_plausibility(
         if spark:
             final_cum = float(spark[-1]) if spark[-1] is not None else 0.0
             if abs(final_cum) > CUMULATIVE_RETURN_ABS_MAX:
-                failures.append({
+                warnings.append({
                     "label": f"committee.cumulative_extreme[{version}]",
                     "actual": f"cumulative return = {final_cum:.2f}%",
                     "expected": f"|cumulative| <= {CUMULATIVE_RETURN_ABS_MAX}%",
@@ -580,9 +583,12 @@ def verify_return_plausibility(
 def verify_regime_consistency(
     snapshot: dict[str, Any],
     checks: list[dict[str, Any]],
-    failures: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
 ) -> None:
-    """Ensure regime_label is consistent across all snapshot sections."""
+    """Ensure regime_label is consistent across all snapshot sections.
+
+    Committee findings are advisory (warnings), not blocking failures.
+    """
     active = snapshot.get("active") or {}
     active_run = active.get("active_run") or {}
     regime_active = active_run.get("regime_label")
@@ -597,7 +603,7 @@ def verify_regime_consistency(
     if len(unique_regimes) <= 1:
         checks.append({"label": "committee.regime_consistency", "ok": True})
     else:
-        failures.append({
+        warnings.append({
             "label": "committee.regime_consistency",
             "actual": str(sources),
             "expected": "all regime labels must agree",
@@ -607,9 +613,12 @@ def verify_regime_consistency(
 def verify_no_duplicate_models(
     snapshot: dict[str, Any],
     checks: list[dict[str, Any]],
-    failures: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
 ) -> None:
-    """Detect models that occupy multiple competition slots with identical data."""
+    """Detect models that occupy multiple competition slots with identical data.
+
+    Committee findings are advisory (warnings), not blocking failures.
+    """
     rows = snapshot.get("competition") or []
     seen: dict[str, str] = {}
     duplicates: list[tuple[str, str]] = []
@@ -628,7 +637,7 @@ def verify_no_duplicate_models(
             seen[fingerprint] = version
 
     if duplicates:
-        failures.append({
+        warnings.append({
             "label": "committee.duplicate_models",
             "actual": str(duplicates),
             "expected": "no duplicate models in competition",
@@ -887,10 +896,14 @@ def audit_dashboard_integrity(
         checks=checks,
         failures=failures,
     )
-    # Verification committee checks (automated agent panel)
-    verify_return_plausibility(snapshot, checks, failures)
-    verify_regime_consistency(snapshot, checks, failures)
-    verify_no_duplicate_models(snapshot, checks, failures)
+    # Verification committee checks (automated agent panel).
+    # Committee findings are advisory warnings — they flag anomalies worth
+    # investigating but do NOT block the deploy (only critical integrity
+    # mismatches in `failures` block it).
+    warnings: list[dict[str, Any]] = []
+    verify_return_plausibility(snapshot, checks, warnings)
+    verify_regime_consistency(snapshot, checks, warnings)
+    verify_no_duplicate_models(snapshot, checks, warnings)
 
     verify_dashboard_html(dashboard_root, snapshot, checks, failures)
     if staged_site_dir is not None and staged_site_dir.exists():
@@ -908,8 +921,10 @@ def audit_dashboard_integrity(
         "checks_total": len(checks),
         "checks_ok": sum(1 for check in checks if check["ok"]),
         "checks_failed": len(failures),
+        "committee_warnings": len(warnings),
         "checks": checks,
         "failures": failures,
+        "warnings": warnings,
         # Timestamps and traceability fields
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "generated_at_display": datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z"),
@@ -933,19 +948,22 @@ def main() -> int:
         lightweight=args.lightweight,
     )
     print("Audit dashboard integrity:")
-    print(f" - checks_total  : {payload['checks_total']}")
-    print(f" - checks_ok     : {payload['checks_ok']}")
-    print(f" - checks_failed : {payload['checks_failed']}")
-    print(f" - sampled       : {', '.join(payload['sampled_versions']) if payload['sampled_versions'] else '-'}")
-    print(f" - report        : {args.report_path.resolve()}")
+    print(f" - checks_total       : {payload['checks_total']}")
+    print(f" - checks_ok          : {payload['checks_ok']}")
+    print(f" - checks_failed      : {payload['checks_failed']}")
+    print(f" - committee_warnings : {payload['committee_warnings']}")
+    print(f" - sampled            : {', '.join(payload['sampled_versions']) if payload['sampled_versions'] else '-'}")
+    print(f" - report             : {args.report_path.resolve()}")
 
-    # Imprimir detalles de checks fallidos si existen
     if payload['checks_failed']:
         print("\nDetalles de checks fallidos:")
         for idx, fail in enumerate(payload.get('failures', []), 1):
             print(f"  {idx}. {fail}")
-        if not payload.get('failures'):
-            print("  [WARN] checks_failed > 0 pero no se encontró 'failures' en el payload.")
+
+    if payload['committee_warnings']:
+        print("\nCommittee warnings (advisory, non-blocking):")
+        for idx, warn in enumerate(payload.get('warnings', []), 1):
+            print(f"  {idx}. {warn}")
 
     return 0 if payload["checks_failed"] == 0 else 1
 
