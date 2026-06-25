@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-06-24T01:49:14Z -->
-<!-- git_head: 37083b7 -->
+<!-- generated_at: 2026-06-25T00:59:18Z -->
+<!-- git_head: 46edaf6 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 37083b7 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-06-23 22:49 AR (Mar) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 46edaf6 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-06-24 21:59 AR (Mie) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-06-24T01:49:14Z | `2026-06-23 22:49 AR (Mar)` | HEAD: `37083b7`*
+*Auto-generado: 2026-06-25T00:59:18Z | `2026-06-24 21:59 AR (Mie)` | HEAD: `46edaf6`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `37083b7`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-06-23 22:49 AR (Mar)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `46edaf6`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-06-24 21:59 AR (Mie)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-06-24T01:49:14Z` |
-| Hora AR | `2026-06-23 22:49 AR (Mar)` |
+| Generado | `2026-06-25T00:59:18Z` |
+| Hora AR | `2026-06-24 21:59 AR (Mie)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,13 +64,13 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `37083b7` — perf: reduce Supabase egress from ~170 MB/run to ~30 MB/run
-**Timestamp commit:** 2026-06-23 22:46:45 -0300
+**HEAD:** `46edaf6` — ﻿fix: correct date format comparison for recency badges
+**Timestamp commit:** 2026-06-24 15:41:44 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-37083b7 perf: reduce Supabase egress from ~170 MB/run to ~30 MB/run
+46edaf6 ﻿fix: correct date format comparison for recency badges
 ```
 
 ### Working tree
