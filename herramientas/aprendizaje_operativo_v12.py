@@ -199,9 +199,9 @@ class OperationalLearningV12(base.OperationalLearningV11):
             if abs(actual_return) > 0.50:
                 try:
                     window = df.loc[entry_date:actual_target_date]
-                    if not window.empty and "Open" in window.columns and "Close" in window.columns:
-                        day_rets = ((window["Close"] - window["Open"]) / window["Open"]).abs()
-                        if (day_rets > 0.50).any():
+                    if not window.empty and "Close" in window.columns:
+                        close_rets = window["Close"].pct_change().abs()
+                        if (close_rets > 0.50).any():
                             summary["errors"] += 1
                             continue
                 except Exception:

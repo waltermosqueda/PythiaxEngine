@@ -1094,10 +1094,9 @@ class OperationalLearningLegacyML:
             snapshot_payload=artifact,
         )
 
-    # Corporate action guard — mirrors SCANNER/invertir_v13.py thresholds.
-    # A return is suspect when the absolute magnitude exceeds 50% AND the
-    # daily bar that caused it has a tiny intraday range (typical of splits
-    # where open ≈ close after the price adjustment).
+    # Corporate action guard — mirrors SCANNER/invertir_v13.py RET1 logic.
+    # Detects overnight price gaps caused by stock splits/reverse splits by
+    # checking close-to-close returns between consecutive days.
     CORP_RETURN_ABS_THRESHOLD = 0.50  # 50%
 
     def _is_suspect_corporate_action(
@@ -1111,7 +1110,7 @@ class OperationalLearningLegacyML:
             return False
         rows = self.db.conn.execute(
             """
-            SELECT date, open, high, low, close
+            SELECT close
             FROM prices
             WHERE ticker = ? AND date BETWEEN ? AND ?
             ORDER BY date
@@ -1120,14 +1119,12 @@ class OperationalLearningLegacyML:
         ).fetchall()
         if not rows:
             return False
-        for row in rows:
-            d, o, h, l, c = row
-            if o is None or c is None or float(o) == 0:
-                continue
-            day_ret = abs(float(c) - float(o)) / float(o)
-            intraday_range = (float(h) - float(l)) / float(o) if h is not None and l is not None else 0
-            if day_ret > self.CORP_RETURN_ABS_THRESHOLD and intraday_range < 0.15:
-                return True
+        prev_c = None
+        for (c,) in rows:
+            if c is not None and prev_c is not None and float(prev_c) != 0:
+                if abs(float(c) - float(prev_c)) / float(prev_c) > self.CORP_RETURN_ABS_THRESHOLD:
+                    return True
+            prev_c = c
         return False
 
     def _window_max_close_return(self, ticker: str, entry_date: str, target_date: str) -> float | None:

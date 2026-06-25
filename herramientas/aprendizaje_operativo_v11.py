@@ -524,20 +524,23 @@ class OperationalLearningV11:
 
                 actual_return = (price_after - price_before) / price_before
                 if abs(actual_return) > 0.50:
-                    suspect_rows = self.db.conn.execute(
+                    closes = self.db.conn.execute(
                         """
-                        SELECT open, close
+                        SELECT close
                         FROM prices
                         WHERE ticker = ? AND date BETWEEN ? AND ?
                         ORDER BY date
                         """,
                         (ticker, entry_date, actual_target_date),
                     ).fetchall()
-                    is_suspect = any(
-                        r[0] and r[1] and float(r[0]) != 0
-                        and abs(float(r[1]) - float(r[0])) / float(r[0]) > 0.50
-                        for r in suspect_rows
-                    )
+                    prev_c = None
+                    is_suspect = False
+                    for (c,) in closes:
+                        if c is not None and prev_c is not None and float(prev_c) != 0:
+                            if abs(float(c) - float(prev_c)) / float(prev_c) > 0.50:
+                                is_suspect = True
+                                break
+                        prev_c = c
                     if is_suspect:
                         summary["errors"] += 1
                         continue
