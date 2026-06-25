@@ -505,7 +505,7 @@ def _build_day_records(
                 pending = True
                 # Collect MTM (mark-to-market) provisional return if available
                 mtm = _to_float(row.get("mtm_return"))
-                if mtm is not None:
+                if mtm is not None and abs(mtm) <= 1.0:
                     mtm_assets.append({
                         "ticker": str(item["ticker"]),
                         "mtm_return": mtm,
@@ -518,10 +518,13 @@ def _build_day_records(
                     })
                 continue
 
+            ar = float(row["actual_return"])
+            if abs(ar) > 1.0:
+                continue
             evaluated_assets.append(
                 {
                     "ticker": str(item["ticker"]),
-                    "actual_return": float(row["actual_return"]),
+                    "actual_return": ar,
                     "hit": int(row["hit"]),
                     "confidence": confidence,
                     "target_date": str(row["target_date"]),
