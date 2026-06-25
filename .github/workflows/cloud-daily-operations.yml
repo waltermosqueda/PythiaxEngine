@@ -114,10 +114,19 @@ jobs:
             --max-closed 12
 
 
+      # Supabase free-tier connection pool needs cooldown after heavy pipeline queries
+      - name: Cooldown before dashboard build
+        if: '!cancelled()'
+        run: echo "Waiting 30s for Supabase connection pool recovery..." && sleep 30
+
       # Always rebuild dashboard and snapshot artifacts before audit
       - name: Build dashboard bundle (ALWAYS)
         if: '!cancelled()'
-        run: python analisis/generar_tablero_maquina_pensante.py --variant all
+        timeout-minutes: 15
+        run: |
+          python analisis/generar_tablero_maquina_pensante.py --variant all || \
+          (echo "::warning::Build failed, retrying after 60s cooldown..." && sleep 60 && \
+           python analisis/generar_tablero_maquina_pensante.py --variant all)
 
 
       - name: Stage GitHub Pages site (ALWAYS)
