@@ -519,6 +519,7 @@ def test_auditar_integridad_dashboard_runs_required_step(monkeypatch) -> None:
 def test_ejecutar_publicacion_liviana_blocks_when_dashboard_integrity_fails(monkeypatch) -> None:
     optional_called = {"value": False}
 
+    monkeypatch.setattr(auto_actualizar, "_create_prices_cache", lambda: None)
     monkeypatch.setattr(auto_actualizar, "ensure_minimum_dashboard_history", lambda fecha_base: True)
     monkeypatch.setattr(auto_actualizar, "validate_model_snapshot_freshness", lambda fecha_base: True)
     monkeypatch.setattr(auto_actualizar, "recompute_required_outcomes", lambda fecha_base: True)
@@ -540,6 +541,7 @@ def test_ejecutar_publicacion_liviana_blocks_when_dashboard_integrity_fails(monk
 def test_ejecutar_publicacion_liviana_reconciles_outcomes_before_refresh(monkeypatch) -> None:
     calls: list[str] = []
 
+    monkeypatch.setattr(auto_actualizar, "_create_prices_cache", lambda: None)
     monkeypatch.setattr(
         auto_actualizar,
         "ensure_minimum_dashboard_history",
@@ -651,7 +653,7 @@ def test_ensure_minimum_dashboard_history_bootstraps_sparse_cloud_history(monkey
     monkeypatch.setattr(
         auto_actualizar,
         "build_dashboard_history_report",
-        lambda fecha_base, min_market_days=90: next(reports),
+        lambda fecha_base, min_market_days=90, _force_refresh=False: next(reports),
     )
     monkeypatch.setattr(auto_actualizar, "guardar_reporte_json", lambda path, payload: path)
     monkeypatch.setattr(
@@ -731,7 +733,7 @@ def test_ensure_minimum_dashboard_history_returns_after_required_repair(monkeypa
     monkeypatch.setattr(
         auto_actualizar,
         "build_dashboard_history_report",
-        lambda fecha_base, min_market_days=90: next(reports),
+        lambda fecha_base, min_market_days=90, _force_refresh=False: next(reports),
     )
     monkeypatch.setattr(auto_actualizar, "guardar_reporte_json", lambda path, payload: path)
     monkeypatch.setattr(
@@ -821,7 +823,7 @@ def test_ensure_minimum_dashboard_history_returns_after_observed_optional_repair
     monkeypatch.setattr(
         auto_actualizar,
         "build_dashboard_history_report",
-        lambda fecha_base, min_market_days=90: next(reports),
+        lambda fecha_base, min_market_days=90, _force_refresh=False: next(reports),
     )
     monkeypatch.setattr(auto_actualizar, "guardar_reporte_json", lambda path, payload: path)
     monkeypatch.setattr(
@@ -882,6 +884,7 @@ def test_ejecutar_pipeline_diario_can_skip_dashboard_refresh_tail(monkeypatch) -
         "optional": False,
     }
 
+    monkeypatch.setattr(auto_actualizar, "_create_prices_cache", lambda: None)
     monkeypatch.setattr(auto_actualizar, "resolve_operational_scanner_context", lambda: operational)
     monkeypatch.setattr(
         auto_actualizar,
@@ -976,6 +979,7 @@ def test_ejecutar_pipeline_diario_skip_dashboard_refresh_still_blocks_on_missing
         "optional": 0,
     }
 
+    monkeypatch.setattr(auto_actualizar, "_create_prices_cache", lambda: None)
     monkeypatch.setattr(auto_actualizar, "resolve_operational_scanner_context", lambda: operational)
     monkeypatch.setattr(
         auto_actualizar,
@@ -1040,6 +1044,7 @@ def test_ejecutar_pipeline_diario_treats_observed_and_legacy_steps_as_optional(m
         "validate": 0,
     }
 
+    monkeypatch.setattr(auto_actualizar, "_create_prices_cache", lambda: None)
     monkeypatch.setattr(auto_actualizar, "resolve_operational_scanner_context", lambda: operational)
     monkeypatch.setattr(
         auto_actualizar,
