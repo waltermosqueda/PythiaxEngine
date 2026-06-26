@@ -3,7 +3,7 @@ name: Cloud Daily Operations
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 21 * * 1-5"   # 18:30 AR — post-cierre NYSE (verano: 17:00 AR / invierno: 18:00 AR)
+    - cron: "15 22 * * 1-5"   # 19:15 AR — post-cierre NYSE + margen para setup (~25 min)
     # NOTA EGRESS (2026-06-23, v2): Tres optimizaciones aplicadas:
     # 1. --skip-dashboard-refresh: pipeline NO construye dashboard (el workflow lo hace)
     # 2. --lightweight audit: audit no reconstruye payload
