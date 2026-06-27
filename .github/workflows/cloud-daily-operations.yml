@@ -282,7 +282,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to sync"
           else
-            git commit -m "chore(auto): sync dashboard HTML"
+            git commit -m "chore(auto): sync dashboard HTML [skip ci]"
             # Pull-rebase en caso de push concurrente a main
             # -X theirs = en conflictos, priorizar nuestro HTML generado
             git pull --rebase -X theirs origin main || true
