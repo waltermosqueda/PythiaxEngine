@@ -1,6 +1,6 @@
 <!-- AUTO-GENERADO por scripts/generar_estado_actual.py — NO editar esta sección -->
-<!-- generated_at: 2026-06-30T23:02:59Z -->
-<!-- git_head: 9410203 -->
+<!-- generated_at: 2026-07-01T23:14:51Z -->
+<!-- git_head: 5e453c7 -->
 <!-- git_branch: main -->
 <!--
   ⚠️  AVISO PARA AGENTES IA:
@@ -11,13 +11,13 @@
     1. py -c "from datetime import datetime,timezone,timedelta; u=datetime.now(timezone.utc); a=u-timedelta(hours=3); print('UTC:',u.strftime('%Y-%m-%d %H:%M'),'| AR:',a.strftime('%Y-%m-%d %H:%M'))"
     2. cd C:\repos\PythiaxEngine ; git log --oneline -3 ; git status --short
 
-  Si el HEAD que ves en git ≠ 9410203 → secciones de commits abajo DESACTUALIZADAS.
-  Si la hora real AR difiere de 2026-06-30 20:02 AR (Mar) → estado de crons abajo DESACTUALIZADO.
+  Si el HEAD que ves en git ≠ 5e453c7 → secciones de commits abajo DESACTUALIZADAS.
+  Si la hora real AR difiere de 2026-07-01 20:14 AR (Mie) → estado de crons abajo DESACTUALIZADO.
 -->
 
 # ESTADO ACTUAL — PythiaxEngine
 
-*Auto-generado: 2026-06-30T23:02:59Z | `2026-06-30 20:02 AR (Mar)` | HEAD: `9410203`*
+*Auto-generado: 2026-07-01T23:14:51Z | `2026-07-01 20:14 AR (Mie)` | HEAD: `5e453c7`*
 
 ---
 
@@ -32,8 +32,8 @@
 > cd C:\repos\PythiaxEngine ; git log --oneline -5 ; git status --short
 > ```
 >
-> - **Si HEAD ≠ `9410203`** → sección de commits desactualizada, ignorar.
-> - **Si hora AR ≠ `2026-06-30 20:02 AR (Mar)`** → estado de crons abajo desactualizado, recalcular.
+> - **Si HEAD ≠ `5e453c7`** → sección de commits desactualizada, ignorar.
+> - **Si hora AR ≠ `2026-07-01 20:14 AR (Mie)`** → estado de crons abajo desactualizado, recalcular.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | | Valor |
 |---|---|
-| Generado | `2026-06-30T23:02:59Z` |
-| Hora AR | `2026-06-30 20:02 AR (Mar)` |
+| Generado | `2026-07-01T23:14:51Z` |
+| Hora AR | `2026-07-01 20:14 AR (Mie)` |
 | Argentina | UTC-3, **sin DST** (nunca cambia) |
 | NYSE abre | 09:30 ET (EDT=UTC-4 verano) = **13:30 UTC = 10:30 AR** |
 
@@ -64,13 +64,13 @@
 
 ## Estado git (al momento de generación)
 
-**HEAD:** `9410203` — chore(auto): update ESTADO_ACTUAL → 983c3ad6e3f73ec32999b6a5a15133e846b926f3 [skip ci]
-**Timestamp commit:** 2026-06-29 19:52:07 -0300
+**HEAD:** `5e453c7` — chore(auto): update ESTADO_ACTUAL → 9410203cab6505d1c5b7a2be11ac44ada02255fd [skip ci]
+**Timestamp commit:** 2026-06-30 20:02:59 -0300
 **Branch:** main
 
 ### Últimos 10 commits
 ```
-9410203 chore(auto): update ESTADO_ACTUAL → 983c3ad6e3f73ec32999b6a5a15133e846b926f3 [skip ci]
+5e453c7 chore(auto): update ESTADO_ACTUAL → 9410203cab6505d1c5b7a2be11ac44ada02255fd [skip ci]
 ```
 
 ### Working tree
